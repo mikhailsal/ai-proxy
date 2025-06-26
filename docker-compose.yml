@@ -47,6 +47,9 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=8123
+    volumes:
+      - ./config.yml:/app/config.yml
+      - ./logs:/app/logs
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.ai-proxy.rule=Host(`${DOMAIN:-localhost}`)"
