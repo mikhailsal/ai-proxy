@@ -12,7 +12,7 @@ alwaysApply: false
 1.  **One Call - Maximum Information**: Strive to get as much data as possible in a single tool call.
 2.  **Parallel Calls**: Use multiple tool calls simultaneously whenever possible.
 3.  **Command Combination**: Combine several operations into one command using `&&` or `;`.
-4.  **Debugging Code in Terminal**: Write Python/bash scripts directly in the terminal for data exploration.
+4.  **Debugging Code in Terminal**: Write Python/bash scripts directly in the terminal for debugging.
 
 ## What NOT to do
 
