@@ -1,0 +1,21 @@
+---
+description: if you need to do a commit
+globs: 
+alwaysApply: false
+---
+You should stage all edited files and make a commit with description of changes we made in chat with you.
+You commit must include main edited file and reason, based on the original user request. You first commit line must be brief and very understandable.
+
+When using a terminal tool to create a multiline commit message, use multiple `-m` flags, with each flag representing a line in the commit message. Do not use newline escape sequences (`\n` or `\n`). Crucially, **do not use backticks (`) in commit messages**.
+
+# Example of a good commit:
+
+Refactor: Align 0cd_test_info.sh output with standard format
+
+Refactors tests/0cd_test_info.sh to adhere to the project's standard test output format (docs/test_output_format.md).
+
+Changes include:
+- Implementing standard INFO, TEST, and summary lines.
+- Ensuring DEBUG output is printed only when the --debug flag is used.
+- Removing set -e to allow all tests to run and report a final summary.
+- Using internal counters for tracking test results.

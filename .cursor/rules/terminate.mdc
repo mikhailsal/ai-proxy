@@ -1,0 +1,10 @@
+---
+description: 
+globs: *
+alwaysApply: false
+---
+<rules_block name="check before terminate" short="terminate" prefix="R">
+- Rule R01: You must fix all errors by investigating their root causes.
+- Rule R02: Don't forget to properly hide your debug code changes into debug mode before stopping.
+- Rule R03: Do not terminate until you have tested all your code, typically by executing automated tests.
+</rules_block>

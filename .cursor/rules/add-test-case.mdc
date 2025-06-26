@@ -1,0 +1,10 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+<rules_block name="add test case" short="test case" prefix="T">
+- Rule T1: create a new test case for code modification you make
+- Rule T2: you should also update existing test cases if needed
+- Rule T3: add negative test cases to check that error handling is correct
+</rules_block>

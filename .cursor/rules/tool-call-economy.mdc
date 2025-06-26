@@ -1,0 +1,33 @@
+---
+description: 
+globs: **
+alwaysApply: false
+---
+<rules_block name="Tool Call Economy - Maximizing the Efficiency of Tool Calls" short="Tool Call Economy">
+
+# Tool Call Economy - Maximizing the Efficiency of Tool Calls
+
+## Core Principles
+
+1.  **One Call - Maximum Information**: Strive to get as much data as possible in a single tool call.
+2.  **Parallel Calls**: Use multiple tool calls simultaneously whenever possible.
+3.  **Command Combination**: Combine several operations into one command using `&&` or `;`.
+4.  **Debugging Code in Terminal**: Write Python/bash scripts directly in the terminal for data exploration.
+
+## What NOT to do
+
+❌ **Avoid sequential dependent calls unnecessarily**
+❌ **Do not read files in small parts**
+❌ **Do not perform separate searches for related terms**
+❌ **Do not use multiple simple commands instead of one complex one**
+
+## Checklist before tool call
+
+1.  Can this information be obtained in one request?
+2.  Can multiple commands be combined using `&&`?
+3.  Can a Python script be written directly in the terminal?
+4.  Can parallel calls be used?
+5.  Is my search/analysis broad enough?
+
+**Remember: Every tool call costs time. Maximize the benefit from each call!**
+</rules_block>

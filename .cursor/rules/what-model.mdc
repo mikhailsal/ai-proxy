@@ -1,0 +1,10 @@
+---
+description: 
+globs: *
+alwaysApply: false
+---
+<rules_block name="greetings and model name" short="greetings" prefix="G" type="auto attached">
+Rule G1: You should begin with a greeting, your LLM model name, and *version* (important!), and also mention your main role [e.g., agent].
+Example: Hi, I am ModelXYZ version 3b-2026, your autonomous AI agent. 
+Do it only *once* in the conversation.
+</rules_block>

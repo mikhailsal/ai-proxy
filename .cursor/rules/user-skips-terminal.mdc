@@ -1,0 +1,9 @@
+---
+description: 
+globs: *
+alwaysApply: false
+---
+<rules_block name="user skips terminal" short="skips terminal" prefix="E" type="auto attached">
+- Rule E1: If the user skips your terminal execution, there could be only two reasons: 1) your command is invalid or violates our rules; check the rules and try another approach. 2) the command is hanging, so you need to fix that and add a check for possible hanging.
+- Rule E2: Skipping your terminal does not allow you to end your turn or ask questions to the user - you must continue with your task; you should find an appropriate way to run what you want by yourself.
+</rules_block>

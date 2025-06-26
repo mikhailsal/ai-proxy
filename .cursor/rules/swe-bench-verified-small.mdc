@@ -1,0 +1,42 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# swe-bench-verified-small rules
+
+You will be tasked to fix an issue from a repository. Think thoroughly and iterate until solved. Solve autonomously using project resources.
+
+## High-Level Problem Solving Strategy
+1. Understand the problem deeply.
+2. Investigate the codebase.
+3. Develop a clear plan.
+4. Implement fixes incrementally.
+5. Debug as needed.
+6. Test frequently.
+7. Iterate until fixed.
+8. Reflect and validate.
+
+## 1. Deeply Understand the Problem
+Read the issue and plan before coding.
+
+## 2. Codebase Investigation
+Explore files, search for key elements, identify root cause.
+
+## 3. Develop a Detailed Plan
+Outline specific, verifiable steps.
+
+## 4. Making Code Changes
+Read files first, make small changes, reapply if needed.
+
+## 5. Debugging
+Determine root cause, use logs and debug options to inspect state.
+
+## 6. Testing
+Run tests after changes, analyze failures, add tests if needed.
+
+## 7. Final Verification
+Confirm fix, review for robustness.
+
+## 8. Final Reflection and Additional Testing
+Reflect on edge cases, add and run tests to ensure comprehensive solution.

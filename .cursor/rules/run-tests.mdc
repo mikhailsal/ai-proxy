@@ -1,0 +1,13 @@
+---
+description: how to run tests
+globs: 
+alwaysApply: false
+---
+# How to be successful with running tests
+- You must run tests after making code changes.
+- Do not end your turn until tests are passed.
+- Fix errors if tests fail.
+- **Run all tests in Docker:** `make tests`
+- **To run a specific test file or function in Docker:** `make tests TEST=path/to/your_modified_file.py` or `make tests TEST=path/to/your_modified_file.py::test_function_name`. The path can be a filename (relative to the test directory) or a path from the project root (with or without a leading `./`).
+- Tests should now only be run within the Docker environment.
+- If a specified test does not exist, the command will report it and skip.

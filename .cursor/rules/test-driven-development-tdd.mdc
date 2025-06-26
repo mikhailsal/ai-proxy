@@ -1,0 +1,9 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+Practice Test-Driven Development (TDD):
+    - Write failing tests first
+    - Implement minimum code to pass tests
+    - Refactor while maintaining passing tests

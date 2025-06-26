@@ -1,0 +1,11 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+If the edit_file shows unexpected changes, it doesn't always mean your edits weren't applied. Try these troubleshooting steps:
+- Call the reapply tool.
+- If results are still not as expected, call reapply again.
+- If still not good, read the file with read_file tool to check its state; the edits might be there.
+- If problems persist, review edit_tool rules and retry with more surrounding code to guide the model.
+- If attempts fail, use the terminal to apply edits, especially for tricky formatting like new lines or spaces.

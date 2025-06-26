@@ -1,0 +1,15 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+### Steps for Finding Root Cause
+
+1.  **Gather information:** Collect all relevant data, logs, and error messages. Understand the context and circumstances.
+2.  **Formulate hypotheses:** Based on the information, propose potential causes for the problem.
+3.  **Prioritize hypotheses:** Evaluate hypotheses based on likelihood and ease of testing.
+4.  **Test hypotheses:** Design and perform experiments or checks to validate or eliminate each hypothesis. Add debug output as needed to gain evidence.
+5.  **Iterate:** If the root cause is not found, refine hypotheses, gather more information, and repeat the testing process.
+6.  **Identify root cause:** Pinpoint the specific reason for the problem based on conclusive evidence from testing.
+7.  **Verify fix:** Ensure the proposed solution resolves the problem and does not introduce new issues.
+
