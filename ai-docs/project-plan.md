@@ -301,15 +301,15 @@ The project will be developed in phases to deliver value incrementally.
 ### Phase 1: MVP - The Simplest Possible Implementation (ETA: 1-2 weeks)
 *Goal: Create a working, containerized service that can proxy one endpoint to one provider.*
 
-*   [ ] `[Phase 1]` Setup project structure with `poetry` and `pyproject.toml`.
-*   [ ] `[Phase 1]` Create a basic FastAPI application.
-*   [ ] `[Phase 1]` Implement the `POST /v1/chat/completions` endpoint with Pydantic models.
-*   [ ] `[Phase 1]` Implement a basic `OpenAIProvider` adapter that forwards requests to the official OpenRouter OpenAI compatible API.
-*   [ ] `[Phase 1]` Implement basic API key authentication (read a single valid key from an env var).
-*   [ ] `[Phase 1]` Implement basic structured logging of the request and response to `stdout`.
-*   [ ] `[Phase 1]` Create a `Dockerfile` to containerize the application.
-*   [ ] `[Phase 1]` Write a `README.md` with setup and usage instructions.
-*   [ ] `[Phase 1]` Setup pre-commit hooks with Black and Ruff.
+*   [x] `[Phase 1]` Setup project structure with `poetry` and `pyproject.toml`.
+*   [x] `[Phase 1]` Create a basic FastAPI application.
+*   [x] `[Phase 1]` Implement the `POST /v1/chat/completions` endpoint with Pydantic models.
+*   [x] `[Phase 1]` Implement a basic `OpenAIProvider` adapter that forwards requests to the official OpenRouter OpenAI compatible API.
+*   [x] `[Phase 1]` Implement basic API key authentication (read a single valid key from an env var).
+*   [x ] `[Phase 1]` Implement basic structured logging of the request and response to `stdout`.
+*   [x] `[Phase 1]` Create a `Dockerfile` to containerize the application.
+*   [x] `[Phase 1]` Write a `README.md` with setup and usage instructions.
+*   [x] `[Phase 1]` Setup pre-commit hooks with Black and Ruff.
 
 ### Phase 2: Production Hardening & Provider Expansion (ETA: 2-3 weeks)
 *Goal: Make the service robust, observable, and support a second provider.*
