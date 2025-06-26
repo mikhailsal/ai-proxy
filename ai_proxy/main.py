@@ -82,8 +82,21 @@ async def chat_completions(
             request_data, api_key
         )
         
-        response_body = provider_response.json()
-        status_code = provider_response.status_code
+        # Safely parse JSON response with error handling
+        try:
+            if provider_response.content:
+                response_body = provider_response.json()
+            else:
+                logger.warning("Empty response from provider")
+                response_body = {"error": "Empty response from provider"}
+                status_code = 502
+        except ValueError as json_error:
+            logger.error(f"Invalid JSON response from provider: {json_error}")
+            logger.debug(f"Response content: {provider_response.content}")
+            response_body = {"error": "Invalid response from provider"}
+            status_code = 502
+        else:
+            status_code = provider_response.status_code
         
         # Extract mapped model from response if available
         if isinstance(response_body, dict) and "model" in response_body:
