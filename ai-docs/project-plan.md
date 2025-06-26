@@ -310,6 +310,7 @@ The project will be developed in phases to deliver value incrementally.
 *   [x] `[Phase 1]` Create a `Dockerfile` to containerize the application.
 *   [x] `[Phase 1]` Write a `README.md` with setup and usage instructions.
 *   [x] `[Phase 1]` Setup pre-commit hooks with Black and Ruff.
+*   [x] `[Phase 1]` **BONUS**: Add HTTPS support with Traefik and Let's Encrypt.
 
 ### Phase 2: Production Hardening & Provider Expansion (ETA: 2-3 weeks)
 *Goal: Make the service robust, observable, and support a second provider.*

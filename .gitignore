@@ -79,8 +79,8 @@ target/
 env/
 venv/
 ENV/
-env.bak
-venv.bak
+env.bak/
+venv.bak/
 
 # mkdocs
 /site
@@ -96,3 +96,15 @@ dmypy.json
 .specstory/
 
 logs/models/
+
+# HTTPS and SSL certificates
+certs/
+traefik/
+*.pem
+*.crt
+*.key
+acme.json
+
+# Docker volumes and data
+docker-data/
+volumes/
