@@ -1,0 +1,32 @@
+[project]
+name = "ai-proxy"
+version = "0.1.0"
+description = "AI Proxy Service"
+authors = [
+    {name = "AI",email = "ai@example.com"}
+]
+readme = "README.md"
+requires-python = ">=3.10,<4.0"
+dependencies = [
+    "fastapi (>=0.115.13,<0.116.0)",
+    "uvicorn[standard] (>=0.34.3,<0.35.0)",
+    "pydantic (>=2.11.7,<3.0.0)",
+    "python-dotenv (>=1.1.1,<2.0.0)",
+    "httpx (>=0.28.1,<0.29.0)",
+    "structlog (>=25.4.0,<26.0.0)",
+    "pyyaml (>=6.0.2,<7.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.1"
+ruff = "^0.12.0"
+black = "^25.1.0"
+mypy = "^1.16.1"
+pre-commit = "^4.2.0"
+requests = "^2.32.4"
+

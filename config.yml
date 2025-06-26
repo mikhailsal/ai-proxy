@@ -1,0 +1,12 @@
+model_mappings:
+  # Exact match
+  "gpt-4": "openai/gpt-4"
+  "gpt-3.5-turbo": "openai/gpt-3.5-turbo"
+  "gpt-4o-mini": "mistralai/mistral-small-3.2-24b-instruct:free"
+  "claude-3-opus": "anthropic/claude-3-opus-20240229"
+  
+  # Wildcard matches
+  "gpt-4*": "openai/gpt-4"
+  "gpt-3.5*": "openai/gpt-3.5-turbo"
+  "claude-3-sonnet*": "anthropic/claude-3-sonnet-20240229"
+  "gemini*": "google/gemini-pro" 
