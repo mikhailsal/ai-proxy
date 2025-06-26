@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Depends, Request
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 import time
 
 from ai_proxy.logging.config import (
@@ -12,6 +13,15 @@ from ai_proxy.core.routing import router
 setup_logging(log_level="INFO", enable_file_logging=True)
 
 app = FastAPI(title="AI Proxy Service")
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, replace with specific domains
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 
 @app.on_event("startup")
