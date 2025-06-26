@@ -35,6 +35,20 @@ async def health_check():
     return {"status": "ok"}
 
 
+@app.options("/v1/chat/completions", tags=["API"])
+async def chat_completions_options():
+    """Handle CORS preflight requests for chat completions."""
+    return JSONResponse(
+        content={},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization",
+            "Access-Control-Max-Age": "86400"
+        }
+    )
+
+
 @app.post("/v1/chat/completions", tags=["API"])
 async def chat_completions(
     request: Request,
