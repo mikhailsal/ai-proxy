@@ -94,3 +94,5 @@ dmypy.json
 .pyre/ 
 
 .specstory/
+
+logs/models/

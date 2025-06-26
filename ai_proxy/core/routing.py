@@ -4,7 +4,7 @@ from fastapi import HTTPException
 
 from ai_proxy.core.config import settings
 from ai_proxy.adapters.openrouter import OpenRouterAdapter
-from ai_proxy.logging.config import logger
+from ai_proxy.logging.config import logger, get_endpoint_logger, get_model_logger
 
 class Router:
     def __init__(self):
@@ -33,7 +33,68 @@ class Router:
         )
 
         log.info("Routing chat completion request")
+        
+        # Also log to routing-specific log
+        routing_logger = get_endpoint_logger("routing")
+        routing_logger.info(
+            "Model mapping and routing",
+            original_model=original_model,
+            mapped_model=mapped_model,
+            adapter_name=self.adapter.get_name(),
+            api_key_hash=str(hash(api_key))
+        )
+        
+        # Log to model-specific logs
+        if original_model:
+            original_model_logger = get_model_logger(original_model)
+            original_model_logger.info(
+                "Model request routing",
+                original_model=original_model,
+                mapped_model=mapped_model,
+                adapter=self.adapter.get_name(),
+                api_key_hash=str(hash(api_key))
+            )
+        
+        if mapped_model and mapped_model != original_model:
+            mapped_model_logger = get_model_logger(mapped_model)
+            mapped_model_logger.info(
+                "Mapped model request",
+                original_model=original_model,
+                mapped_model=mapped_model,
+                adapter=self.adapter.get_name(),
+                api_key_hash=str(hash(api_key))
+            )
 
-        return await self.adapter.chat_completions(request_data)
+        try:
+            response = await self.adapter.chat_completions(request_data)
+            log.info("Successfully routed request", status_code=response.status_code)
+            
+            # Log successful response to model logs
+            if original_model:
+                original_model_logger = get_model_logger(original_model)
+                original_model_logger.info(
+                    "Model response received",
+                    original_model=original_model,
+                    mapped_model=mapped_model,
+                    status_code=response.status_code,
+                    api_key_hash=str(hash(api_key))
+                )
+            
+            return response
+        except Exception as e:
+            log.error("Error in routing request", error=str(e), exc_info=e)
+            
+            # Log error to model logs
+            if original_model:
+                original_model_logger = get_model_logger(original_model)
+                original_model_logger.error(
+                    "Model request failed",
+                    original_model=original_model,
+                    mapped_model=mapped_model,
+                    error=str(e),
+                    api_key_hash=str(hash(api_key))
+                )
+            
+            raise
 
 router = Router()
