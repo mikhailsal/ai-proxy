@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 import yaml
 from dotenv import load_dotenv
 import fnmatch
@@ -13,6 +13,7 @@ class Settings:
         self.openrouter_api_key: Optional[str] = os.getenv(
             "OPENROUTER_API_KEY"
         )
+        self.gemini_api_key: Optional[str] = os.getenv("GEMINI_API_KEY")
         self.config_path = Path(os.getenv("CONFIG_PATH", "config.yml"))
         self.model_mappings: Dict[str, str] = {}
         self.load_config()
@@ -28,18 +29,37 @@ class Settings:
         """Reloads the configuration from the config file."""
         self.load_config()
 
-    def get_mapped_model(self, requested_model: str) -> str:
+    def get_mapped_model(self, requested_model: str) -> Tuple[str, str]:
+        """
+        Get the mapped model and provider.
+        Returns (provider, model) tuple.
+        """
         # Direct match
         if requested_model in self.model_mappings:
-            return self.model_mappings[requested_model]
+            return self._parse_provider_model(self.model_mappings[requested_model])
 
         # Wildcard match
         for pattern, target_model in self.model_mappings.items():
             if fnmatch.fnmatch(requested_model, pattern):
-                return target_model
+                return self._parse_provider_model(target_model)
 
-        # No match, return original
-        return requested_model
+        # No match, return original with default provider
+        return "openrouter", requested_model
+
+    def _parse_provider_model(self, model_string: str) -> Tuple[str, str]:
+        """
+        Parse provider:model format.
+        Examples:
+        - "openrouter:mistralai/mistral-small" -> ("openrouter", "mistralai/mistral-small")
+        - "gemini:gemini-2.0-flash-001" -> ("gemini", "gemini-2.0-flash-001")
+        - "mistralai/mistral-small" -> ("openrouter", "mistralai/mistral-small")  # default
+        """
+        if ":" in model_string:
+            provider, model = model_string.split(":", 1)
+            return provider.strip(), model.strip()
+        else:
+            # Default to openrouter for backward compatibility
+            return "openrouter", model_string.strip()
 
 
 settings = Settings()
