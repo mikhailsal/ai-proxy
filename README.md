@@ -74,7 +74,7 @@ Your service will be available at:
 #### 🆓 Free Temporary Domains (for testing)
 - **nip.io**: Set `DOMAIN=myapp.YOUR-SERVER-IP.nip.io`
 - **sslip.io**: Set `DOMAIN=myapp.YOUR-SERVER-IP.sslip.io`
-- Replace `YOUR-SERVER-IP` with your server's public IP address
+- Replace `YOUR-SERVER-IP` with your server's public IP address. You can get your server's public IPv4 address by running: `curl -4 ifconfig.me` on the server.
 
 #### 🌍 Real Domain (recommended for production)
 - Buy a domain from any registrar (Namecheap, GoDaddy, etc.)
@@ -179,6 +179,44 @@ HTTPS_PORT=9443 # Example: Change HTTPS to 9443
 ```
 
 Ensure these ports are open on your server's firewall and do not conflict with other services.
+
+### Let's Encrypt Certificates and Production Deployment
+
+Let's Encrypt certificates are valid for **90 days** and are automatically renewed by Traefik. However, for initial certificate issuance, Let's Encrypt requires access to standard HTTP (port 80) or HTTPS (port 443) ports for domain validation.
+
+If your server has other services occupying ports 80/443, you can use the following strategy for initial certificate acquisition:
+
+1.  **Identify and temporarily stop** the service(s) occupying ports 80/443 (e.g., another Docker container).
+    ```bash
+    # Example: Stop a container named 'another-service'
+    docker stop another-service
+    ```
+2.  **Reconfigure** your `.env` file to use standard ports (80 and 443):
+    ```env
+    HTTP_PORT=80
+    HTTPS_PORT=443
+    ```
+3.  **Deploy** the AI Proxy service. Traefik will now be able to obtain the Let's Encrypt certificate.
+    ```bash
+    docker-compose up -d
+    ```
+4.  **Verify** certificate acquisition (check Traefik logs).
+5.  **Reconfigure** your `.env` file back to your desired custom ports (e.g., 9080 and 9443).
+    ```env
+    HTTP_PORT=9080
+    HTTPS_PORT=9443
+    ```
+6.  **Redeploy** the AI Proxy service on custom ports.
+    ```bash
+    docker-compose up -d
+    ```
+7.  **Restart** the original service(s) that were temporarily stopped.
+    ```bash
+    # Example: Start 'another-service' back
+    docker start another-service
+    ```
+
+This process allows Traefik to obtain and renew certificates even when standard ports are generally in use by other applications, ensuring your service remains secure.
 
 ### Troubleshooting HTTPS
 
