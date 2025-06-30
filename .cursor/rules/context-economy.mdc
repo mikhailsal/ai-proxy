@@ -1,0 +1,196 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Context Economy - Efficient Resource Usage
+
+## Core Principle
+**Minimize context consumption while maximizing information gathering efficiency**
+
+## Terminal Output Management
+
+### 1. Limit Command Output Length
+Always append output limiters to commands that might produce long output:
+
+```bash
+# ✅ Good - Limited output
+ls -la | head -20
+grep -r "pattern" . | head -10  
+find . -name "*.py" | head -15
+docker ps | head -10
+git log --oneline | head -20
+```
+
+### 2. Use Temporary Files for Long Output
+When you need to analyze extensive command output, write to temporary files:
+
+```bash
+# ✅ Good - Save long output to temp file
+find . -name "*.py" -exec wc -l {} \; > /tmp/line_counts.txt && head -20 /tmp/line_counts.txt
+
+# ✅ Good - Analyze large logs via temp file  
+journalctl --since="1 hour ago" > /tmp/recent_logs.txt && grep -i error /tmp/recent_logs.txt | head -10
+
+# ✅ Good - Process large data dumps
+docker logs container_name > /tmp/container_logs.txt && tail -50 /tmp/container_logs.txt
+```
+
+### 3. Chain Commands with Analysis
+Combine data gathering and immediate analysis:
+
+```bash
+# ✅ Good - Immediate analysis of output
+ps aux | grep -v grep | grep python | awk '{print $2, $11}' | head -10
+
+# ✅ Good - Filter and count in one go
+netstat -tuln | grep LISTEN | wc -l && netstat -tuln | grep LISTEN | head -5
+```
+
+## File Reading Optimization
+
+### 1. Read Only Necessary Portions
+Avoid reading entire large files when you only need specific sections:
+
+```bash
+# ✅ Good - Read specific ranges
+read_file(target_file="large_log.txt", start_line=1, end_line=100)
+read_file(target_file="config.py", start_line=50, end_line=150)
+
+# ❌ Avoid - Reading entire large files unnecessarily
+read_file(target_file="10000_line_file.py", should_read_entire_file=True)
+```
+
+### 2. Use grep_search Even for Single Files
+When looking for specific information in one file, prefer `grep_search` with `include_pattern`:
+
+```bash
+# ✅ Good - Targeted search in specific file
+grep_search(query="class.*Config", include_pattern="config.py")
+grep_search(query="def.*process", include_pattern="main.py")
+grep_search(query="import.*requests", include_pattern="api/*.py")
+
+# ❌ Less efficient - Reading entire file to find patterns
+read_file(target_file="config.py", should_read_entire_file=True)  # then manually search
+```
+
+### 3. Strategic File Exploration
+Use progressive reading strategy for unknown files:
+
+```bash
+# ✅ Good - Progressive exploration
+# Step 1: Get file overview
+head -20 filename.py && tail -20 filename.py
+
+# Step 2: Find key sections  
+grep_search(query="class|def|import", include_pattern="filename.py")
+
+# Step 3: Read specific sections based on findings
+read_file(target_file="filename.py", start_line=45, end_line=85)
+```
+
+## Efficient Search Strategies
+
+### 1. Prioritize codebase_search
+Use `codebase_search` for semantic understanding and concept discovery:
+
+```bash
+# ✅ Good - Semantic searches
+codebase_search("authentication implementation")
+codebase_search("database connection setup")  
+codebase_search("error handling patterns")
+```
+
+### 2. Combine Search Types
+Use multiple search tools in parallel for comprehensive information gathering:
+
+```bash
+# ✅ Good - Parallel diverse searches
+codebase_search("user authentication")
+grep_search(query="login|signin|auth", include_pattern="*.py")
+file_search(query="auth", explanation="Finding authentication related files")
+```
+
+### 3. Use Specific Include Patterns
+Narrow search scope with precise file patterns:
+
+```bash
+# ✅ Good - Targeted file patterns
+grep_search(query="API_KEY", include_pattern="config/*.py")
+grep_search(query="test.*user", include_pattern="tests/**/*.py")
+grep_search(query="class.*Model", include_pattern="models/*.py")
+```
+
+## Context Preservation Techniques
+
+### 1. Temporary File Workflow
+For complex analysis requiring multiple steps:
+
+```bash
+# ✅ Good - Multi-step analysis with temp files
+# Step 1: Gather data
+ps aux > /tmp/processes.txt
+
+# Step 2: Analyze in chunks  
+grep python /tmp/processes.txt | head -10
+grep node /tmp/processes.txt | head -10
+grep -v root /tmp/processes.txt | head -15
+
+# Step 3: Clean up
+rm /tmp/processes.txt
+```
+
+### 2. Incremental Information Building
+Build understanding progressively rather than loading everything at once:
+
+```bash
+# ✅ Good - Incremental discovery
+# Phase 1: Overview
+ls -la project/ | head -10
+
+# Phase 2: Structure understanding  
+find project/ -type f -name "*.py" | head -15
+
+# Phase 3: Key file identification
+grep_search(query="main|app|server", include_pattern="project/*.py")
+
+# Phase 4: Focused reading of identified files
+read_file(target_file="project/main.py", start_line=1, end_line=50)
+```
+
+## Anti-Patterns to Avoid
+
+### ❌ Context Wasteful Practices
+
+```bash
+# DON'T DO - Unlimited output
+ls -la /usr/bin/
+find / -name "*.py"
+cat large_file.txt
+
+# DON'T DO - Reading everything upfront
+read_file(target_file="huge_file.py", should_read_entire_file=True)
+read_file(target_file="logs.txt", should_read_entire_file=True)
+
+# DON'T DO - Redundant information gathering
+read_file("config.py") + grep_search("config", include_pattern="config.py")
+```
+
+## Best Practices Summary
+
+1. **Always limit terminal output** with `head`, `tail`, or count limits
+2. **Use temporary files** for long outputs that need analysis
+3. **Read files in targeted chunks** rather than entirely
+4. **Prefer grep_search** even for single-file searches
+5. **Use codebase_search** for semantic understanding
+6. **Combine multiple search strategies** in parallel
+7. **Build understanding incrementally** rather than loading everything
+8. **Clean up temporary files** after analysis
+
+## Implementation Priority
+
+1. **High Priority**: Terminal output limiting, targeted file reading
+2. **Medium Priority**: Temporary file usage, incremental discovery
+3. **Low Priority**: Advanced search combinations, complex workflows
+
+Remember: **Context is expensive - use it wisely!**

@@ -1,0 +1,9 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+<rules_block name="greetings" priority="higher">
+ALWAYS Begin with greetings and say your name (take any), LLM model, and *version* (do it only *once* in the conversation).
+For example: Hi, I am John powered by some-model-name-6.4-ultra. I operate in Cursor.
+</rules_block>

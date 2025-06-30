@@ -1,0 +1,54 @@
+---
+description: 
+globs: **
+alwaysApply: false
+---
+# Context Economy - Essential Rules
+
+## Core Principle
+**Minimize context consumption - every token counts!**
+
+## Terminal Commands - Always Limit Output
+```bash
+# ✅ Always use limiters
+ls -la | head -20
+grep -r "pattern" . | head -10
+find . -name "*.py" | head -15
+docker ps | head -10
+
+# ✅ Use temp files for long output
+command_with_long_output > /tmp/data.txt && head -20 /tmp/data.txt
+```
+
+## File Reading - Be Selective
+```bash
+# ✅ Read targeted portions only
+read_file(target_file="file.py", start_line=50, end_line=100)
+
+# ✅ Use grep_search even for single files  
+grep_search(query="class.*Config", include_pattern="config.py")
+
+# ❌ Avoid reading entire large files
+read_file(target_file="huge_file.py", should_read_entire_file=True)
+```
+
+## Search Strategy
+```bash
+# ✅ Prioritize semantic search
+codebase_search("authentication implementation")
+
+# ✅ Combine searches in parallel
+codebase_search("error handling") + grep_search("try.*except", include_pattern="*.py")
+
+# ✅ Use specific patterns
+grep_search(query="API_KEY", include_pattern="config/*.py")
+```
+
+## Quick Rules
+1. **Terminal**: Always append `| head -N` to limit output
+2. **Files**: Read chunks, not entire files  
+3. **Search**: Use `grep_search` with `include_pattern` over full file reads
+4. **Temp files**: For multi-step analysis of long output
+5. **Progressive**: Build understanding incrementally
+
+**Remember: Context is expensive - use it wisely!**

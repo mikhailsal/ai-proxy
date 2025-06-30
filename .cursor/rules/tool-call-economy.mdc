@@ -1,6 +1,6 @@
 ---
 description: 
-globs: **
+globs: 
 alwaysApply: false
 ---
 <rules_block name="Tool Call Economy - Maximizing the Efficiency of Tool Calls" short="Tool Call Economy">

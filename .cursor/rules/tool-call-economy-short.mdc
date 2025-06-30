@@ -1,0 +1,52 @@
+---
+description: 
+globs: **
+alwaysApply: false
+---
+# Tool Call Economy - Essential Rules
+
+## Core Principles
+1. **Maximize Information Per Call** - Get as much data as possible in one tool call
+2. **Use Parallel Calls** - Execute multiple operations simultaneously when possible
+3. **Combine Commands** - Use `&&` or `;` to chain terminal operations
+4. **Efficient Editing** - Use `search_replace` for simple changes, `edit_file` for multiple edits in one call
+
+## Quick Decision Guide
+
+### Information Gathering
+- ✅ Read entire files when needed, not in chunks
+- ✅ Use regex patterns to search multiple terms at once: `"(token|usage|cost)"`
+- ✅ Write Python analysis scripts directly in terminal for complex exploration
+- ✅ Execute parallel searches for related concepts
+
+### File Editing
+- ✅ `search_replace` for single string replacements
+- ✅ `edit_file` for multiple changes to same file (batch them in one call)
+- ✅ Edit multiple files in parallel when possible
+- ❌ Never make multiple `edit_file` calls to the same file
+- ❌ Don't use `edit_file` for simple text replacements
+
+### Terminal Usage
+```bash
+# ✅ Good - combined analysis
+python3 -c "
+import os, json, sqlite3
+# Multiple analysis steps here
+print('=== RESULTS ===')
+for item in data: print(item)
+"
+
+# ❌ Bad - separate calls
+python3 -c "import os"
+python3 -c "data = load_data()"
+python3 -c "print(data)"
+```
+
+## Quick Checklist
+1. Can I get this info in one call?
+2. Can I combine multiple commands?
+3. Can I use parallel calls?
+4. **Editing**: `search_replace` or batched `edit_file`?
+5. Can I write analysis code directly in terminal?
+
+**Rule: Minimize tool calls, maximize results per call**
