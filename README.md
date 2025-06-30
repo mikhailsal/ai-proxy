@@ -7,8 +7,8 @@ It is built with Python and FastAPI and is designed to be lightweight, fast, and
 ## Features (Phase 1)
 
 *   **OpenAI API Compatibility**: `POST /v1/chat/completions` endpoint.
-*   **Provider Routing**: Currently supports proxying requests to [OpenRouter](https://openrouter.ai/).
-*   **Model Mapping**: Configure model aliases or use wildcards to map friendly names to specific provider models (e.g., `gpt-4` -> `openai/gpt-4`).
+*   **Provider Routing**: Currently supports proxying requests to [OpenRouter](https://openrouter.ai/) and **Google Gemini API**.
+*   **Model Mapping**: Configure model aliases or use wildcards to map friendly names to specific provider models (e.g., `gpt-4` -> `openai/gpt-4`, `gemini-pro` -> `gemini:gemini-1.5-pro-latest`).
 *   **Authentication**: Secure the proxy with API keys.
 *   **HTTPS Support**: Automatic SSL certificate management with Let's Encrypt via Traefik.
 *   **Structured Logging**: JSON-formatted logs for easy parsing and monitoring.
@@ -22,6 +22,7 @@ It is built with Python and FastAPI and is designed to be lightweight, fast, and
 *   [Poetry](https://python-poetry.org/) for dependency management.
 *   Docker and Docker Compose (for containerized deployment).
 *   A domain name (for HTTPS in production).
+*   `google-genai` (installed automatically with Poetry for Gemini support)
 
 ### Quick HTTPS Setup (Recommended)
 
@@ -36,8 +37,8 @@ It is built with Python and FastAPI and is designed to be lightweight, fast, and
     ./scripts/setup-https.sh
     ```
 
-3.  **Configure your domain:**
-    Edit the `.env` file with your domain and credentials:
+3.  **Configure your domain and API keys:**
+    Edit the `.env` file with your domain, credentials, and optional port configuration:
     ```bash
     # Required for HTTPS
     DOMAIN=your-domain.com
@@ -46,6 +47,12 @@ It is built with Python and FastAPI and is designed to be lightweight, fast, and
     # Your API configuration
     API_KEYS=your-secret-key-1,your-secret-key-2
     OPENROUTER_API_KEY=your-openrouter-api-key
+    GEMINI_API_KEY=your-gemini-api-key # Required for Gemini API support
+
+    # Optional: Custom Port Configuration
+    # Uncomment and set if you need non-standard HTTP/HTTPS ports
+    # HTTP_PORT=8080
+    # HTTPS_PORT=8443
     ```
 
 4.  **Deploy with HTTPS:**
@@ -59,7 +66,7 @@ It is built with Python and FastAPI and is designed to be lightweight, fast, and
     ```
 
 Your service will be available at:
-- **AI Proxy**: `https://your-domain.com`
+- **AI Proxy**: `https://your-domain.com` (or `http://your-domain.com` for HTTP, if not redirected)
 - **Traefik Dashboard**: `https://traefik.your-domain.com`
 
 ### Domain Options
@@ -89,14 +96,14 @@ Your service will be available at:
 2.  **Set up environment variables:**
     ```bash
     cp .env.example .env
-    # Edit .env with your configuration
+    # Edit .env with your configuration, including optional HTTP_PORT if needed
     ```
 
 3.  **Run the service:**
     ```bash
     poetry run uvicorn ai_proxy.main:app --reload
     ```
-    The service will be available at `http://localhost:8123`.
+    The service will be available at `http://localhost:8123` (or your custom HTTP_PORT if configured).
 
 ### Docker Deployment (HTTP only)
 
@@ -136,7 +143,7 @@ curl http://localhost:8123/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer your-secret-key-1" \
   -d '{
-    "model": "gpt-4",
+    "model": "gemini-pro", # Example: Using a Gemini model
     "messages": [
       {
         "role": "user",
@@ -146,7 +153,11 @@ curl http://localhost:8123/v1/chat/completions \
   }'
 ```
 
-The `model` field will be automatically mapped according to your `config.yml`. For example, if you have `"gpt-4": "openai/gpt-4"` in your config, the request will be sent to OpenRouter with the model `openai/gpt-4`.
+The `model` field will be automatically mapped according to your `config.yml`. For example:
+
+- If `config.yml` has `"gpt-4": "openrouter:openai/gpt-4"`, the request will be sent to OpenRouter with `openai/gpt-4`.
+- If `config.yml` has `"gemini-pro": "gemini:gemini-1.5-pro-latest"`, the request will be sent to Gemini with `gemini-1.5-pro-latest`.
+- You can explicitly specify the provider: `"model": "openrouter:mistralai/mistral-small"` or `"model": "gemini:gemini-1.5-flash-latest"`.
 
 ## HTTPS Configuration
 
@@ -157,6 +168,17 @@ The service uses **Traefik** as a reverse proxy with automatic **Let's Encrypt**
 - ✅ Security headers (HSTS, etc.)
 - ✅ Load balancing capabilities
 - ✅ Monitoring dashboard
+
+### Custom Port Configuration
+
+By default, the service uses standard HTTP (80) and HTTPS (443) ports. You can customize these by setting the `HTTP_PORT` and `HTTPS_PORT` variables in your `.env` file:
+
+```env
+HTTP_PORT=9080  # Example: Change HTTP to 9080
+HTTPS_PORT=9443 # Example: Change HTTPS to 9443
+```
+
+Ensure these ports are open on your server's firewall and do not conflict with other services.
 
 ### Troubleshooting HTTPS
 
