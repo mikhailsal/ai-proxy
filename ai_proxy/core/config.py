@@ -14,6 +14,7 @@ class Settings:
             "OPENROUTER_API_KEY"
         )
         self.gemini_api_key: Optional[str] = os.getenv("GEMINI_API_KEY")
+        self.gemini_as_is: bool = os.getenv("GEMINI_AS_IS", "").upper() == "TRUE"
         self.config_path = Path(os.getenv("CONFIG_PATH", "config.yml"))
         self.model_mappings: Dict[str, str] = {}
         self.load_config()

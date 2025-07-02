@@ -6,6 +6,7 @@ from google import genai
 from google.genai import types
 
 from ai_proxy.adapters.base import BaseAdapter
+from ai_proxy.core.config import settings
 
 
 class GeminiAdapter(BaseAdapter):
@@ -17,6 +18,7 @@ class GeminiAdapter(BaseAdapter):
     async def chat_completions(self, request_data: Dict[str, Any]) -> Union[httpx.Response, AsyncGenerator[str, None]]:
         """
         Convert OpenAI format to Gemini format and forward the request.
+        If GEMINI_AS_IS is enabled, return raw Gemini responses.
         """
         try:
             # Convert OpenAI format to Gemini format
@@ -27,10 +29,10 @@ class GeminiAdapter(BaseAdapter):
             
             if stream:
                 # Return async generator for streaming
-                return self._stream_chat_completions(gemini_request)
+                return self._stream_chat_completions(gemini_request, request_data)
             else:
                 # Handle non-streaming response
-                return await self._handle_non_streaming_response(gemini_request)
+                return await self._handle_non_streaming_response(gemini_request, request_data)
                 
         except Exception as e:
             # Return error response in OpenAI format
@@ -47,15 +49,12 @@ class GeminiAdapter(BaseAdapter):
                 headers={"content-type": "application/json"}
             )
 
-    async def _stream_chat_completions(self, gemini_request: Dict[str, Any]) -> AsyncGenerator[str, None]:
+    async def _stream_chat_completions(self, gemini_request: Dict[str, Any], original_request: Dict[str, Any]) -> AsyncGenerator[str, None]:
         """
         Handle streaming Gemini response and convert to OpenAI streaming format.
+        If GEMINI_AS_IS is enabled, return raw Gemini streaming format.
         """
         model = gemini_request["model"]
-        chat_id = f"chatcmpl-gemini-{int(time.time())}"
-        created_time = int(time.time())
-        first_chunk = True
-        system_fingerprint = f"fp_gemini_{hash(model) % 100000000:08x}"
         
         try:
             # Generate streaming content using Gemini
@@ -65,37 +64,36 @@ class GeminiAdapter(BaseAdapter):
                 config=types.GenerateContentConfig(**gemini_request.get("config", {}))
             )
             
-            async for chunk in stream_response:
-                if chunk.text:
-                    # First chunk should include role
-                    delta = {"content": chunk.text}
-                    if first_chunk:
-                        delta["role"] = "assistant"
-                        first_chunk = False
-                    
-                    # Convert to OpenAI streaming format
-                    chunk_data = {
-                        "id": chat_id,
-                        "object": "chat.completion.chunk",
-                        "created": created_time,
-                        "model": model,
-                        "system_fingerprint": system_fingerprint,
-                        "choices": [
-                            {
-                                "index": 0,
-                                "delta": delta,
-                                "logprobs": None,
-                                "finish_reason": None
-                            }
-                        ]
-                    }
-                    yield f"data: {json.dumps(chunk_data)}\n\n"
-                else:
-                    # Handle empty chunks - still need to send first chunk with role
-                    if first_chunk:
-                        delta = {"role": "assistant", "content": ""}
-                        first_chunk = False
+            if settings.gemini_as_is:
+                # Return raw Gemini streaming format
+                async for chunk in stream_response:
+                    if chunk.text:
+                        # Return raw chunk as JSON
+                        raw_chunk = {
+                            "text": chunk.text,
+                            "model": model,
+                            "timestamp": int(time.time())
+                        }
+                        yield f"data: {json.dumps(raw_chunk)}\n\n"
+                
+                # Send final chunk
+                yield "data: [DONE]\n\n"
+            else:
+                # Convert to OpenAI format (existing logic)
+                chat_id = f"chatcmpl-gemini-{int(time.time())}"
+                created_time = int(time.time())
+                first_chunk = True
+                system_fingerprint = f"fp_gemini_{hash(model) % 100000000:08x}"
+                
+                async for chunk in stream_response:
+                    if chunk.text:
+                        # First chunk should include role
+                        delta = {"content": chunk.text}
+                        if first_chunk:
+                            delta["role"] = "assistant"
+                            first_chunk = False
                         
+                        # Convert to OpenAI streaming format
                         chunk_data = {
                             "id": chat_id,
                             "object": "chat.completion.chunk",
@@ -112,55 +110,95 @@ class GeminiAdapter(BaseAdapter):
                             ]
                         }
                         yield f"data: {json.dumps(chunk_data)}\n\n"
-            
-            # Send final chunk with finish_reason and usage stats
-            final_chunk = {
-                "id": chat_id,
-                "object": "chat.completion.chunk",
-                "created": created_time,
-                "model": model,
-                "system_fingerprint": system_fingerprint,
-                "choices": [
-                    {
-                        "index": 0,
-                        "delta": {},
-                        "logprobs": None,
-                        "finish_reason": "stop"
+                    else:
+                        # Handle empty chunks - still need to send first chunk with role
+                        if first_chunk:
+                            delta = {"role": "assistant", "content": ""}
+                            first_chunk = False
+                            
+                            chunk_data = {
+                                "id": chat_id,
+                                "object": "chat.completion.chunk",
+                                "created": created_time,
+                                "model": model,
+                                "system_fingerprint": system_fingerprint,
+                                "choices": [
+                                    {
+                                        "index": 0,
+                                        "delta": delta,
+                                        "logprobs": None,
+                                        "finish_reason": None
+                                    }
+                                ]
+                            }
+                            yield f"data: {json.dumps(chunk_data)}\n\n"
+                
+                # Send final chunk with finish_reason and usage stats
+                final_chunk = {
+                    "id": chat_id,
+                    "object": "chat.completion.chunk",
+                    "created": created_time,
+                    "model": model,
+                    "system_fingerprint": system_fingerprint,
+                    "choices": [
+                        {
+                            "index": 0,
+                            "delta": {},
+                            "logprobs": None,
+                            "finish_reason": "stop"
+                        }
+                    ],
+                    "usage": {
+                        "prompt_tokens": 0,
+                        "completion_tokens": 0,
+                        "total_tokens": 0
                     }
-                ],
-                "usage": {
-                    "prompt_tokens": 0,
-                    "completion_tokens": 0,
-                    "total_tokens": 0
                 }
-            }
-            yield f"data: {json.dumps(final_chunk)}\n\n"
-            yield "data: [DONE]\n\n"
+                yield f"data: {json.dumps(final_chunk)}\n\n"
+                yield "data: [DONE]\n\n"
             
         except Exception as e:
             # Send error in streaming format
-            error_chunk = {
-                "id": chat_id,
-                "object": "chat.completion.chunk",
-                "created": created_time,
-                "model": model,
-                "system_fingerprint": system_fingerprint,
-                "choices": [
-                    {
-                        "index": 0,
-                        "delta": {},
-                        "logprobs": None,
-                        "finish_reason": "error"
-                    }
-                ],
-                "error": {
-                    "message": str(e),
-                    "type": "gemini_api_error",
-                    "code": "api_error"
+            if settings.gemini_as_is:
+                error_chunk = {
+                    "error": {
+                        "message": str(e),
+                        "type": "gemini_api_error",
+                        "code": "api_error"
+                    },
+                    "model": model,
+                    "timestamp": int(time.time())
                 }
-            }
-            yield f"data: {json.dumps(error_chunk)}\n\n"
-            yield "data: [DONE]\n\n"
+                yield f"data: {json.dumps(error_chunk)}\n\n"
+                yield "data: [DONE]\n\n"
+            else:
+                # OpenAI format error
+                chat_id = f"chatcmpl-gemini-{int(time.time())}"
+                created_time = int(time.time())
+                system_fingerprint = f"fp_gemini_{hash(model) % 100000000:08x}"
+                
+                error_chunk = {
+                    "id": chat_id,
+                    "object": "chat.completion.chunk",
+                    "created": created_time,
+                    "model": model,
+                    "system_fingerprint": system_fingerprint,
+                    "choices": [
+                        {
+                            "index": 0,
+                            "delta": {},
+                            "logprobs": None,
+                            "finish_reason": "error"
+                        }
+                    ],
+                    "error": {
+                        "message": str(e),
+                        "type": "gemini_api_error",
+                        "code": "api_error"
+                    }
+                }
+                yield f"data: {json.dumps(error_chunk)}\n\n"
+                yield "data: [DONE]\n\n"
 
     def _convert_openai_to_gemini(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -216,9 +254,10 @@ class GeminiAdapter(BaseAdapter):
             
         return gemini_request
 
-    async def _handle_non_streaming_response(self, gemini_request: Dict[str, Any]) -> httpx.Response:
+    async def _handle_non_streaming_response(self, gemini_request: Dict[str, Any], original_request: Dict[str, Any]) -> httpx.Response:
         """
         Handle non-streaming Gemini response and convert to OpenAI format.
+        If GEMINI_AS_IS is enabled, return raw Gemini response format.
         """
         # Generate content using Gemini
         response = await self.gemini_client.aio.models.generate_content(
@@ -227,14 +266,33 @@ class GeminiAdapter(BaseAdapter):
             config=types.GenerateContentConfig(**gemini_request.get("config", {}))
         )
         
-        # Convert Gemini response to OpenAI format
-        openai_response = self._convert_gemini_to_openai(response, gemini_request["model"])
-        
-        return httpx.Response(
-            status_code=200,
-            content=json.dumps(openai_response),
-            headers={"content-type": "application/json"}
-        )
+        if settings.gemini_as_is:
+            # Return raw Gemini response format
+            raw_response = {
+                "text": response.text,
+                "model": gemini_request["model"],
+                "timestamp": int(time.time()),
+                "usage": {
+                    "prompt_tokens": 0,  # Gemini doesn't provide token counts in the same way
+                    "completion_tokens": 0,
+                    "total_tokens": 0
+                }
+            }
+            
+            return httpx.Response(
+                status_code=200,
+                content=json.dumps(raw_response),
+                headers={"content-type": "application/json"}
+            )
+        else:
+            # Convert Gemini response to OpenAI format (existing logic)
+            openai_response = self._convert_gemini_to_openai(response, gemini_request["model"])
+            
+            return httpx.Response(
+                status_code=200,
+                content=json.dumps(openai_response),
+                headers={"content-type": "application/json"}
+            )
 
     def _convert_gemini_to_openai(self, gemini_response, model: str) -> Dict[str, Any]:
         """
