@@ -3,12 +3,14 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 import time
 from typing import AsyncGenerator
+import json
 
 from ai_proxy.logging.config import (
     setup_logging, logger, log_request_response, log_model_usage
 )
 from ai_proxy.security.auth import get_api_key
 from ai_proxy.core.routing import router
+from ai_proxy.core.config import settings
 
 # Initialize logging with file support
 setup_logging(log_level="INFO", enable_file_logging=True)
@@ -68,6 +70,9 @@ async def chat_completions(
     original_model = request_data.get("model", "unknown")
     is_streaming = request_data.get("stream", False)
     
+    # Get mapped model for logging
+    provider, mapped_model = settings.get_mapped_model(original_model)
+    
     log = logger.bind(
         endpoint=endpoint,
         original_model=original_model,
@@ -78,7 +83,6 @@ async def chat_completions(
 
     status_code = 500
     response_body = {"error": "Internal Server Error"}
-    mapped_model = original_model
 
     try:
         provider_response = await router.route_chat_completions(
@@ -89,17 +93,134 @@ async def chat_completions(
             # Handle streaming response
             async def log_and_stream() -> AsyncGenerator[str, None]:
                 """Stream response while logging."""
+                # Capture current mapped_model value
+                current_mapped_model = mapped_model
+                
+                collected_response = {
+                    "id": "",
+                    "object": "chat.completion",
+                    "created": 0,
+                    "model": current_mapped_model,
+                    "choices": [
+                        {
+                            "index": 0,
+                            "message": {
+                                "role": "assistant",
+                                "content": ""
+                            },
+                            "finish_reason": "stop"
+                        }
+                    ],
+                    "usage": {
+                        "prompt_tokens": 0,
+                        "completion_tokens": 0,
+                        "total_tokens": 0
+                    }
+                }
+                
                 try:
                     async for chunk in provider_response:
                         yield chunk
-                    # Log successful streaming completion
+                        
+                        # Parse chunk to collect response data for logging
+                        if chunk.strip() and not chunk.strip() == "data: [DONE]":
+                            try:
+                                # Extract JSON from SSE format
+                                if chunk.startswith("data: "):
+                                    chunk_data = chunk[6:].strip()
+                                    if chunk_data and chunk_data != "[DONE]":
+                                        parsed_chunk = json.loads(chunk_data)
+                                        
+                                        # Update collected response with chunk data
+                                        if "id" in parsed_chunk:
+                                            collected_response["id"] = parsed_chunk["id"]
+                                        if "created" in parsed_chunk:
+                                            collected_response["created"] = parsed_chunk["created"]
+                                        if "model" in parsed_chunk:
+                                            collected_response["model"] = parsed_chunk["model"]
+                                            current_mapped_model = parsed_chunk["model"]
+                                        
+                                        # Collect content from delta
+                                        if "choices" in parsed_chunk and parsed_chunk["choices"]:
+                                            choice = parsed_chunk["choices"][0]
+                                            if "delta" in choice and "content" in choice["delta"]:
+                                                collected_response["choices"][0]["message"]["content"] += choice["delta"]["content"]
+                                            if "finish_reason" in choice and choice["finish_reason"]:
+                                                collected_response["choices"][0]["finish_reason"] = choice["finish_reason"]
+                            except (json.JSONDecodeError, KeyError, IndexError):
+                                # Skip malformed chunks
+                                pass
+                    
+                    # Log successful streaming completion with full details
                     total_latency_ms = (time.time() - start_time) * 1000
+                    status_code = 200
+                    
                     log.info(
                         "Streaming request completed successfully",
+                        status_code=status_code,
+                        mapped_model=current_mapped_model,
+                        response_body=collected_response,
                         total_latency_ms=round(total_latency_ms)
                     )
+                    
+                    # Log to endpoint-specific log file
+                    log_request_response(
+                        endpoint=endpoint,
+                        request_data=request_data,
+                        response_data=collected_response,
+                        status_code=status_code,
+                        latency_ms=total_latency_ms,
+                        api_key_hash=str(hash(api_key))
+                    )
+                    
+                    # Log to model-specific log files
+                    log_model_usage(
+                        original_model=original_model,
+                        mapped_model=current_mapped_model,
+                        request_data=request_data,
+                        response_data=collected_response,
+                        status_code=status_code,
+                        latency_ms=total_latency_ms,
+                        api_key_hash=str(hash(api_key))
+                    )
+                    
                 except Exception as e:
+                    total_latency_ms = (time.time() - start_time) * 1000
+                    status_code = 500
+                    error_response = {"error": f"Streaming error: {str(e)}"}
+                    
                     logger.error("Error during streaming", exc_info=e)
+                    
+                    # Log error with full details
+                    log.info(
+                        "Streaming request failed",
+                        status_code=status_code,
+                        mapped_model=current_mapped_model,
+                        response_body=error_response,
+                        total_latency_ms=round(total_latency_ms)
+                    )
+                    
+                    # Log to endpoint-specific log file
+                    log_request_response(
+                        endpoint=endpoint,
+                        request_data=request_data,
+                        response_data=error_response,
+                        status_code=status_code,
+                        latency_ms=total_latency_ms,
+                        api_key_hash=str(hash(api_key))
+                    )
+                    
+                    # Log to model-specific log files
+                    log_model_usage(
+                        original_model=original_model,
+                        mapped_model=current_mapped_model,
+                        request_data=request_data,
+                        response_data=error_response,
+                        status_code=status_code,
+                        latency_ms=total_latency_ms,
+                        api_key_hash=str(hash(api_key))
+                    )
+                    
                     # Send error chunk
                     error_chunk = f'data: {{"error": "Streaming error: {str(e)}"}}\n\ndata: [DONE]\n\n'
                     yield error_chunk
