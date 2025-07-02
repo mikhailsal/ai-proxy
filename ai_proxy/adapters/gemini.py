@@ -54,6 +54,8 @@ class GeminiAdapter(BaseAdapter):
         model = gemini_request["model"]
         chat_id = f"chatcmpl-gemini-{int(time.time())}"
         created_time = int(time.time())
+        first_chunk = True
+        system_fingerprint = f"fp_gemini_{hash(model) % 100000000:08x}"
         
         try:
             # Generate streaming content using Gemini
@@ -65,37 +67,72 @@ class GeminiAdapter(BaseAdapter):
             
             async for chunk in stream_response:
                 if chunk.text:
+                    # First chunk should include role
+                    delta = {"content": chunk.text}
+                    if first_chunk:
+                        delta["role"] = "assistant"
+                        first_chunk = False
+                    
                     # Convert to OpenAI streaming format
                     chunk_data = {
                         "id": chat_id,
                         "object": "chat.completion.chunk",
                         "created": created_time,
                         "model": model,
+                        "system_fingerprint": system_fingerprint,
                         "choices": [
                             {
                                 "index": 0,
-                                "delta": {
-                                    "content": chunk.text
-                                },
+                                "delta": delta,
+                                "logprobs": None,
                                 "finish_reason": None
                             }
                         ]
                     }
                     yield f"data: {json.dumps(chunk_data)}\n\n"
+                else:
+                    # Handle empty chunks - still need to send first chunk with role
+                    if first_chunk:
+                        delta = {"role": "assistant", "content": ""}
+                        first_chunk = False
+                        
+                        chunk_data = {
+                            "id": chat_id,
+                            "object": "chat.completion.chunk",
+                            "created": created_time,
+                            "model": model,
+                            "system_fingerprint": system_fingerprint,
+                            "choices": [
+                                {
+                                    "index": 0,
+                                    "delta": delta,
+                                    "logprobs": None,
+                                    "finish_reason": None
+                                }
+                            ]
+                        }
+                        yield f"data: {json.dumps(chunk_data)}\n\n"
             
-            # Send final chunk with finish_reason
+            # Send final chunk with finish_reason and usage stats
             final_chunk = {
                 "id": chat_id,
                 "object": "chat.completion.chunk",
                 "created": created_time,
                 "model": model,
+                "system_fingerprint": system_fingerprint,
                 "choices": [
                     {
                         "index": 0,
                         "delta": {},
+                        "logprobs": None,
                         "finish_reason": "stop"
                     }
-                ]
+                ],
+                "usage": {
+                    "prompt_tokens": 0,
+                    "completion_tokens": 0,
+                    "total_tokens": 0
+                }
             }
             yield f"data: {json.dumps(final_chunk)}\n\n"
             yield "data: [DONE]\n\n"
@@ -107,10 +144,12 @@ class GeminiAdapter(BaseAdapter):
                 "object": "chat.completion.chunk",
                 "created": created_time,
                 "model": model,
+                "system_fingerprint": system_fingerprint,
                 "choices": [
                     {
                         "index": 0,
                         "delta": {},
+                        "logprobs": None,
                         "finish_reason": "error"
                     }
                 ],
@@ -201,11 +240,14 @@ class GeminiAdapter(BaseAdapter):
         """
         Convert Gemini response to OpenAI chat completion format.
         """
+        system_fingerprint = f"fp_gemini_{hash(model) % 100000000:08x}"
+        
         return {
             "id": f"chatcmpl-gemini-{hash(str(gemini_response))}",
             "object": "chat.completion",
             "created": int(time.time()),
             "model": model,
+            "system_fingerprint": system_fingerprint,
             "choices": [
                 {
                     "index": 0,
@@ -213,6 +255,7 @@ class GeminiAdapter(BaseAdapter):
                         "role": "assistant",
                         "content": gemini_response.text
                     },
+                    "logprobs": None,
                     "finish_reason": "stop"
                 }
             ],

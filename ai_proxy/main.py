@@ -136,6 +136,9 @@ async def chat_completions(
                     }
                 }
                 
+                error_occurred = False
+                error_response = None
+                
                 try:
                     async for chunk in provider_response:
                         yield chunk
@@ -148,6 +151,12 @@ async def chat_completions(
                                     chunk_data = chunk[6:].strip()
                                     if chunk_data and chunk_data != "[DONE]":
                                         parsed_chunk = json.loads(chunk_data)
+                                        
+                                        # Check for error in chunk
+                                        if "error" in parsed_chunk:
+                                            error_occurred = True
+                                            error_response = parsed_chunk
+                                            break
                                         
                                         # Update collected response with chunk data
                                         if "id" in parsed_chunk:
@@ -169,15 +178,24 @@ async def chat_completions(
                                 # Skip malformed chunks
                                 pass
                     
-                    # Log successful streaming completion with full details
+                    # Determine final status and response
+                    if error_occurred and error_response:
+                        status_code = error_response.get("error", {}).get("code", 500)
+                        final_response = error_response
+                        log_message = "Streaming request failed with provider error"
+                    else:
+                        status_code = 200
+                        final_response = collected_response
+                        log_message = "Streaming request completed successfully"
+                    
+                    # Log completion with full details
                     total_latency_ms = (time.time() - start_time) * 1000
-                    status_code = 200
                     
                     log.info(
-                        "Streaming request completed successfully",
+                        log_message,
                         status_code=status_code,
                         mapped_model=current_mapped_model,
-                        response_body=collected_response,
+                        response_body=final_response,
                         total_latency_ms=round(total_latency_ms)
                     )
                     
@@ -185,7 +203,7 @@ async def chat_completions(
                     log_request_response(
                         endpoint=endpoint,
                         request_data=request_data,
-                        response_data=collected_response,
+                        response_data=final_response,
                         status_code=status_code,
                         latency_ms=total_latency_ms,
                         api_key_hash=str(hash(api_key))
@@ -196,7 +214,7 @@ async def chat_completions(
                         original_model=original_model,
                         mapped_model=current_mapped_model,
                         request_data=request_data,
-                        response_data=collected_response,
+                        response_data=final_response,
                         status_code=status_code,
                         latency_ms=total_latency_ms,
                         api_key_hash=str(hash(api_key))
@@ -211,11 +229,12 @@ async def chat_completions(
                     
                     # Log error with full details
                     log.info(
-                        "Streaming request failed",
+                        "Streaming request failed with internal error",
                         status_code=status_code,
                         mapped_model=current_mapped_model,
                         response_body=error_response,
-                        total_latency_ms=round(total_latency_ms)
+                        total_latency_ms=round(total_latency_ms),
+                        error=str(e)
                     )
                     
                     # Log to endpoint-specific log file
