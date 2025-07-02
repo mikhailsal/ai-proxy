@@ -1,5 +1,6 @@
-from typing import Dict, Any
+from typing import Dict, Any, Union, AsyncGenerator
 import httpx
+import json
 
 from ai_proxy.adapters.base import BaseAdapter
 
@@ -14,7 +15,7 @@ class OpenRouterAdapter(BaseAdapter):
             "Content-Type": "application/json"
         }
 
-    async def chat_completions(self, request_data: Dict[str, Any]) -> httpx.Response:
+    async def chat_completions(self, request_data: Dict[str, Any]) -> Union[httpx.Response, AsyncGenerator[str, None]]:
         """
         Forward the chat completion request to OpenRouter.
         """
@@ -27,11 +28,34 @@ class OpenRouterAdapter(BaseAdapter):
             "X-Title": "AI Proxy" 
         }
 
-        response = await self.client.post(
+        # Check if streaming is requested
+        stream = request_data.get("stream", False)
+        
+        if stream:
+            # Return async generator for streaming
+            return self._stream_chat_completions(request_data, headers)
+        else:
+            # Return regular response for non-streaming
+            response = await self.client.post(
+                "/chat/completions",
+                json=request_data,
+                headers=headers,
+                timeout=300.0 # Set a reasonable timeout
+            )
+            # We don't raise for status here, as we want to proxy the status code back to the client
+            return response
+
+    async def _stream_chat_completions(self, request_data: Dict[str, Any], headers: Dict[str, str]) -> AsyncGenerator[str, None]:
+        """
+        Handle streaming chat completions from OpenRouter.
+        """
+        async with self.client.stream(
+            "POST",
             "/chat/completions",
             json=request_data,
             headers=headers,
-            timeout=300.0 # Set a reasonable timeout
-        )
-        # We don't raise for status here, as we want to proxy the status code back to the client
-        return response
+            timeout=300.0
+        ) as response:
+            async for chunk in response.aiter_text():
+                if chunk.strip():
+                    yield chunk

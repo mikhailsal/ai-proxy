@@ -12,5 +12,5 @@ model_mappings:
   "gpt-4-turbo": "openrouter:openai/gpt-4-turbo"
   "claude-3-opus": "openrouter:anthropic/claude-3-opus"
   
-  # Backward compatibility (no provider prefix defaults to openrouter)
-  "mistral-small": "mistralai/mistral-small-3.2-24b-instruct:free"
+  # Mistral models
+  "mistral-small": "openrouter:mistralai/mistral-small-3.2-24b-instruct:free"

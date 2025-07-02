@@ -44,3 +44,16 @@ class ChatCompletionResponse(BaseModel):
     model: str
     choices: List[Choice]
     usage: Usage
+
+# Streaming models
+class DeltaChoice(BaseModel):
+    index: int
+    delta: Dict[str, Any]  # Can contain role, content, etc.
+    finish_reason: Optional[str] = None
+
+class ChatCompletionStreamResponse(BaseModel):
+    id: str
+    object: str = "chat.completion.chunk"
+    created: int
+    model: str
+    choices: List[DeltaChoice]

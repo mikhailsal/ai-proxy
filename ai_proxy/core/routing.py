@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict, Any, Union, AsyncGenerator
 import httpx
 from fastapi import HTTPException
 
@@ -37,12 +37,14 @@ class Router:
                 detail="GEMINI_API_KEY is not configured"
             )
 
-    async def route_chat_completions(self, request_data: Dict[str, Any], api_key: str) -> httpx.Response:
+    async def route_chat_completions(self, request_data: Dict[str, Any], api_key: str) -> Union[httpx.Response, AsyncGenerator[str, None]]:
         """
         Routes a chat completion request to the appropriate provider.
+        Returns either an httpx.Response for non-streaming or AsyncGenerator for streaming.
         """
         original_model = request_data.get("model")
         provider, mapped_model = settings.get_mapped_model(original_model)
+        is_streaming = request_data.get("stream", False)
         
         # Validate provider API key
         self._validate_provider_key(provider)
@@ -58,7 +60,8 @@ class Router:
             original_model=original_model,
             mapped_model=mapped_model,
             provider=provider,
-            adapter=adapter.get_name()
+            adapter=adapter.get_name(),
+            streaming=is_streaming
         )
 
         log.info("Routing chat completion request")
@@ -71,6 +74,7 @@ class Router:
             mapped_model=mapped_model,
             provider=provider,
             adapter_name=adapter.get_name(),
+            streaming=is_streaming,
             api_key_hash=str(hash(api_key))
         )
         
@@ -83,6 +87,7 @@ class Router:
                 mapped_model=mapped_model,
                 provider=provider,
                 adapter=adapter.get_name(),
+                streaming=is_streaming,
                 api_key_hash=str(hash(api_key))
             )
         
@@ -94,26 +99,33 @@ class Router:
                 mapped_model=mapped_model,
                 provider=provider,
                 adapter=adapter.get_name(),
+                streaming=is_streaming,
                 api_key_hash=str(hash(api_key))
             )
 
         try:
             response = await adapter.chat_completions(request_data)
-            log.info("Successfully routed request", status_code=response.status_code)
             
-            # Log successful response to model logs
-            if original_model:
-                original_model_logger = get_model_logger(original_model)
-                original_model_logger.info(
-                    "Model response received",
-                    original_model=original_model,
-                    mapped_model=mapped_model,
-                    provider=provider,
-                    status_code=response.status_code,
-                    api_key_hash=str(hash(api_key))
-                )
-            
-            return response
+            if is_streaming:
+                log.info("Successfully initiated streaming request")
+                # For streaming, we return the async generator directly
+                return response
+            else:
+                log.info("Successfully routed request", status_code=response.status_code)
+                
+                # Log successful response to model logs
+                if original_model:
+                    original_model_logger = get_model_logger(original_model)
+                    original_model_logger.info(
+                        "Model response received",
+                        original_model=original_model,
+                        mapped_model=mapped_model,
+                        provider=provider,
+                        status_code=response.status_code,
+                        api_key_hash=str(hash(api_key))
+                    )
+                
+                return response
         except Exception as e:
             log.error("Error in routing request", error=str(e), exc_info=e)
             
@@ -126,6 +138,7 @@ class Router:
                     mapped_model=mapped_model,
                     provider=provider,
                     error=str(e),
+                    streaming=is_streaming,
                     api_key_hash=str(hash(api_key))
                 )
             

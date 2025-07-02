@@ -159,6 +159,122 @@ The `model` field will be automatically mapped according to your `config.yml`. F
 - If `config.yml` has `"gemini-pro": "gemini:gemini-1.5-pro-latest"`, the request will be sent to Gemini with `gemini-1.5-pro-latest`.
 - You can explicitly specify the provider: `"model": "openrouter:mistralai/mistral-small"` or `"model": "gemini:gemini-1.5-flash-latest"`.
 
+## Production Testing
+
+To test your production deployment, you can use these commands that automatically detect your domain and API keys from the `.env` file:
+
+### Auto-Detection Script
+```bash
+# Extract configuration from .env file
+DOMAIN=$(grep '^DOMAIN=' .env | cut -d= -f2)
+HTTPS_PORT=$(grep '^HTTPS_PORT=' .env | cut -d= -f2)
+API_KEY=$(grep '^API_KEYS=' .env | cut -d= -f2 | cut -d, -f1)
+
+# Use default HTTPS port if not specified
+if [ -z "$HTTPS_PORT" ]; then
+    HTTPS_PORT=443
+fi
+
+# Construct the base URL
+if [ "$HTTPS_PORT" = "443" ]; then
+    BASE_URL="https://$DOMAIN"
+else
+    BASE_URL="https://$DOMAIN:$HTTPS_PORT"
+fi
+
+echo "Testing AI Proxy at: $BASE_URL"
+echo "Using API Key: ${API_KEY:0:10}..."
+```
+
+### Health Check
+```bash
+# Auto-detect domain and port
+DOMAIN=$(grep '^DOMAIN=' .env | cut -d= -f2)
+HTTPS_PORT=$(grep '^HTTPS_PORT=' .env | cut -d= -f2)
+BASE_URL="https://$DOMAIN${HTTPS_PORT:+:$HTTPS_PORT}"
+
+curl -s "$BASE_URL/health"
+```
+
+### Test Regular Chat Completion
+```bash
+# Auto-detect configuration
+DOMAIN=$(grep '^DOMAIN=' .env | cut -d= -f2)
+HTTPS_PORT=$(grep '^HTTPS_PORT=' .env | cut -d= -f2)
+API_KEY=$(grep '^API_KEYS=' .env | cut -d= -f2 | cut -d, -f1)
+BASE_URL="https://$DOMAIN${HTTPS_PORT:+:$HTTPS_PORT}"
+
+curl -s "$BASE_URL/v1/chat/completions" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $API_KEY" \
+  -d '{
+    "model": "gemini-pro",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Say hello in one word"
+      }
+    ]
+  }'
+```
+
+### Test Streaming Chat Completion
+```bash
+# Auto-detect configuration
+DOMAIN=$(grep '^DOMAIN=' .env | cut -d= -f2)
+HTTPS_PORT=$(grep '^HTTPS_PORT=' .env | cut -d= -f2)
+API_KEY=$(grep '^API_KEYS=' .env | cut -d= -f2 | cut -d, -f1)
+BASE_URL="https://$DOMAIN${HTTPS_PORT:+:$HTTPS_PORT}"
+
+curl -s "$BASE_URL/v1/chat/completions" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $API_KEY" \
+  -d '{
+    "model": "gemini-pro",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Count from 1 to 3"
+      }
+    ],
+    "stream": true
+  }' | head -10
+```
+
+### Test OpenRouter Model
+```bash
+# Auto-detect configuration
+DOMAIN=$(grep '^DOMAIN=' .env | cut -d= -f2)
+HTTPS_PORT=$(grep '^HTTPS_PORT=' .env | cut -d= -f2)
+API_KEY=$(grep '^API_KEYS=' .env | cut -d= -f2 | cut -d, -f1)
+BASE_URL="https://$DOMAIN${HTTPS_PORT:+:$HTTPS_PORT}"
+
+curl -s "$BASE_URL/v1/chat/completions" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $API_KEY" \
+  -d '{
+    "model": "mistral-small",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Say hi briefly"
+      }
+    ],
+    "stream": true
+  }' | head -5
+```
+
+### Remote Testing (SSH)
+If you're testing from a different machine, you can run these commands via SSH:
+
+```bash
+# Test health endpoint
+ssh your-server "cd /path/to/ai-proxy && DOMAIN=\$(grep '^DOMAIN=' .env | cut -d= -f2) && HTTPS_PORT=\$(grep '^HTTPS_PORT=' .env | cut -d= -f2) && curl -s \"https://\$DOMAIN\${HTTPS_PORT:+:\$HTTPS_PORT}/health\""
+
+# Test chat completion
+ssh your-server "cd /path/to/ai-proxy && DOMAIN=\$(grep '^DOMAIN=' .env | cut -d= -f2) && HTTPS_PORT=\$(grep '^HTTPS_PORT=' .env | cut -d= -f2) && API_KEY=\$(grep '^API_KEYS=' .env | cut -d= -f2 | cut -d, -f1) && curl -s \"https://\$DOMAIN\${HTTPS_PORT:+:\$HTTPS_PORT}/v1/chat/completions\" -H \"Content-Type: application/json\" -H \"Authorization: Bearer \$API_KEY\" -d '{\"model\": \"gemini-pro\", \"messages\": [{\"role\": \"user\", \"content\": \"Hello\"}]}'"
+```
+
 ## HTTPS Configuration
 
 The service uses **Traefik** as a reverse proxy with automatic **Let's Encrypt** SSL certificate management. This provides:

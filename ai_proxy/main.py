@@ -1,7 +1,8 @@
 from fastapi import FastAPI, Depends, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 import time
+from typing import AsyncGenerator
 
 from ai_proxy.logging.config import (
     setup_logging, logger, log_request_response, log_model_usage
@@ -65,10 +66,12 @@ async def chat_completions(
     
     # Extract model information for logging
     original_model = request_data.get("model", "unknown")
+    is_streaming = request_data.get("stream", False)
     
     log = logger.bind(
         endpoint=endpoint,
         original_model=original_model,
+        streaming=is_streaming,
         request_body=request_data
     )
     log.info("Incoming request")
@@ -82,65 +85,119 @@ async def chat_completions(
             request_data, api_key
         )
         
-        # Safely parse JSON response with error handling
-        try:
-            if provider_response.content:
-                response_body = provider_response.json()
-            else:
-                logger.warning("Empty response from provider")
-                response_body = {"error": "Empty response from provider"}
-                status_code = 502
-        except ValueError as json_error:
-            logger.error(f"Invalid JSON response from provider: {json_error}")
-            logger.debug(f"Response content: {provider_response.content}")
-            response_body = {"error": "Invalid response from provider"}
-            status_code = 502
+        if is_streaming:
+            # Handle streaming response
+            async def log_and_stream() -> AsyncGenerator[str, None]:
+                """Stream response while logging."""
+                try:
+                    async for chunk in provider_response:
+                        yield chunk
+                    # Log successful streaming completion
+                    total_latency_ms = (time.time() - start_time) * 1000
+                    log.info(
+                        "Streaming request completed successfully",
+                        total_latency_ms=round(total_latency_ms)
+                    )
+                except Exception as e:
+                    logger.error("Error during streaming", exc_info=e)
+                    # Send error chunk
+                    error_chunk = f'data: {{"error": "Streaming error: {str(e)}"}}\n\ndata: [DONE]\n\n'
+                    yield error_chunk
+            
+            return StreamingResponse(
+                log_and_stream(),
+                media_type="text/plain",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                    "Content-Type": "text/plain; charset=utf-8"
+                }
+            )
         else:
-            status_code = provider_response.status_code
-        
-        # Extract mapped model from response if available
-        if isinstance(response_body, dict) and "model" in response_body:
-            mapped_model = response_body["model"]
+            # Handle non-streaming response
+            # Safely parse JSON response with error handling
+            try:
+                if provider_response.content:
+                    response_body = provider_response.json()
+                else:
+                    logger.warning("Empty response from provider")
+                    response_body = {"error": "Empty response from provider"}
+                    status_code = 502
+            except ValueError as json_error:
+                logger.error(f"Invalid JSON response from provider: {json_error}")
+                logger.debug(f"Response content: {provider_response.content}")
+                response_body = {"error": "Invalid response from provider"}
+                status_code = 502
+            else:
+                status_code = provider_response.status_code
+            
+            # Extract mapped model from response if available
+            if isinstance(response_body, dict) and "model" in response_body:
+                mapped_model = response_body["model"]
+
+            # Log for non-streaming requests
+            total_latency_ms = (time.time() - start_time) * 1000
+            
+            # Log to main application log
+            log.info(
+                "Request finished",
+                status_code=status_code,
+                mapped_model=mapped_model,
+                response_body=response_body,
+                total_latency_ms=round(total_latency_ms)
+            )
+            
+            # Log to endpoint-specific log file
+            log_request_response(
+                endpoint=endpoint,
+                request_data=request_data,
+                response_data=response_body,
+                status_code=status_code,
+                latency_ms=total_latency_ms,
+                api_key_hash=str(hash(api_key))
+            )
+            
+            # Log to model-specific log files
+            log_model_usage(
+                original_model=original_model,
+                mapped_model=mapped_model,
+                request_data=request_data,
+                response_data=response_body,
+                status_code=status_code,
+                latency_ms=total_latency_ms,
+                api_key_hash=str(hash(api_key))
+            )
+
+            # Return the exact response from the provider
+            return JSONResponse(
+                content=response_body,
+                status_code=status_code,
+            )
 
     except Exception as e:
         logger.error("Error processing request", exc_info=e)
         response_body = {"error": "Internal Server Error"}
         status_code = 500
-    finally:
-        total_latency_ms = (time.time() - start_time) * 1000
         
-        # Log to main application log
-        log.info(
-            "Request finished",
-            status_code=status_code,
-            mapped_model=mapped_model,
-            response_body=response_body,
-            total_latency_ms=round(total_latency_ms)
-        )
-        
-        # Log to endpoint-specific log file
-        log_request_response(
-            endpoint=endpoint,
-            request_data=request_data,
-            response_data=response_body,
-            status_code=status_code,
-            latency_ms=total_latency_ms,
-            api_key_hash=str(hash(api_key))
-        )
-        
-        # Log to model-specific log files
-        log_model_usage(
-            original_model=original_model,
-            mapped_model=mapped_model,
-            request_data=request_data,
-            response_data=response_body,
-            status_code=status_code,
-            latency_ms=total_latency_ms,
-            api_key_hash=str(hash(api_key))
-        )
-
-    # Return the exact response from the provider
-    return JSONResponse(
-        content=response_body,
-        status_code=status_code,
-    )
+        # Log error for non-streaming requests
+        if not is_streaming:
+            total_latency_ms = (time.time() - start_time) * 1000
+            
+            log.info(
+                "Request finished",
+                status_code=status_code,
+                mapped_model=mapped_model,
+                response_body=response_body,
+                total_latency_ms=round(total_latency_ms)
+            )
+            
+            return JSONResponse(
+                content=response_body,
+                status_code=status_code,
+            )
+        else:
+            # For streaming errors, return error response
+            return JSONResponse(
+                content=response_body,
+                status_code=status_code,
+            )

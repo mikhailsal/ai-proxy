@@ -1,6 +1,7 @@
-from typing import Dict, Any
+from typing import Dict, Any, Union, AsyncGenerator
 import httpx
 import json
+import time
 from google import genai
 from google.genai import types
 
@@ -13,7 +14,7 @@ class GeminiAdapter(BaseAdapter):
         # Initialize Gemini client
         self.gemini_client = genai.Client(api_key=self.api_key)
 
-    async def chat_completions(self, request_data: Dict[str, Any]) -> httpx.Response:
+    async def chat_completions(self, request_data: Dict[str, Any]) -> Union[httpx.Response, AsyncGenerator[str, None]]:
         """
         Convert OpenAI format to Gemini format and forward the request.
         """
@@ -24,14 +25,9 @@ class GeminiAdapter(BaseAdapter):
             # Check if streaming is requested
             stream = request_data.get("stream", False)
             
-            # For now, always handle as non-streaming since proper streaming
-            # requires changes to the main FastAPI app structure
-            # TODO: Implement proper streaming support
             if stream:
-                # Remove stream from request to avoid issues
-                gemini_request_copy = gemini_request.copy()
-                # Return non-streaming response even for streaming requests
-                return await self._handle_non_streaming_response(gemini_request_copy)
+                # Return async generator for streaming
+                return self._stream_chat_completions(gemini_request)
             else:
                 # Handle non-streaming response
                 return await self._handle_non_streaming_response(gemini_request)
@@ -50,6 +46,82 @@ class GeminiAdapter(BaseAdapter):
                 content=json.dumps(error_response),
                 headers={"content-type": "application/json"}
             )
+
+    async def _stream_chat_completions(self, gemini_request: Dict[str, Any]) -> AsyncGenerator[str, None]:
+        """
+        Handle streaming Gemini response and convert to OpenAI streaming format.
+        """
+        model = gemini_request["model"]
+        chat_id = f"chatcmpl-gemini-{int(time.time())}"
+        created_time = int(time.time())
+        
+        try:
+            # Generate streaming content using Gemini
+            stream_response = await self.gemini_client.aio.models.generate_content_stream(
+                model=gemini_request["model"],
+                contents=gemini_request["contents"],
+                config=types.GenerateContentConfig(**gemini_request.get("config", {}))
+            )
+            
+            async for chunk in stream_response:
+                if chunk.text:
+                    # Convert to OpenAI streaming format
+                    chunk_data = {
+                        "id": chat_id,
+                        "object": "chat.completion.chunk",
+                        "created": created_time,
+                        "model": model,
+                        "choices": [
+                            {
+                                "index": 0,
+                                "delta": {
+                                    "content": chunk.text
+                                },
+                                "finish_reason": None
+                            }
+                        ]
+                    }
+                    yield f"data: {json.dumps(chunk_data)}\n\n"
+            
+            # Send final chunk with finish_reason
+            final_chunk = {
+                "id": chat_id,
+                "object": "chat.completion.chunk",
+                "created": created_time,
+                "model": model,
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {},
+                        "finish_reason": "stop"
+                    }
+                ]
+            }
+            yield f"data: {json.dumps(final_chunk)}\n\n"
+            yield "data: [DONE]\n\n"
+            
+        except Exception as e:
+            # Send error in streaming format
+            error_chunk = {
+                "id": chat_id,
+                "object": "chat.completion.chunk",
+                "created": created_time,
+                "model": model,
+                "choices": [
+                    {
+                        "index": 0,
+                        "delta": {},
+                        "finish_reason": "error"
+                    }
+                ],
+                "error": {
+                    "message": str(e),
+                    "type": "gemini_api_error",
+                    "code": "api_error"
+                }
+            }
+            yield f"data: {json.dumps(error_chunk)}\n\n"
+            yield "data: [DONE]\n\n"
 
     def _convert_openai_to_gemini(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -125,28 +197,6 @@ class GeminiAdapter(BaseAdapter):
             headers={"content-type": "application/json"}
         )
 
-    async def _handle_streaming_response(self, gemini_request: Dict[str, Any]) -> httpx.Response:
-        """
-        Handle streaming Gemini response and convert to OpenAI format.
-        """
-        # For now, fall back to non-streaming since proper streaming requires
-        # more complex implementation with async generators
-        # TODO: Implement proper streaming with async generators
-        response = await self.gemini_client.aio.models.generate_content(
-            model=gemini_request["model"],
-            contents=gemini_request["contents"],
-            config=types.GenerateContentConfig(**gemini_request.get("config", {}))
-        )
-        
-        # Convert to OpenAI streaming format (single chunk for now)
-        openai_response = self._convert_gemini_to_openai_streaming(response, gemini_request["model"])
-        
-        return httpx.Response(
-            status_code=200,
-            content=openai_response.encode('utf-8'),
-            headers={"content-type": "text/plain; charset=utf-8"}
-        )
-
     def _convert_gemini_to_openai(self, gemini_response, model: str) -> Dict[str, Any]:
         """
         Convert Gemini response to OpenAI chat completion format.
@@ -154,7 +204,7 @@ class GeminiAdapter(BaseAdapter):
         return {
             "id": f"chatcmpl-gemini-{hash(str(gemini_response))}",
             "object": "chat.completion",
-            "created": int(__import__("time").time()),
+            "created": int(time.time()),
             "model": model,
             "choices": [
                 {
@@ -171,28 +221,4 @@ class GeminiAdapter(BaseAdapter):
                 "completion_tokens": 0,
                 "total_tokens": 0
             }
-        }
-
-    def _convert_gemini_to_openai_streaming(self, gemini_response, model: str) -> str:
-        """
-        Convert Gemini response to OpenAI streaming format.
-        """
-        chunk_data = {
-            "id": f"chatcmpl-gemini-{hash(str(gemini_response))}",
-            "object": "chat.completion.chunk",
-            "created": int(__import__("time").time()),
-            "model": model,
-            "choices": [
-                {
-                    "index": 0,
-                    "delta": {
-                        "role": "assistant",
-                        "content": gemini_response.text
-                    },
-                    "finish_reason": "stop"
-                }
-            ]
-        }
-        
-        # Format as SSE (Server-Sent Events)
-        return f"data: {json.dumps(chunk_data)}\n\ndata: [DONE]\n\n" 
+        } 

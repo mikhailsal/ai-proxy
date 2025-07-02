@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Any
+from typing import Dict, Any, Union, AsyncGenerator
 import httpx
 
 class BaseAdapter(ABC):
@@ -8,9 +8,10 @@ class BaseAdapter(ABC):
         self.client = httpx.AsyncClient()
 
     @abstractmethod
-    async def chat_completions(self, request_data: Dict[str, Any]) -> httpx.Response:
+    async def chat_completions(self, request_data: Dict[str, Any]) -> Union[httpx.Response, AsyncGenerator[str, None]]:
         """
         Proxy a chat completion request to the provider.
+        Returns either an httpx.Response for non-streaming or AsyncGenerator for streaming.
         """
         pass
 
