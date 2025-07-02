@@ -3,6 +3,7 @@ description:
 globs: **
 alwaysApply: false
 ---
+<rules_block name="Context Economy - Essential Rules" short="Context Economy">
 # Context Economy - Essential Rules
 
 ## Core Principle
@@ -45,10 +46,13 @@ grep_search(query="API_KEY", include_pattern="config/*.py")
 ```
 
 ## Quick Rules
-1. **Terminal**: Always append `| head -N` to limit output
+1. **Terminal**: Always append `| head -N` or `| tail -N` to limit output
 2. **Files**: Read chunks, not entire files  
 3. **Search**: Use `grep_search` with `include_pattern` over full file reads
 4. **Temp files**: For multi-step analysis of long output
 5. **Progressive**: Build understanding incrementally
 
 **Remember: Context is expensive - use it wisely!**
+
+**Important:** Tool call economy takes precedence over context economy (consider this in case of contradictions)
+</rules_block>

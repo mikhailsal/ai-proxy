@@ -1,10 +1,7 @@
 ---
-description: 
-globs: 
+description: More details about tool call economy
 alwaysApply: false
 ---
-<rules_block name="Tool Call Economy - Maximizing the Efficiency of Tool Calls" short="Tool Call Economy">
-
 # Tool Call Economy - Maximizing the Efficiency of Tool Calls
 
 ## Core Principles

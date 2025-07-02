@@ -3,6 +3,7 @@ description:
 globs: **
 alwaysApply: false
 ---
+<rules_block name="Tool Call Economy - Maximizing the Efficiency of Tool Calls" short="Tool Call Economy">
 # Tool Call Economy - Essential Rules
 
 ## Core Principles
@@ -50,3 +51,4 @@ python3 -c "print(data)"
 5. Can I write analysis code directly in terminal?
 
 **Rule: Minimize tool calls, maximize results per call**
+</rules_block>

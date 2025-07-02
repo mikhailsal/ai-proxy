@@ -1,6 +1,5 @@
 ---
-description: 
-globs: 
+globs: **
 alwaysApply: false
 ---
 <system_rules>
