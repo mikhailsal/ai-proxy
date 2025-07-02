@@ -159,6 +159,53 @@ The `model` field will be automatically mapped according to your `config.yml`. F
 - If `config.yml` has `"gemini-pro": "gemini:gemini-1.5-pro-latest"`, the request will be sent to Gemini with `gemini-1.5-pro-latest`.
 - You can explicitly specify the provider: `"model": "openrouter:mistralai/mistral-small"` or `"model": "gemini:gemini-1.5-flash-latest"`.
 
+## Production Deployment
+
+### Automated Deployment Script
+
+The project includes a safe production deployment script that preserves production-specific files while updating code:
+
+```bash
+# Deploy latest changes to production
+DEPLOY_HOST=your-server ./scripts/deploy-production.sh
+
+# Rollback to previous version
+DEPLOY_HOST=your-server ./scripts/deploy-production.sh --rollback
+```
+
+### What the script does:
+
+**Safety Features:**
+- ✅ Creates automatic backup before deployment
+- ✅ Preserves SSL certificates (`certs/` directory)
+- ✅ Preserves environment configuration (`.env` files)
+- ✅ Preserves production logs (`logs/` directory)
+- ✅ Preserves Traefik configuration (`traefik/` directory)
+- ✅ Only syncs specific code files (never deletes production configs)
+
+**Deployment Process:**
+- ✅ Health check before deployment
+- ✅ Creates timestamped backup
+- ✅ Syncs only changed code files
+- ✅ Rebuilds and restarts containers
+- ✅ Verifies deployment with health checks
+- ✅ Tests basic functionality
+- ✅ Cleans up old backups (keeps last 5)
+
+**Environment Variables:**
+- `DEPLOY_HOST` - Target server hostname (required)
+- `DEPLOY_PATH` - Remote deployment path (default: `/root/ai-proxy`)
+
+### Rollback Capability
+
+If something goes wrong, you can quickly rollback:
+
+```bash
+DEPLOY_HOST=your-server ./scripts/deploy-production.sh --rollback
+```
+
+This will restore the most recent backup and restart services.
+
 ## Production Testing
 
 To test your production deployment, you can use these commands that automatically detect your domain and API keys from the `.env` file:

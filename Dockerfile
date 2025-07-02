@@ -19,6 +19,7 @@ RUN poetry install --no-root --only main
 # Copy application source code
 COPY ./ai_proxy ./ai_proxy
 COPY ./config.yml ./config.yml
+COPY ./deployment-timestamp.txt ./deployment-timestamp.txt
 
 # Expose port and run application
 EXPOSE 8123

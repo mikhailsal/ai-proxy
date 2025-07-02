@@ -1,102 +1,520 @@
 #!/bin/bash
 
-# Production deployment script with HTTPS
-set -e
+# AI Proxy Production Deployment Script
+# This script safely deploys code changes to production while preserving
+# production-specific files like .env, certificates, and logs.
 
-echo "🚀 Deploying AI Proxy Service to Production"
+set -euo pipefail  # Exit on error, undefined vars, pipe failures
 
-# Check if running as root or with sudo
-if [ "$EUID" -eq 0 ]; then
-    echo "⚠️  Running as root. Make sure Docker is properly configured."
-fi
+# Configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+REMOTE_HOST="${DEPLOY_HOST:-}"
+REMOTE_PATH="${DEPLOY_PATH:-/root/ai-proxy}"
+BACKUP_DIR="$REMOTE_PATH/backups"
+TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+LOG_DIR="/tmp/ai-proxy-deploy-logs"
+mkdir -p "$LOG_DIR"
 
-# Check if Docker and Docker Compose are installed
-if ! command -v docker &> /dev/null; then
-    echo "❌ Docker is not installed. Please install Docker first."
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Logging function
+log() {
+    echo -e "${BLUE}[$(date +'%Y-%m-%d %H:%M:%S')]${NC} $1"
+}
+
+success() {
+    echo -e "${GREEN}✅ $1${NC}"
+}
+
+warning() {
+    echo -e "${YELLOW}⚠️  $1${NC}"
+}
+
+error() {
+    echo -e "${RED}❌ $1${NC}"
     exit 1
-fi
+}
 
-if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
-    echo "❌ Docker Compose is not installed. Please install Docker Compose first."
-    exit 1
-fi
+# Check prerequisites
+check_prerequisites() {
+    log "Checking prerequisites..."
+    
+    # Check if DEPLOY_HOST is set
+    if [[ -z "$REMOTE_HOST" ]]; then
+        error "DEPLOY_HOST environment variable is required. Example: DEPLOY_HOST=senki1 $0"
+    fi
+    
+    # Check if we're in the right directory
+    if [[ ! -f "$PROJECT_DIR/pyproject.toml" ]] || [[ ! -f "$PROJECT_DIR/docker-compose.yml" ]]; then
+        error "Not in AI Proxy project directory"
+    fi
+    
+    # Check if remote host is accessible
+    if ! ssh -o ConnectTimeout=5 "$REMOTE_HOST" "echo 'Connection test successful'" >/dev/null 2>&1; then
+        error "Cannot connect to remote host: $REMOTE_HOST"
+    fi
+    
+    # Check if remote directory exists
+    if ! ssh "$REMOTE_HOST" "test -d '$REMOTE_PATH'"; then
+        error "Remote directory does not exist: $REMOTE_PATH"
+    fi
+    
+    # Check and install rsync on remote host if needed
+    log "Checking rsync availability..."
+    if ! ssh "$REMOTE_HOST" "command -v rsync >/dev/null 2>&1"; then
+        warning "rsync not found on remote host, attempting to install..."
+        
+        # Try to install rsync
+        if ssh "$REMOTE_HOST" "command -v apt-get >/dev/null 2>&1"; then
+            # Debian/Ubuntu
+            ssh "$REMOTE_HOST" "apt-get update && apt-get install -y rsync" || {
+                error "Failed to install rsync. Please install manually: apt-get install rsync"
+            }
+        elif ssh "$REMOTE_HOST" "command -v yum >/dev/null 2>&1"; then
+            # RHEL/CentOS
+            ssh "$REMOTE_HOST" "yum install -y rsync" || {
+                error "Failed to install rsync. Please install manually: yum install rsync"
+            }
+        elif ssh "$REMOTE_HOST" "command -v dnf >/dev/null 2>&1"; then
+            # Fedora
+            ssh "$REMOTE_HOST" "dnf install -y rsync" || {
+                error "Failed to install rsync. Please install manually: dnf install rsync"
+            }
+        else
+            error "Cannot install rsync automatically. Please install rsync on the remote host manually."
+        fi
+        
+        success "rsync installed successfully"
+    else
+        success "rsync is available"
+    fi
+    
+    success "Prerequisites check passed"
+}
 
-# Run HTTPS setup
-echo "🔐 Setting up HTTPS configuration..."
-./scripts/setup-https.sh
+# Create backup
+create_backup() {
+    log "Creating backup on remote server..."
+    
+    ssh "$REMOTE_HOST" "
+        mkdir -p '$BACKUP_DIR' &&
+        cd '$REMOTE_PATH' &&
+        tar -czf '$BACKUP_DIR/ai-proxy-backup-$TIMESTAMP.tar.gz' \
+            --exclude='backups' \
+            --exclude='logs/*.log' \
+            --exclude='.git' \
+            . 2>&1
+    " > "$LOG_DIR/backup-$TIMESTAMP.log"
+    
+    success "Backup created: ai-proxy-backup-$TIMESTAMP.tar.gz"
+}
 
-# Check if .env is properly configured
-source .env
-if [ -z "$DOMAIN" ] || [ "$DOMAIN" = "your-domain.com" ]; then
-    echo "❌ Please configure DOMAIN in .env file before deployment!"
-    echo "Edit .env and set your domain name."
-    exit 1
-fi
+# Get list of files to sync (exclude production-specific files)
+get_sync_files() {
+    # Files and directories to sync (code only)
+    cat << 'EOF'
+ai_proxy/
+config.yml
+pyproject.toml
+poetry.lock
+Dockerfile
+docker-compose.yml
+README.md
+scripts/
+tests/
+EOF
+}
 
-if [ -z "$ACME_EMAIL" ] || [ "$ACME_EMAIL" = "your-email@example.com" ]; then
-    echo "❌ Please configure ACME_EMAIL in .env file before deployment!"
-    echo "Edit .env and set your email for Let's Encrypt."
-    exit 1
-fi
+# Sync files to remote
+sync_files() {
+    log "Syncing code files to production..."
+    
+    # CRITICAL: Only sync specific code files, never entire directories
+    # This prevents accidentally deleting production configs, certs, logs, etc.
+    
+    # Sync main application code (quietly)
+    scp -r -q "$PROJECT_DIR/ai_proxy/" "$REMOTE_HOST:$REMOTE_PATH/" 2>"$LOG_DIR/sync-ai_proxy-$TIMESTAMP.log"
+    
+    # Sync individual configuration files (not directories)
+    local config_files=(
+        "config.yml"
+        "pyproject.toml"
+        "poetry.lock"
+        "Dockerfile"
+        "docker-compose.yml"
+        "README.md"
+        "deployment-timestamp.txt"
+    )
+    
+    for file in "${config_files[@]}"; do
+        if [[ -f "$PROJECT_DIR/$file" ]]; then
+            scp -q "$PROJECT_DIR/$file" "$REMOTE_HOST:$REMOTE_PATH/" 2>>"$LOG_DIR/sync-config-$TIMESTAMP.log"
+        fi
+    done
+    
+    # Sync scripts and tests directories (quietly)
+    scp -r -q "$PROJECT_DIR/scripts/" "$REMOTE_HOST:$REMOTE_PATH/" 2>>"$LOG_DIR/sync-scripts-$TIMESTAMP.log"
+    if [[ -d "$PROJECT_DIR/tests" ]]; then
+        scp -r -q "$PROJECT_DIR/tests/" "$REMOTE_HOST:$REMOTE_PATH/" 2>>"$LOG_DIR/sync-tests-$TIMESTAMP.log"
+    fi
+    
+    # NEVER sync these production-specific directories:
+    # - .env files (production secrets)
+    # - certs/ (SSL certificates)
+    # - logs/ (production logs)
+    # - traefik/ (traefik config and acme.json)
+    # - backups/ (backup files)
+    
+    success "Files synced successfully (production configs preserved)"
+}
 
-if [ -z "$API_KEYS" ] || [ "$API_KEYS" = "your-secret-key-1,your-secret-key-2" ]; then
-    echo "❌ Please configure API_KEYS in .env file before deployment!"
-    echo "Edit .env and set your API keys."
-    exit 1
-fi
+# Check service health before deployment
+check_service_health() {
+    log "Checking current service health..."
+    
+    local health_status=$(ssh "$REMOTE_HOST" "
+        cd '$REMOTE_PATH' &&
+        DOMAIN=\$(grep '^DOMAIN=' .env | cut -d= -f2) &&
+        HTTPS_PORT=\$(grep '^HTTPS_PORT=' .env | cut -d= -f2) &&
+        BASE_URL=\"https://\$DOMAIN\${HTTPS_PORT:+:\$HTTPS_PORT}\" &&
+        curl -s \"\$BASE_URL/health\" --max-time 10 || echo 'FAILED'
+    ")
+    
+    if [[ "$health_status" == *'"status":"ok"'* ]]; then
+        success "Service is healthy before deployment"
+        return 0
+    else
+        warning "Service health check failed, proceeding anyway..."
+        return 1
+    fi
+}
 
-if [ -z "$OPENROUTER_API_KEY" ] || [ "$OPENROUTER_API_KEY" = "your-openrouter-api-key" ]; then
-    echo "❌ Please configure OPENROUTER_API_KEY in .env file before deployment!"
-    echo "Edit .env and set your OpenRouter API key."
-    exit 1
-fi
+# Deploy the application
+deploy_application() {
+    log "Deploying application..."
+    
+    ssh "$REMOTE_HOST" "
+        cd '$REMOTE_PATH' &&
+        docker-compose down 2>&1 &&
+        docker-compose build --no-cache ai-proxy 2>&1 &&
+        docker-compose up -d 2>&1 &&
+        sleep 10
+    " > "$LOG_DIR/deploy-$TIMESTAMP.log" 2>&1
+    
+    success "Application deployed"
+}
 
-echo "✅ Configuration validated"
+# Verify deployment
+verify_deployment() {
+    log "Verifying deployment..."
+    
+    # Wait for service to be ready
+    local max_attempts=30
+    local attempt=1
+    
+    while [[ $attempt -le $max_attempts ]]; do
+        if [[ $attempt -eq 1 ]] || [[ $((attempt % 5)) -eq 0 ]]; then
+            log "Health check attempt $attempt/$max_attempts..."
+        fi
+        
+        local health_status=$(ssh "$REMOTE_HOST" "
+            cd '$REMOTE_PATH' &&
+            DOMAIN=\$(grep '^DOMAIN=' .env | cut -d= -f2) &&
+            HTTPS_PORT=\$(grep '^HTTPS_PORT=' .env | cut -d= -f2) &&
+            BASE_URL=\"https://\$DOMAIN\${HTTPS_PORT:+:\$HTTPS_PORT}\" &&
+            curl -s \"\$BASE_URL/health\" --max-time 10 || echo 'FAILED'
+        " 2>>"$LOG_DIR/health-check-$TIMESTAMP.log")
+        
+        if [[ "$health_status" == *'"status":"ok"'* ]]; then
+            success "Service is healthy after deployment"
+            break
+        fi
+        
+        if [[ $attempt -eq $max_attempts ]]; then
+            error "Service health check failed after deployment"
+        fi
+        
+        sleep 5
+        ((attempt++))
+    done
+    
+    # Test basic functionality
+    log "Testing basic functionality..."
+    
+    local test_result=$(ssh "$REMOTE_HOST" "
+        cd '$REMOTE_PATH' &&
+        DOMAIN=\$(grep '^DOMAIN=' .env | cut -d= -f2) &&
+        HTTPS_PORT=\$(grep '^HTTPS_PORT=' .env | cut -d= -f2) &&
+        API_KEY=\$(grep '^API_KEYS=' .env | cut -d= -f2 | cut -d, -f1) &&
+        BASE_URL=\"https://\$DOMAIN\${HTTPS_PORT:+:\$HTTPS_PORT}\" &&
+        curl -s \"\$BASE_URL/v1/chat/completions\" \
+            -H \"Content-Type: application/json\" \
+            -H \"Authorization: Bearer \$API_KEY\" \
+            -d '{\"model\": \"gemini-pro\", \"messages\": [{\"role\": \"user\", \"content\": \"Hello\"}]}' \
+            --max-time 30 | head -1
+    ")
+    
+    if [[ "$test_result" == *'"id"'* ]]; then
+        success "Basic functionality test passed"
+    else
+        warning "Basic functionality test failed, but service is healthy"
+    fi
+    
+    success "Deployment verification completed"
+}
 
-# Stop any existing containers
-echo "🛑 Stopping existing containers..."
-docker-compose down --remove-orphans || true
+# List available backups
+list_backups() {
+    log "Available backups on $REMOTE_HOST:"
+    
+    ssh "$REMOTE_HOST" "
+        cd '$BACKUP_DIR' &&
+        if ls ai-proxy-backup-*.tar.gz >/dev/null 2>&1; then
+            echo '' &&
+            echo 'Available backups:' &&
+            echo '==================' &&
+            ls -la ai-proxy-backup-*.tar.gz | awk '{
+                # Extract timestamp from filename (format: ai-proxy-backup-YYYYMMDD-HHMMSS.tar.gz)
+                filename = \$9;
+                gsub(/.*backup-/, \"\", filename);
+                gsub(/\\.tar\\.gz.*/, \"\", filename);
+                split(filename, parts, \"-\");
+                if (length(parts) >= 2 && length(parts[1]) == 8 && length(parts[2]) == 6) {
+                    date_part = parts[1];
+                    time_part = parts[2];
+                    formatted_date = substr(date_part, 1, 4) \"-\" substr(date_part, 5, 2) \"-\" substr(date_part, 7, 2);
+                    formatted_time = substr(time_part, 1, 2) \":\" substr(time_part, 3, 2) \":\" substr(time_part, 5, 2);
+                    timestamp = formatted_date \" \" formatted_time;
+                } else {
+                    timestamp = \"Unknown format\";
+                }
+                printf \"%-45s %8s %s\\n\", \$9, \$5, timestamp
+            }' &&
+            echo '' &&
+            echo 'Usage: DEPLOY_HOST=$REMOTE_HOST $0 --restore-backup <backup-filename>'
+        else
+            echo 'No backups found in $BACKUP_DIR'
+        fi
+    "
+}
 
-# Pull latest images
-echo "📥 Pulling latest images..."
-docker-compose pull
+# Restore specific backup
+restore_backup() {
+    local backup_file="$1"
+    
+    if [[ -z "$backup_file" ]]; then
+        error "Backup filename is required. Use --list-backups to see available backups."
+    fi
+    
+    # Check if backup exists
+    if ! ssh "$REMOTE_HOST" "test -f '$BACKUP_DIR/$backup_file'"; then
+        error "Backup file not found: $backup_file"
+    fi
+    
+    warning "Restoring from specific backup: $backup_file"
+    
+    # Create a backup of current state before restoration
+    log "Creating safety backup of current state..."
+    ssh "$REMOTE_HOST" "
+        cd '$REMOTE_PATH' &&
+        tar -czf '$BACKUP_DIR/safety-backup-before-restore-$TIMESTAMP.tar.gz' \
+            --exclude='backups' \
+            --exclude='logs/*.log' \
+            --exclude='.git' \
+            .
+    "
+    
+    log "Restoring from backup: $backup_file"
+    
+    ssh "$REMOTE_HOST" "
+        cd '$REMOTE_PATH' &&
+        docker-compose down 2>&1 &&
+        tar -xzf '$BACKUP_DIR/$backup_file' 2>&1 &&
+        docker-compose build --no-cache ai-proxy 2>&1 &&
+        docker-compose up -d 2>&1 &&
+        sleep 10
+    " > "$LOG_DIR/restore-$backup_file-$TIMESTAMP.log" 2>&1
+    
+    success "Backup restoration completed"
+    log "Safety backup created: safety-backup-before-restore-$TIMESTAMP.tar.gz"
+}
 
-# Build application image
-echo "🔨 Building application image..."
-docker-compose build ai-proxy
+# Rollback function (uses latest backup)
+rollback() {
+    warning "Rolling back to previous version..."
+    
+    local latest_backup=$(ssh "$REMOTE_HOST" "ls -t '$BACKUP_DIR'/ai-proxy-backup-*.tar.gz | head -1")
+    
+    if [[ -z "$latest_backup" ]]; then
+        error "No backup found for rollback"
+    fi
+    
+    log "Using backup: $(basename "$latest_backup")"
+    
+    ssh "$REMOTE_HOST" "
+        cd '$REMOTE_PATH' &&
+        docker-compose down 2>&1 &&
+        tar -xzf '$latest_backup' 2>&1 &&
+        docker-compose build --no-cache ai-proxy 2>&1 &&
+        docker-compose up -d 2>&1 &&
+        sleep 10
+    " > "$LOG_DIR/rollback-$TIMESTAMP.log" 2>&1
+    
+    success "Rollback completed"
+}
 
-# Start services
-echo "🚀 Starting services..."
-docker-compose up -d
+# Cleanup old backups
+cleanup_backups() {
+    log "Cleaning up old backups (keeping last 5)..."
+    
+    ssh "$REMOTE_HOST" "
+        cd '$BACKUP_DIR' &&
+        ls -t ai-proxy-backup-*.tar.gz | tail -n +6 | xargs -r rm -f &&
+        echo 'Remaining backups:' &&
+        ls -la ai-proxy-backup-*.tar.gz 2>/dev/null || echo 'No backups found'
+    "
+    
+    success "Backup cleanup completed"
+}
 
-# Wait for services to start
-echo "⏳ Waiting for services to start..."
-sleep 10
+# Main deployment function
+main() {
+    local action="${1:-}"
+    local backup_file="${2:-}"
+    
+    log "Starting AI Proxy production deployment..."
+    log "Remote host: $REMOTE_HOST"
+    log "Remote path: $REMOTE_PATH"
+    log "Timestamp: $TIMESTAMP"
+    
+    # Create deployment timestamp file locally, to be included in the build
+    echo "$TIMESTAMP" > "$PROJECT_DIR/deployment-timestamp.txt"
 
-# Check service status
-echo "🔍 Checking service status..."
-docker-compose ps
+    # Trap to handle rollback on failure (only for normal deployments)
+    if [[ "$action" == "" ]]; then
+        trap 'error "Deployment failed! Run with --rollback to restore previous version"' ERR
+    fi
+    
+    check_prerequisites
+    
+    # Handle different actions
+    case "$action" in
+        "--rollback")
+            rollback
+            verify_deployment
+            return 0
+            ;;
+        "--list-backups")
+            list_backups
+            return 0
+            ;;
+        "--restore-backup")
+            restore_backup "$backup_file"
+            verify_deployment
+            return 0
+            ;;
+        "")
+            # Normal deployment
+            ;;
+        *)
+            error "Unknown action: $action"
+            ;;
+    esac
+    
+    # Store current health status
+    local was_healthy=false
+    if check_service_health; then
+        was_healthy=true
+    fi
+    
+    create_backup
+    sync_files
+    deploy_application
+    verify_deployment
+    cleanup_backups
+    
+    # Clean up local timestamp file
+    rm -f "$PROJECT_DIR/deployment-timestamp.txt"
 
-# Test the deployment
-echo "🧪 Testing deployment..."
-sleep 5
-./scripts/test-https.sh
+    success "🎉 Deployment completed successfully!"
+    log "Backup available at: $BACKUP_DIR/ai-proxy-backup-$TIMESTAMP.tar.gz"
+    log "Deployment logs available at: $LOG_DIR/"
+    
+    # Show deployment summary
+    ssh "$REMOTE_HOST" "
+        cd '$REMOTE_PATH' &&
+        echo '' &&
+        echo '=== Deployment Summary ===' &&
+        echo 'Containers:' &&
+        docker ps | grep ai-proxy &&
+        echo '' &&
+        echo 'Service endpoint:' &&
+        DOMAIN=\$(grep '^DOMAIN=' .env | cut -d= -f2) &&
+        HTTPS_PORT=\$(grep '^HTTPS_PORT=' .env | cut -d= -f2) &&
+        echo \"https://\$DOMAIN\${HTTPS_PORT:+:\$HTTPS_PORT}\"
+    "
+}
 
-echo ""
-echo "🎉 Production deployment completed!"
-echo ""
-echo "📋 Service URLs:"
-echo "   - AI Proxy: https://$DOMAIN"
-echo "   - Traefik Dashboard: https://traefik.$DOMAIN"
-echo "   - Health Check: https://$DOMAIN/health"
-echo ""
-echo "📊 Monitoring commands:"
-echo "   - View logs: docker-compose logs -f"
-echo "   - Check status: docker-compose ps"
-echo "   - Stop services: docker-compose down"
-echo "   - Restart: docker-compose restart"
-echo ""
-echo "🔧 Maintenance:"
-echo "   - Certificates auto-renew via Let's Encrypt"
-echo "   - Logs rotate automatically"
-echo "   - Update with: git pull && ./scripts/deploy-production.sh" 
+# Script usage
+usage() {
+    cat << EOF
+Usage: $0 [OPTIONS] [BACKUP_FILE]
+
+Deploy AI Proxy to production server with backup management.
+
+OPTIONS:
+    --rollback                     Rollback to the most recent backup
+    --list-backups                 List all available backups
+    --restore-backup <filename>    Restore from a specific backup file
+    --help                         Show this help message
+
+ENVIRONMENT VARIABLES:
+    DEPLOY_HOST   Remote host (required)
+    DEPLOY_PATH   Remote path (default: /root/ai-proxy)
+
+EXAMPLES:
+    # Normal deployment
+    DEPLOY_HOST=senki1 $0
+
+    # Backup management
+    DEPLOY_HOST=senki1 $0 --list-backups
+    DEPLOY_HOST=senki1 $0 --rollback
+    DEPLOY_HOST=senki1 $0 --restore-backup ai-proxy-backup-20250702-171225.tar.gz
+
+    # Custom host
+    DEPLOY_HOST=myserver $0
+
+EOF
+}
+
+# Handle command line arguments
+case "${1:-}" in
+    --help)
+        usage
+        exit 0
+        ;;
+    --rollback)
+        main --rollback
+        ;;
+    --list-backups)
+        main --list-backups
+        ;;
+    --restore-backup)
+        if [[ -z "${2:-}" ]]; then
+            error "Backup filename is required for --restore-backup option"
+        fi
+        main --restore-backup "$2"
+        ;;
+    "")
+        main
+        ;;
+    *)
+        error "Unknown option: $1. Use --help for usage information."
+        ;;
+esac 

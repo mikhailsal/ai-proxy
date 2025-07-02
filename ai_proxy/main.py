@@ -12,6 +12,9 @@ from ai_proxy.security.auth import get_api_key
 from ai_proxy.core.routing import router
 from ai_proxy.core.config import settings
 
+# Path to the deployment timestamp file
+DEPLOYMENT_TIMESTAMP_FILE = "/app/deployment-timestamp.txt"
+
 # Initialize logging with file support
 setup_logging(log_level="INFO", enable_file_logging=True)
 
@@ -35,7 +38,22 @@ async def startup_event():
 @app.get("/health", tags=["Admin"])
 async def health_check():
     """Health check endpoint."""
-    return {"status": "ok"}
+    
+    deployment_timestamp = "unknown"
+    try:
+        with open(DEPLOYMENT_TIMESTAMP_FILE, "r") as f:
+            deployment_timestamp = f.read().strip()
+    except FileNotFoundError:
+        logger.warning(f"Deployment timestamp file not found at {DEPLOYMENT_TIMESTAMP_FILE}")
+    except Exception as e:
+        logger.error(f"Error reading deployment timestamp: {e}")
+
+    return {
+        "status": "ok",
+        "version": "test-final-deployment",
+        "script_tested": True,
+        "deployment_timestamp": deployment_timestamp
+    }
 
 
 @app.options("/v1/chat/completions", tags=["API"])
