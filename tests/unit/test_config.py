@@ -186,7 +186,7 @@ class TestSettings:
     def test_gemini_as_is_false_values(self):
         """Test GEMINI_AS_IS with various false values."""
         false_values = ["false", "False", "FALSE", "0", "no", ""]
-        
+
         for value in false_values:
             with patch.dict(os.environ, {"GEMINI_AS_IS": value}):
                 settings = Settings()
@@ -225,40 +225,44 @@ class TestSettings:
     def test_global_settings_instance(self):
         """Test that the global settings instance exists and works."""
         assert isinstance(settings, Settings)
-        assert hasattr(settings, 'api_keys')
-        assert hasattr(settings, 'get_mapped_model')
-        assert hasattr(settings, 'model_mappings')
-    
+        assert hasattr(settings, "api_keys")
+        assert hasattr(settings, "get_mapped_model")
+        assert hasattr(settings, "model_mappings")
+
     def test_main_block_execution(self):
         """Test the main block execution for coverage."""
         import subprocess
         import sys
         import tempfile
         import os
-        
+
         # Create a temporary directory for the test
         with tempfile.TemporaryDirectory() as temp_dir:
             # Change to temp directory to avoid creating files in project root
             original_cwd = os.getcwd()
             try:
                 os.chdir(temp_dir)
-                
+
                 # Run the config.py file directly to test the main block
                 result = subprocess.run(
-                    [sys.executable, "-c", "exec(open('{}').read())".format(
-                        os.path.join(original_cwd, "ai_proxy/core/config.py")
-                    )],
+                    [
+                        sys.executable,
+                        "-c",
+                        "exec(open('{}').read())".format(
+                            os.path.join(original_cwd, "ai_proxy/core/config.py")
+                        ),
+                    ],
                     capture_output=True,
                     text=True,
-                    cwd=temp_dir
+                    cwd=temp_dir,
                 )
-                
+
                 # Should execute without errors
                 assert result.returncode == 0
-                
+
                 # Should have created and cleaned up config.yml
                 assert not os.path.exists("config.yml")
-                
+
             finally:
                 os.chdir(original_cwd)
 

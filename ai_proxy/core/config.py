@@ -87,7 +87,7 @@ if __name__ == "__main__":
     print(f"OpenRouter Key: {s.openrouter_api_key}")
     print(f"Model Mappings: {s.model_mappings}")
     print(f"Mapping for 'gpt-4-turbo': {s.get_mapped_model('gpt-4-turbo')}")
-    print(f"Mapping for 'claude-3-opus': " f"{s.get_mapped_model('claude-3-opus')}")
+    print(f"Mapping for 'claude-3-opus': {s.get_mapped_model('claude-3-opus')}")
     print(f"Mapping for 'gemini-pro': {s.get_mapped_model('gemini-pro')}")
 
     # cleanup

@@ -1,7 +1,7 @@
 # AI Proxy Service Makefile
 # This Makefile provides common development and deployment tasks
 
-.PHONY: help install test test-unit test-integration lint format type-check clean build run dev docker-build docker-run docker-clean deploy setup-https test-https coverage pre-commit
+.PHONY: help install test test-unit test-integration lint lint-fix type-check clean build run dev docker-build docker-run docker-clean deploy setup-https test-https coverage pre-commit
 
 # Default target
 help: ## Show this help message
@@ -50,11 +50,11 @@ test-specific: ## Run specific test file or function in Docker (usage: make test
 lint: ## Run linting checks
 	@echo "Running linting checks..."
 	@poetry run ruff check ai_proxy/ tests/
-	@poetry run black --check ai_proxy/ tests/
+	@poetry run ruff format --check ai_proxy/ tests/
 
-format: ## Format code with black and ruff
-	@echo "Formatting code..."
-	@poetry run black ai_proxy/ tests/
+lint-fix: ## Format code and fix linting errors with ruff
+	@echo "Formatting and fixing code..."
+	@poetry run ruff format ai_proxy/ tests/
 	@poetry run ruff check --fix ai_proxy/ tests/
 
 type-check: ## Run type checking with mypy
@@ -178,7 +178,7 @@ ci: lint test coverage ## Run all CI checks (excluding type-check due to missing
 	@echo "All CI checks completed!"
 
 # Quick development workflow
-quick-test: format test-unit ## Quick test cycle for development in Docker
+quick-test: lint-fix test-unit ## Quick test cycle for development in Docker
 	@echo "Quick test cycle completed!"
 
 # Production readiness check
