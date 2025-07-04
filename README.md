@@ -1,10 +1,10 @@
 # AI Proxy Service
 
-This service acts as a drop-in replacement for the OpenAI API, providing a unified interface to route requests to various Large Language Model (LLM) providers like OpenRouter.
+This service acts as a drop-in replacement for the OpenAI API, providing a unified interface to route requests to various Large Language Model (LLM) providers like OpenRouter and Google Gemini.
 
 It is built with Python and FastAPI and is designed to be lightweight, fast, and easy to deploy with **HTTPS support** and automatic SSL certificate management.
 
-## Features (Phase 1)
+## Features
 
 *   **OpenAI API Compatibility**: `POST /v1/chat/completions` endpoint.
 *   **Provider Routing**: Currently supports proxying requests to [OpenRouter](https://openrouter.ai/) and **Google Gemini API**.
@@ -16,15 +16,15 @@ It is built with Python and FastAPI and is designed to be lightweight, fast, and
 
 ## Getting Started
 
+This guide will walk you through setting up the AI Proxy service with HTTPS.
+
 ### Prerequisites
 
-*   Python 3.10+
-*   [Poetry](https://python-poetry.org/) for dependency management.
-*   Docker and Docker Compose (for containerized deployment).
-*   A domain name (for HTTPS in production).
-*   `google-genai` (installed automatically with Poetry for Gemini support)
+*   Docker and Docker Compose.
+*   A domain name.
+*   An email address for SSL certificate registration.
 
-### Quick HTTPS Setup (Recommended)
+### Quick HTTPS Setup
 
 1.  **Clone the repository:**
     ```bash
@@ -33,6 +33,7 @@ It is built with Python and FastAPI and is designed to be lightweight, fast, and
     ```
 
 2.  **Run the HTTPS setup script:**
+    This script will generate the necessary configuration files.
     ```bash
     ./scripts/setup-https.sh
     ```
@@ -47,10 +48,9 @@ It is built with Python and FastAPI and is designed to be lightweight, fast, and
     # Your API configuration
     API_KEYS=your-secret-key-1,your-secret-key-2
     OPENROUTER_API_KEY=your-openrouter-api-key
-    GEMINI_API_KEY=your-gemini-api-key # Required for Gemini API support
+    GEMINI_API_KEY=your-gemini-api-key
 
-    # Optional: Custom Port Configuration
-    # Uncomment and set if you need non-standard HTTP/HTTPS ports
+    # Optional: Custom Port Configuration for non-standard ports
     # HTTP_PORT=8080
     # HTTPS_PORT=8443
     ```
@@ -66,115 +66,18 @@ It is built with Python and FastAPI and is designed to be lightweight, fast, and
     ```
 
 Your service will be available at:
-- **AI Proxy**: `https://your-domain.com` (or `http://your-domain.com` for HTTP, if not redirected)
+- **AI Proxy**: `https://your-domain.com`
 - **Traefik Dashboard**: `https://traefik.your-domain.com`
 
 ### Domain Options
 
-#### 🆓 Free Temporary Domains (for testing)
-- **nip.io**: Set `DOMAIN=myapp.YOUR-SERVER-IP.nip.io`
-- **sslip.io**: Set `DOMAIN=myapp.YOUR-SERVER-IP.sslip.io`
-- Replace `YOUR-SERVER-IP` with your server's public IP address. You can get your server's public IPv4 address by running: `curl -4 ifconfig.me` on the server.
-
-#### 🌍 Real Domain (recommended for production)
-- Buy a domain from any registrar (Namecheap, GoDaddy, etc.)
-- Point A record to your server's IP
-- Set `DOMAIN=your-domain.com`
-
-#### 🧪 Development with ngrok
-- Install [ngrok](https://ngrok.com/)
-- Run: `ngrok http 80`
-- Use the ngrok domain in your `DOMAIN` variable
-
-### Local Development (HTTP)
-
-1.  **Install dependencies:**
-    ```bash
-    poetry install
-    ```
-
-2.  **Set up environment variables:**
-    ```bash
-    cp .env.example .env
-    # Edit .env with your configuration, including optional HTTP_PORT if needed
-    ```
-
-3.  **Run the service:**
-    ```bash
-    poetry run uvicorn ai_proxy.main:app --reload
-    ```
-    The service will be available at `http://localhost:8123` (or your custom HTTP_PORT if configured).
-
-### Docker Deployment (HTTP only)
-
-1.  **Build the Docker image:**
-    ```bash
-    docker build -t ai-proxy .
-    ```
-
-2.  **Run the Docker container:**
-    ```bash
-    docker run -d --env-file .env -p 8123:8123 --name ai-proxy-container ai-proxy
-    ```
-
-## Testing
-
-**⚠️ Important: All tests must run in Docker containers only!**
-
-This project enforces Docker-only testing to ensure consistent environments, proper isolation, and reproducible results. Tests will automatically fail if run outside of Docker.
-
-### Running Tests
-
-Use the Makefile commands to run tests in Docker:
-
-```bash
-# Run all tests
-make test
-
-# Run only unit tests
-make test-unit
-
-# Run only integration tests
-make test-integration
-
-# Run tests with coverage report
-make coverage
-
-# Run specific test file or function
-make test-specific TEST=tests/unit/test_config.py
-make test-specific TEST=tests/unit/test_config.py::TestSettings::test_init_with_env_vars
-
-# Run tests in watch mode (for development)
-make test-watch
-```
-
-### Direct Docker Commands
-
-You can also run tests directly with Docker Compose:
-
-```bash
-# Run all tests
-docker run --rm -e DOCKER_CONTAINER=true -v $(PWD):/app ai-proxy poetry run pytest tests/
-
-# Run specific test file
-docker run --rm -e DOCKER_CONTAINER=true -v $(PWD):/app ai-proxy poetry run pytest tests/unit/test_config.py -v
-
-# Run with coverage
-docker run --rm -e DOCKER_CONTAINER=true -v $(PWD):/app ai-proxy poetry run pytest tests/ --cov=ai_proxy --cov-report=html
-```
-
-### Why Docker-Only Testing?
-
-- **Consistent Environment**: All developers and CI/CD systems use identical test environments
-- **Isolation**: Tests run in clean, isolated containers without interference from host system
-- **Reproducibility**: Results are consistent across different machines and environments
-- **Dependencies**: All required dependencies and services are properly containerized
+*   **Free Temporary Domains**: For quick testing, you can use services like `nip.io` or `sslip.io`. Set `DOMAIN=myapp.YOUR-SERVER-IP.nip.io`.
+*   **Real Domain**: For production, point an A record from your domain registrar to your server's IP address.
 
 ## Usage
 
 Make requests to the proxy service just as you would with the OpenAI API:
 
-### HTTPS (Production)
 ```bash
 curl https://your-domain.com/v1/chat/completions \
   -H "Content-Type: application/json" \
@@ -190,288 +93,18 @@ curl https://your-domain.com/v1/chat/completions \
   }'
 ```
 
-### HTTP (Development)
-```bash
-curl http://localhost:8123/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer your-secret-key-1" \
-  -d '{
-    "model": "gemini-pro", # Example: Using a Gemini model
-    "messages": [
-      {
-        "role": "user",
-        "content": "What is the capital of France?"
-      }
-    ]
-  }'
-```
-
-The `model` field will be automatically mapped according to your `config.yml`. For example:
-
-- If `config.yml` has `"gpt-4": "openrouter:openai/gpt-4"`, the request will be sent to OpenRouter with `openai/gpt-4`.
-- If `config.yml` has `"gemini-pro": "gemini:gemini-1.5-pro-latest"`, the request will be sent to Gemini with `gemini-1.5-pro-latest`.
-- You can explicitly specify the provider: `"model": "openrouter:mistralai/mistral-small"` or `"model": "gemini:gemini-1.5-flash-latest"`.
+The `model` field will be automatically mapped based on your `config.yml` file.
 
 ## Production Deployment
 
-### Automated Deployment Script
-
-The project includes a safe production deployment script that preserves production-specific files while updating code:
+The project includes a safe production deployment script that preserves important files while updating the application code.
 
 ```bash
 # Deploy latest changes to production
 DEPLOY_HOST=your-server ./scripts/deploy-production.sh
-
-# Rollback to previous version
-DEPLOY_HOST=your-server ./scripts/deploy-production.sh --rollback
 ```
 
-### What the script does:
-
-**Safety Features:**
-- ✅ Creates automatic backup before deployment
-- ✅ Preserves SSL certificates (`certs/` directory)
-- ✅ Preserves environment configuration (`.env` files)
-- ✅ Preserves production logs (`logs/` directory)
-- ✅ Preserves Traefik configuration (`traefik/` directory)
-- ✅ Only syncs specific code files (never deletes production configs)
-
-**Deployment Process:**
-- ✅ Health check before deployment
-- ✅ Creates timestamped backup
-- ✅ Syncs only changed code files
-- ✅ Rebuilds and restarts containers
-- ✅ Verifies deployment with health checks
-- ✅ Tests basic functionality
-- ✅ Cleans up old backups (keeps last 5)
-
-**Environment Variables:**
-- `DEPLOY_HOST` - Target server hostname (required)
-- `DEPLOY_PATH` - Remote deployment path (default: `/root/ai-proxy`)
-
-### Rollback Capability
-
-If something goes wrong, you can quickly rollback:
-
-```bash
-DEPLOY_HOST=your-server ./scripts/deploy-production.sh --rollback
-```
-
-This will restore the most recent backup and restart services.
-
-## Production Testing
-
-To test your production deployment, you can use these commands that automatically detect your domain and API keys from the `.env` file:
-
-### Auto-Detection Script
-```bash
-# Extract configuration from .env file
-DOMAIN=$(grep '^DOMAIN=' .env | cut -d= -f2)
-HTTPS_PORT=$(grep '^HTTPS_PORT=' .env | cut -d= -f2)
-API_KEY=$(grep '^API_KEYS=' .env | cut -d= -f2 | cut -d, -f1)
-
-# Use default HTTPS port if not specified
-if [ -z "$HTTPS_PORT" ]; then
-    HTTPS_PORT=443
-fi
-
-# Construct the base URL
-if [ "$HTTPS_PORT" = "443" ]; then
-    BASE_URL="https://$DOMAIN"
-else
-    BASE_URL="https://$DOMAIN:$HTTPS_PORT"
-fi
-
-echo "Testing AI Proxy at: $BASE_URL"
-echo "Using API Key: ${API_KEY:0:10}..."
-```
-
-### Health Check
-```bash
-# Auto-detect domain and port
-DOMAIN=$(grep '^DOMAIN=' .env | cut -d= -f2)
-HTTPS_PORT=$(grep '^HTTPS_PORT=' .env | cut -d= -f2)
-BASE_URL="https://$DOMAIN${HTTPS_PORT:+:$HTTPS_PORT}"
-
-curl -s "$BASE_URL/health"
-```
-
-### Test Regular Chat Completion
-```bash
-# Auto-detect configuration
-DOMAIN=$(grep '^DOMAIN=' .env | cut -d= -f2)
-HTTPS_PORT=$(grep '^HTTPS_PORT=' .env | cut -d= -f2)
-API_KEY=$(grep '^API_KEYS=' .env | cut -d= -f2 | cut -d, -f1)
-BASE_URL="https://$DOMAIN${HTTPS_PORT:+:$HTTPS_PORT}"
-
-curl -s "$BASE_URL/v1/chat/completions" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $API_KEY" \
-  -d '{
-    "model": "gemini-pro",
-    "messages": [
-      {
-        "role": "user",
-        "content": "Say hello in one word"
-      }
-    ]
-  }'
-```
-
-### Test Streaming Chat Completion
-```bash
-# Auto-detect configuration
-DOMAIN=$(grep '^DOMAIN=' .env | cut -d= -f2)
-HTTPS_PORT=$(grep '^HTTPS_PORT=' .env | cut -d= -f2)
-API_KEY=$(grep '^API_KEYS=' .env | cut -d= -f2 | cut -d, -f1)
-BASE_URL="https://$DOMAIN${HTTPS_PORT:+:$HTTPS_PORT}"
-
-curl -s "$BASE_URL/v1/chat/completions" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $API_KEY" \
-  -d '{
-    "model": "gemini-pro",
-    "messages": [
-      {
-        "role": "user",
-        "content": "Count from 1 to 3"
-      }
-    ],
-    "stream": true
-  }' | head -10
-```
-
-### Test OpenRouter Model
-```bash
-# Auto-detect configuration
-DOMAIN=$(grep '^DOMAIN=' .env | cut -d= -f2)
-HTTPS_PORT=$(grep '^HTTPS_PORT=' .env | cut -d= -f2)
-API_KEY=$(grep '^API_KEYS=' .env | cut -d= -f2 | cut -d, -f1)
-BASE_URL="https://$DOMAIN${HTTPS_PORT:+:$HTTPS_PORT}"
-
-curl -s "$BASE_URL/v1/chat/completions" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer $API_KEY" \
-  -d '{
-    "model": "mistral-small",
-    "messages": [
-      {
-        "role": "user",
-        "content": "Say hi briefly"
-      }
-    ],
-    "stream": true
-  }' | head -5
-```
-
-### Remote Testing (SSH)
-If you're testing from a different machine, you can run these commands via SSH:
-
-```bash
-# Test health endpoint
-ssh your-server "cd /path/to/ai-proxy && DOMAIN=\$(grep '^DOMAIN=' .env | cut -d= -f2) && HTTPS_PORT=\$(grep '^HTTPS_PORT=' .env | cut -d= -f2) && curl -s \"https://\$DOMAIN\${HTTPS_PORT:+:\$HTTPS_PORT}/health\""
-
-# Test chat completion
-ssh your-server "cd /path/to/ai-proxy && DOMAIN=\$(grep '^DOMAIN=' .env | cut -d= -f2) && HTTPS_PORT=\$(grep '^HTTPS_PORT=' .env | cut -d= -f2) && API_KEY=\$(grep '^API_KEYS=' .env | cut -d= -f2 | cut -d, -f1) && curl -s \"https://\$DOMAIN\${HTTPS_PORT:+:\$HTTPS_PORT}/v1/chat/completions\" -H \"Content-Type: application/json\" -H \"Authorization: Bearer \$API_KEY\" -d '{\"model\": \"gemini-pro\", \"messages\": [{\"role\": \"user\", \"content\": \"Hello\"}]}'"
-```
-
-## HTTPS Configuration
-
-The service uses **Traefik** as a reverse proxy with automatic **Let's Encrypt** SSL certificate management. This provides:
-
-- ✅ Automatic SSL certificate generation and renewal
-- ✅ HTTP to HTTPS redirect
-- ✅ Security headers (HSTS, etc.)
-- ✅ Load balancing capabilities
-- ✅ Monitoring dashboard
-
-### Custom Port Configuration
-
-By default, the service uses standard HTTP (80) and HTTPS (443) ports. You can customize these by setting the `HTTP_PORT` and `HTTPS_PORT` variables in your `.env` file:
-
-```env
-HTTP_PORT=9080  # Example: Change HTTP to 9080
-HTTPS_PORT=9443 # Example: Change HTTPS to 9443
-```
-
-Ensure these ports are open on your server's firewall and do not conflict with other services.
-
-### Let's Encrypt Certificates and Production Deployment
-
-Let's Encrypt certificates are valid for **90 days** and are automatically renewed by Traefik. However, for initial certificate issuance, Let's Encrypt requires access to standard HTTP (port 80) or HTTPS (port 443) ports for domain validation.
-
-If your server has other services occupying ports 80/443, you can use the following strategy for initial certificate acquisition:
-
-1.  **Identify and temporarily stop** the service(s) occupying ports 80/443 (e.g., another Docker container).
-    ```bash
-    # Example: Stop a container named 'another-service'
-    docker stop another-service
-    ```
-2.  **Reconfigure** your `.env` file to use standard ports (80 and 443):
-    ```env
-    HTTP_PORT=80
-    HTTPS_PORT=443
-    ```
-3.  **Deploy** the AI Proxy service. Traefik will now be able to obtain the Let's Encrypt certificate.
-    ```bash
-    docker-compose up -d
-    ```
-4.  **Verify** certificate acquisition (check Traefik logs).
-5.  **Reconfigure** your `.env` file back to your desired custom ports (e.g., 9080 and 9443).
-    ```env
-    HTTP_PORT=9080
-    HTTPS_PORT=9443
-    ```
-6.  **Redeploy** the AI Proxy service on custom ports.
-    ```bash
-    docker-compose up -d
-    ```
-7.  **Restart** the original service(s) that were temporarily stopped.
-    ```bash
-    # Example: Start 'another-service' back
-    docker start another-service
-    ```
-
-This process allows Traefik to obtain and renew certificates even when standard ports are generally in use by other applications, ensuring your service remains secure.
-
-### Troubleshooting HTTPS
-
-If HTTPS is not working:
-
-1. **Check logs:**
-   ```bash
-   docker-compose logs traefik
-   docker-compose logs ai-proxy
-   ```
-
-2. **Verify domain accessibility:**
-   ```bash
-   curl -I http://your-domain.com
-   ```
-
-3. **Test certificate generation:**
-   - Let's Encrypt requires your domain to be publicly accessible
-   - Check DNS propagation: `nslookup your-domain.com`
-   - Verify ports 80 and 443 are open
-
-4. **Run the test script:**
-   ```bash
-   ./scripts/test-https.sh
-   ```
-
-## Project Structure
-
-```
-ai-proxy/
-├── ai_proxy/               # Main application code
-├── scripts/                # Setup and testing scripts
-│   ├── setup-https.sh     # HTTPS configuration script
-│   └── test-https.sh      # HTTPS testing script
-├── docker-compose.yml     # Production deployment with HTTPS
-├── Dockerfile             # Application container
-├── .env.example          # Environment configuration template
-└── README.md             # This file
-```
+For more details on deployment, local development, and testing, see the [Development Guide](DEVELOPMENT.md).
 
 ## Security Features
 
@@ -485,4 +118,4 @@ ai-proxy/
 
 - **Health Check**: `https://your-domain.com/health`
 - **Traefik Dashboard**: `https://traefik.your-domain.com`
-- **Logs**: Structured JSON logs in `logs/` directory
+- **Logs**: Structured JSON logs are available in the `logs/` directory.
