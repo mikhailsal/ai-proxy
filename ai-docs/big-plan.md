@@ -1,0 +1,7 @@
+- [ ] Create the first proof-of-concept unit test
+- [ ] Create a Makefile with all basic functions, including test execution
+- [ ] Create unit tests with 100% coverage
+- [ ] Implement a check: All tests should run only in Docker, and throw an error if any attempt to run outside
+- [ ] Add a linter and automatic lint fixer in the Makefile, similar to ~/myprojects/tts-python-ai/Makefile
+- [ ] Split README.md into: README.MD and DEVELOPMENT.MD
+- [ ] Create functional tests wich uses real api keys and real data (disabled by default, but could be run with special Makefile target)
