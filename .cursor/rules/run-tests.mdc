@@ -4,10 +4,34 @@ globs:
 alwaysApply: false
 ---
 # How to be successful with running tests
+
+**⚠️ CRITICAL: All tests MUST run in Docker containers only!**
+
+## Test Execution Rules
 - You must run tests after making code changes.
 - Do not end your turn until tests are passed.
 - Fix errors if tests fail.
-- **Run all tests in Docker:** `make tests`
-- **To run a specific test file or function in Docker:** `make tests TEST=path/to/your_modified_file.py` or `make tests TEST=path/to/your_modified_file.py::test_function_name`. The path can be a filename (relative to the test directory) or a path from the project root (with or without a leading `./`).
-- Tests should now only be run within the Docker environment.
-- If a specified test does not exist, the command will report it and skip.
+- **ALL tests must run in Docker** - tests will automatically fail if run outside Docker.
+
+## Test Commands
+- **Run all tests:** `make test`
+- **Run unit tests:** `make test-unit`
+- **Run integration tests:** `make test-integration`
+- **Run with coverage:** `make coverage`
+- **Run specific test:** `make test-specific TEST=path/to/test.py`
+- **Run specific function:** `make test-specific TEST=path/to/test.py::test_function_name`
+
+## Direct Docker Commands
+- **All tests:** `docker run --rm -e DOCKER_CONTAINER=true -v $(PWD):/app ai-proxy poetry run pytest tests/`
+- **Specific test:** `docker run --rm -e DOCKER_CONTAINER=true -v $(PWD):/app ai-proxy poetry run pytest tests/unit/test_config.py -v`
+
+## Why Docker-Only?
+- Ensures consistent test environments
+- Provides proper isolation
+- Guarantees reproducible results
+- Prevents environment-specific test failures
+
+## Error Handling
+- If a test fails outside Docker, it will show a clear error message with instructions
+- If a specified test does not exist, the command will report it and skip
+- Always check test output for specific error messages

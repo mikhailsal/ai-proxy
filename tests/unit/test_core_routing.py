@@ -117,7 +117,8 @@ class TestRouter:
             mock_settings.get_mapped_model.return_value = ("openrouter", "gpt-4")
             
             with patch("ai_proxy.core.routing.logger") as mock_logger:
-                mock_logger.bind.return_value = mock_logger
+                mock_bound_logger = MagicMock()
+                mock_logger.bind.return_value = mock_bound_logger
                 
                 with patch("ai_proxy.core.routing.get_endpoint_logger") as mock_endpoint_logger:
                     mock_endpoint_logger.return_value = MagicMock()
@@ -130,7 +131,7 @@ class TestRouter:
                         # Mock the adapter
                         mock_adapter = AsyncMock()
                         mock_adapter.chat_completions.return_value = mock_response
-                        mock_adapter.get_name.return_value = "MockAdapter"
+                        mock_adapter.get_name = MagicMock(return_value="MockAdapter")
                         test_router.adapters["openrouter"] = mock_adapter
                         
                         request_data = {
@@ -158,7 +159,8 @@ class TestRouter:
             mock_settings.get_mapped_model.return_value = ("openrouter", "gpt-4")
             
             with patch("ai_proxy.core.routing.logger") as mock_logger:
-                mock_logger.bind.return_value = mock_logger
+                mock_bound_logger = MagicMock()
+                mock_logger.bind.return_value = mock_bound_logger
                 
                 with patch("ai_proxy.core.routing.get_endpoint_logger") as mock_endpoint_logger:
                     mock_endpoint_logger.return_value = MagicMock()
@@ -171,7 +173,7 @@ class TestRouter:
                         # Mock the adapter
                         mock_adapter = AsyncMock()
                         mock_adapter.chat_completions.return_value = mock_stream()
-                        mock_adapter.get_name.return_value = "MockAdapter"
+                        mock_adapter.get_name = MagicMock(return_value="MockAdapter")
                         test_router.adapters["openrouter"] = mock_adapter
                         
                         request_data = {
@@ -195,7 +197,8 @@ class TestRouter:
             mock_settings.get_mapped_model.return_value = ("openrouter", "gpt-4")
             
             with patch("ai_proxy.core.routing.logger") as mock_logger:
-                mock_logger.bind.return_value = mock_logger
+                mock_bound_logger = MagicMock()
+                mock_logger.bind.return_value = mock_bound_logger
                 
                 with patch("ai_proxy.core.routing.get_endpoint_logger") as mock_endpoint_logger:
                     mock_endpoint_logger.return_value = MagicMock()
@@ -208,7 +211,7 @@ class TestRouter:
                         # Mock the adapter to raise an exception
                         mock_adapter = AsyncMock()
                         mock_adapter.chat_completions.side_effect = Exception("Test error")
-                        mock_adapter.get_name.return_value = "MockAdapter"
+                        mock_adapter.get_name = MagicMock(return_value="MockAdapter")
                         test_router.adapters["openrouter"] = mock_adapter
                         
                         request_data = {
@@ -232,7 +235,8 @@ class TestRouter:
             mock_settings.get_mapped_model.return_value = ("gemini", "gemini-1.5-pro")
             
             with patch("ai_proxy.core.routing.logger") as mock_logger:
-                mock_logger.bind.return_value = mock_logger
+                mock_bound_logger = MagicMock()
+                mock_logger.bind.return_value = mock_bound_logger
                 
                 with patch("ai_proxy.core.routing.get_endpoint_logger") as mock_endpoint_logger:
                     mock_endpoint_logger.return_value = MagicMock()
@@ -245,7 +249,7 @@ class TestRouter:
                         # Mock the adapter
                         mock_adapter = AsyncMock()
                         mock_adapter.chat_completions.return_value = mock_response
-                        mock_adapter.get_name.return_value = "GeminiAdapter"
+                        mock_adapter.get_name = MagicMock(return_value="GeminiAdapter")
                         test_router.adapters["gemini"] = mock_adapter
                         
                         request_data = {
@@ -287,7 +291,7 @@ class TestRouter:
                         # Mock the adapter
                         mock_adapter = AsyncMock()
                         mock_adapter.chat_completions.return_value = mock_response
-                        mock_adapter.get_name.return_value = "MockAdapter"
+                        mock_adapter.get_name = MagicMock(return_value="MockAdapter")
                         test_router.adapters["openrouter"] = mock_adapter
                         
                         request_data = {

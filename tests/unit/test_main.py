@@ -7,7 +7,7 @@ import asyncio
 import time
 from typing import AsyncGenerator
 
-from ai_proxy.main import app, startup_event, health_check, chat_completions_options, chat_completions
+from ai_proxy.main import app, health_check, chat_completions_options, chat_completions
 
 
 class TestMainApp:
@@ -30,14 +30,18 @@ class TestMainApp:
         assert middleware_found, "CORS middleware not found in middleware stack"
 
 
-class TestStartupEvent:
-    """Test suite for startup event handler."""
+class TestLifespan:
+    """Test suite for lifespan event handler."""
     
     @patch('ai_proxy.main.logger')
     @pytest.mark.asyncio
-    async def test_startup_event(self, mock_logger):
-        """Test startup event logs correctly."""
-        await startup_event()
+    async def test_lifespan_startup(self, mock_logger):
+        """Test lifespan startup logs correctly."""
+        from ai_proxy.main import lifespan
+        
+        async with lifespan(app):
+            pass
+        
         mock_logger.info.assert_called_once_with("Application startup")
 
 

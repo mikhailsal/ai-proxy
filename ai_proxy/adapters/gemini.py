@@ -12,8 +12,11 @@ from ai_proxy.core.config import settings
 class GeminiAdapter(BaseAdapter):
     def __init__(self, api_key: str):
         super().__init__(api_key)
-        # Initialize Gemini client
-        self.gemini_client = genai.Client(api_key=self.api_key)
+        # Only initialize Gemini client if API key is provided
+        if self.api_key:
+            self.gemini_client = genai.Client(api_key=self.api_key)
+        else:
+            self.gemini_client = None
 
     async def chat_completions(
         self, request_data: Dict[str, Any]
@@ -22,6 +25,8 @@ class GeminiAdapter(BaseAdapter):
         Convert OpenAI format to Gemini format and forward the request.
         If GEMINI_AS_IS is enabled, return raw Gemini responses.
         """
+        if not self.gemini_client:
+            raise ValueError("Gemini API key not configured")
         try:
             # Convert OpenAI format to Gemini format
             gemini_request = self._convert_openai_to_gemini(request_data)

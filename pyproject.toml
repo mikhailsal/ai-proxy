@@ -32,4 +32,12 @@ pre-commit = "^4.2.0"
 requests = "^2.32.4"
 pytest-cov = "^6.2.1"
 pytest-asyncio = "^1.0.0"
+types-pyyaml = "^6.0.12.20250516"
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::RuntimeWarning:unittest.mock.*",
+    "ignore::UserWarning:pydantic.*",
+    "ignore::DeprecationWarning:pydantic.*"
+]
 

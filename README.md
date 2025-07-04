@@ -117,6 +117,59 @@ Your service will be available at:
     docker run -d --env-file .env -p 8123:8123 --name ai-proxy-container ai-proxy
     ```
 
+## Testing
+
+**⚠️ Important: All tests must run in Docker containers only!**
+
+This project enforces Docker-only testing to ensure consistent environments, proper isolation, and reproducible results. Tests will automatically fail if run outside of Docker.
+
+### Running Tests
+
+Use the Makefile commands to run tests in Docker:
+
+```bash
+# Run all tests
+make test
+
+# Run only unit tests
+make test-unit
+
+# Run only integration tests
+make test-integration
+
+# Run tests with coverage report
+make coverage
+
+# Run specific test file or function
+make test-specific TEST=tests/unit/test_config.py
+make test-specific TEST=tests/unit/test_config.py::TestSettings::test_init_with_env_vars
+
+# Run tests in watch mode (for development)
+make test-watch
+```
+
+### Direct Docker Commands
+
+You can also run tests directly with Docker Compose:
+
+```bash
+# Run all tests
+docker run --rm -e DOCKER_CONTAINER=true -v $(PWD):/app ai-proxy poetry run pytest tests/
+
+# Run specific test file
+docker run --rm -e DOCKER_CONTAINER=true -v $(PWD):/app ai-proxy poetry run pytest tests/unit/test_config.py -v
+
+# Run with coverage
+docker run --rm -e DOCKER_CONTAINER=true -v $(PWD):/app ai-proxy poetry run pytest tests/ --cov=ai_proxy --cov-report=html
+```
+
+### Why Docker-Only Testing?
+
+- **Consistent Environment**: All developers and CI/CD systems use identical test environments
+- **Isolation**: Tests run in clean, isolated containers without interference from host system
+- **Reproducibility**: Results are consistent across different machines and environments
+- **Dependencies**: All required dependencies and services are properly containerized
+
 ## Usage
 
 Make requests to the proxy service just as you would with the OpenAI API:

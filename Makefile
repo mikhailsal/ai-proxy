@@ -18,28 +18,33 @@ install-dev: ## Install development dependencies
 	@poetry install --with dev
 	@echo "Development dependencies installed successfully!"
 
-# Testing
-test: test-unit test-integration ## Run all tests (unit and integration)
+# Testing (Docker-only)
+test: test-unit test-integration ## Run all tests (unit and integration) in Docker
 
-test-unit: ## Run unit tests
-	@echo "Running unit tests..."
-	@poetry run pytest tests/unit -v --tb=short
+test-unit: ## Run unit tests in Docker
+	@echo "Running unit tests in Docker..."
+	@docker run --rm -e DOCKER_CONTAINER=true -v $(PWD):/app ai-proxy poetry run pytest tests/unit -q --tb=line
 
-test-integration: ## Run integration tests
-	@echo "Running integration tests..."
-	@if [ -n "$$(find tests/integration -name 'test_*.py' -type f 2>/dev/null)" ]; then \
-		poetry run pytest tests/integration -v --tb=short; \
-	else \
-		echo "No integration tests found, skipping..."; \
+test-integration: ## Run integration tests in Docker
+	@echo "Running integration tests in Docker..."
+	@docker run --rm -e DOCKER_CONTAINER=true -v $(PWD):/app ai-proxy sh -c "if [ -n \"\$$(find tests/integration -name 'test_*.py' -type f 2>/dev/null)\" ]; then poetry run pytest tests/integration -q --tb=line; else echo 'No integration tests found, skipping...'; fi"
+
+test-watch: ## Run tests in watch mode in Docker
+	@echo "Running tests in watch mode in Docker..."
+	@docker run --rm -e DOCKER_CONTAINER=true -v $(PWD):/app ai-proxy poetry run pytest tests/ -q --tb=line -f
+
+coverage: ## Run tests with coverage report in Docker
+	@echo "Running tests with coverage in Docker..."
+	@docker run --rm -e DOCKER_CONTAINER=true -v $(PWD):/app ai-proxy poetry run pytest tests/ --tb=line --cov=ai_proxy --cov-report=html || echo "Coverage reporting requires pytest-cov"
+
+test-specific: ## Run specific test file or function in Docker (usage: make test-specific TEST=path/to/test.py)
+	@echo "Running specific test in Docker..."
+	@if [ -z "$(TEST)" ]; then \
+		echo "Usage: make test-specific TEST=path/to/test.py"; \
+		echo "       make test-specific TEST=path/to/test.py::test_function"; \
+		exit 1; \
 	fi
-
-test-watch: ## Run tests in watch mode
-	@echo "Running tests in watch mode..."
-	@poetry run pytest tests/ -v --tb=short -f
-
-coverage: ## Run tests with coverage report
-	@echo "Running tests with coverage..."
-	@poetry run pytest tests/ --tb=short || echo "Coverage reporting requires pytest-cov (poetry add --group dev pytest-cov)"
+	@docker run --rm -e DOCKER_CONTAINER=true -v $(PWD):/app ai-proxy poetry run pytest $(TEST) -q --tb=line
 
 # Code quality
 lint: ## Run linting checks
@@ -169,13 +174,13 @@ setup: install setup-hooks env-example ## Complete development setup
 	@echo "Development setup complete!"
 	@echo "Please edit .env with your configuration before running the application"
 
-ci: lint test coverage ## Run all CI checks (excluding type-check due to missing stubs)
+ci: lint test coverage ## Run all CI checks (excluding type-check due to missing stubs) in Docker
 	@echo "All CI checks completed!"
 
 # Quick development workflow
-quick-test: format test-unit ## Quick test cycle for development
+quick-test: format test-unit ## Quick test cycle for development in Docker
 	@echo "Quick test cycle completed!"
 
 # Production readiness check
-prod-check: lint type-check test coverage security-check ## Check if ready for production
+prod-check: lint type-check test coverage security-check ## Check if ready for production in Docker
 	@echo "Production readiness check completed!" 

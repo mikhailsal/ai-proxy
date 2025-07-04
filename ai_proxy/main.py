@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 import time
 from typing import AsyncGenerator
 import json
@@ -21,7 +22,17 @@ DEPLOYMENT_TIMESTAMP_FILE = "/app/deployment-timestamp.txt"
 # Initialize logging with file support
 setup_logging(log_level="INFO", enable_file_logging=True)
 
-app = FastAPI(title="AI Proxy Service")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan handler."""
+    # Startup
+    logger.info("Application startup")
+    yield
+    # Shutdown (if needed)
+
+
+app = FastAPI(title="AI Proxy Service", lifespan=lifespan)
 
 # Add CORS middleware
 app.add_middleware(
@@ -31,11 +42,6 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
-
-
-@app.on_event("startup")
-async def startup_event():
-    logger.info("Application startup")
 
 
 @app.get("/health", tags=["Admin"])

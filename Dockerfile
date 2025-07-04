@@ -13,8 +13,8 @@ ENV POETRY_VIRTUALENVS_CREATE=false
 # Copy project files
 COPY poetry.lock pyproject.toml ./
 
-# Install dependencies
-RUN poetry install --no-root --only main
+# Install dependencies (including dev for testing)
+RUN poetry install --no-root
 
 # Copy application source code
 COPY ./ai_proxy ./ai_proxy

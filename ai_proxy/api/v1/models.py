@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Dict, Any, Optional
 
 # Based on https://platform.openai.com/docs/api-reference/chat/create
@@ -24,8 +24,7 @@ class ChatCompletionRequest(BaseModel):
     user: Optional[str] = None
 
     # Allow any other fields to be passed through
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 # Based on https://platform.openai.com/docs/api-reference/chat/object
