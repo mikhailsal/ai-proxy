@@ -19,8 +19,11 @@ RUN poetry install --no-root --only main
 # Copy application source code
 COPY ./ai_proxy ./ai_proxy
 COPY ./config.yml ./config.yml
-COPY ./deployment-timestamp.txt ./deployment-timestamp.txt
+
+# Copy setup script to handle deployment timestamp
+COPY ./scripts/docker-setup.sh ./docker-setup.sh
+RUN chmod +x ./docker-setup.sh
 
 # Expose port and run application
 EXPOSE 8123
-CMD ["uvicorn", "ai_proxy.main:app", "--host", "0.0.0.0", "--port", "8123"] 
+CMD ["./docker-setup.sh", "uvicorn", "ai_proxy.main:app", "--host", "0.0.0.0", "--port", "8123"] 
