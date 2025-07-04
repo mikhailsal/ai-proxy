@@ -7,20 +7,20 @@ from ai_proxy.adapters.openrouter import OpenRouterAdapter
 from ai_proxy.adapters.gemini import GeminiAdapter
 from ai_proxy.logging.config import logger, get_endpoint_logger, get_model_logger
 
+
 class Router:
     def __init__(self):
         # Initialize adapters - keys can be missing, check at request time
         self.adapters = {
             "openrouter": OpenRouterAdapter(settings.openrouter_api_key or ""),
-            "gemini": GeminiAdapter(settings.gemini_api_key or "")
+            "gemini": GeminiAdapter(settings.gemini_api_key or ""),
         }
 
     def _get_adapter(self, provider: str):
         """Get adapter for the specified provider."""
         if provider not in self.adapters:
             raise HTTPException(
-                status_code=400, 
-                detail=f"Unsupported provider: {provider}"
+                status_code=400, detail=f"Unsupported provider: {provider}"
             )
         return self.adapters[provider]
 
@@ -28,16 +28,16 @@ class Router:
         """Validate that the provider API key is configured."""
         if provider == "openrouter" and not settings.openrouter_api_key:
             raise HTTPException(
-                status_code=500, 
-                detail="OPENROUTER_API_KEY is not configured"
+                status_code=500, detail="OPENROUTER_API_KEY is not configured"
             )
         elif provider == "gemini" and not settings.gemini_api_key:
             raise HTTPException(
-                status_code=500, 
-                detail="GEMINI_API_KEY is not configured"
+                status_code=500, detail="GEMINI_API_KEY is not configured"
             )
 
-    async def route_chat_completions(self, request_data: Dict[str, Any], api_key: str) -> Union[httpx.Response, AsyncGenerator[str, None]]:
+    async def route_chat_completions(
+        self, request_data: Dict[str, Any], api_key: str
+    ) -> Union[httpx.Response, AsyncGenerator[str, None]]:
         """
         Routes a chat completion request to the appropriate provider.
         Returns either an httpx.Response for non-streaming or AsyncGenerator for streaming.
@@ -45,13 +45,13 @@ class Router:
         original_model = request_data.get("model")
         provider, mapped_model = settings.get_mapped_model(original_model)
         is_streaming = request_data.get("stream", False)
-        
+
         # Validate provider API key
         self._validate_provider_key(provider)
-        
+
         # Get the appropriate adapter
         adapter = self._get_adapter(provider)
-        
+
         # Update request with mapped model
         request_data["model"] = mapped_model
 
@@ -61,11 +61,11 @@ class Router:
             mapped_model=mapped_model,
             provider=provider,
             adapter=adapter.get_name(),
-            streaming=is_streaming
+            streaming=is_streaming,
         )
 
         log.info("Routing chat completion request")
-        
+
         # Also log to routing-specific log
         routing_logger = get_endpoint_logger("routing")
         routing_logger.info(
@@ -75,9 +75,9 @@ class Router:
             provider=provider,
             adapter_name=adapter.get_name(),
             streaming=is_streaming,
-            api_key_hash=str(hash(api_key))
+            api_key_hash=str(hash(api_key)),
         )
-        
+
         # Log to model-specific logs
         if original_model:
             original_model_logger = get_model_logger(original_model)
@@ -88,9 +88,9 @@ class Router:
                 provider=provider,
                 adapter=adapter.get_name(),
                 streaming=is_streaming,
-                api_key_hash=str(hash(api_key))
+                api_key_hash=str(hash(api_key)),
             )
-        
+
         if mapped_model and mapped_model != original_model:
             mapped_model_logger = get_model_logger(mapped_model)
             mapped_model_logger.info(
@@ -100,19 +100,21 @@ class Router:
                 provider=provider,
                 adapter=adapter.get_name(),
                 streaming=is_streaming,
-                api_key_hash=str(hash(api_key))
+                api_key_hash=str(hash(api_key)),
             )
 
         try:
             response = await adapter.chat_completions(request_data)
-            
+
             if is_streaming:
                 log.info("Successfully initiated streaming request")
                 # For streaming, we return the async generator directly
                 return response
             else:
-                log.info("Successfully routed request", status_code=response.status_code)
-                
+                log.info(
+                    "Successfully routed request", status_code=response.status_code
+                )
+
                 # Log successful response to model logs
                 if original_model:
                     original_model_logger = get_model_logger(original_model)
@@ -122,13 +124,13 @@ class Router:
                         mapped_model=mapped_model,
                         provider=provider,
                         status_code=response.status_code,
-                        api_key_hash=str(hash(api_key))
+                        api_key_hash=str(hash(api_key)),
                     )
-                
+
                 return response
         except Exception as e:
             log.error("Error in routing request", error=str(e), exc_info=e)
-            
+
             # Log error to model logs
             if original_model:
                 original_model_logger = get_model_logger(original_model)
@@ -139,9 +141,10 @@ class Router:
                     provider=provider,
                     error=str(e),
                     streaming=is_streaming,
-                    api_key_hash=str(hash(api_key))
+                    api_key_hash=str(hash(api_key)),
                 )
-            
+
             raise
+
 
 router = Router()

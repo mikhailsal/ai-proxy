@@ -1,11 +1,13 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 
 # Based on https://platform.openai.com/docs/api-reference/chat/create
 
+
 class ChatMessage(BaseModel):
     role: str
     content: str
+
 
 class ChatCompletionRequest(BaseModel):
     model: str
@@ -25,17 +27,21 @@ class ChatCompletionRequest(BaseModel):
     class Config:
         extra = "allow"
 
+
 # Based on https://platform.openai.com/docs/api-reference/chat/object
+
 
 class Choice(BaseModel):
     index: int
     message: ChatMessage
     finish_reason: Optional[str] = None
 
+
 class Usage(BaseModel):
     prompt_tokens: int
     completion_tokens: int
     total_tokens: int
+
 
 class ChatCompletionResponse(BaseModel):
     id: str
@@ -45,11 +51,13 @@ class ChatCompletionResponse(BaseModel):
     choices: List[Choice]
     usage: Usage
 
+
 # Streaming models
 class DeltaChoice(BaseModel):
     index: int
     delta: Dict[str, Any]  # Can contain role, content, etc.
     finish_reason: Optional[str] = None
+
 
 class ChatCompletionStreamResponse(BaseModel):
     id: str

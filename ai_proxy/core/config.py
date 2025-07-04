@@ -10,9 +10,7 @@ class Settings:
     def __init__(self):
         load_dotenv()
         self.api_keys: List[str] = os.getenv("API_KEYS", "").split(",")
-        self.openrouter_api_key: Optional[str] = os.getenv(
-            "OPENROUTER_API_KEY"
-        )
+        self.openrouter_api_key: Optional[str] = os.getenv("OPENROUTER_API_KEY")
         self.gemini_api_key: Optional[str] = os.getenv("GEMINI_API_KEY")
         self.gemini_as_is: bool = os.getenv("GEMINI_AS_IS", "").upper() == "TRUE"
         self.config_path = Path(os.getenv("CONFIG_PATH", "config.yml"))
@@ -70,12 +68,15 @@ if __name__ == "__main__":
     # Example usage
     # Create a dummy config.yml
     with open("config.yml", "w") as f:
-        yaml.dump({
-            "model_mappings": {
-                "gpt-4*": "openai/gpt-4",
-                "claude-3-opus": "anthropic/claude-3-opus"
-            }
-        }, f)
+        yaml.dump(
+            {
+                "model_mappings": {
+                    "gpt-4*": "openai/gpt-4",
+                    "claude-3-opus": "anthropic/claude-3-opus",
+                }
+            },
+            f,
+        )
 
     # Set dummy env vars
     os.environ["API_KEYS"] = "key1,key2"
@@ -86,8 +87,7 @@ if __name__ == "__main__":
     print(f"OpenRouter Key: {s.openrouter_api_key}")
     print(f"Model Mappings: {s.model_mappings}")
     print(f"Mapping for 'gpt-4-turbo': {s.get_mapped_model('gpt-4-turbo')}")
-    print(f"Mapping for 'claude-3-opus': "
-          f"{s.get_mapped_model('claude-3-opus')}")
+    print(f"Mapping for 'claude-3-opus': " f"{s.get_mapped_model('claude-3-opus')}")
     print(f"Mapping for 'gemini-pro': {s.get_mapped_model('gemini-pro')}")
 
     # cleanup
