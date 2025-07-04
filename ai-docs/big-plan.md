@@ -1,4 +1,4 @@
-- [ ] Create the first proof-of-concept unit test
+- [x] Create the first proof-of-concept unit test
 - [ ] Create a Makefile with all basic functions, including test execution
 - [ ] Create unit tests with 100% coverage
 - [ ] Implement a check: All tests should run only in Docker, and throw an error if any attempt to run outside
