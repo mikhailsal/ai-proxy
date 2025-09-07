@@ -1,0 +1,36 @@
+services:
+  ai-proxy:
+    build: .
+    container_name: ai-proxy-test-app
+    env_file:
+      - .env
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8123
+      - LOG_LEVEL=ERROR
+    volumes:
+      - ./config.yml:/app/config.yml
+      - ./logs:/app/logs
+    logging:
+      driver: none
+
+  pytest:
+    build: .
+    container_name: ai-proxy-test-runner
+    depends_on:
+      - ai-proxy
+    env_file:
+      - .env
+    environment:
+      - FUNCTIONAL_TEST_BASE_URL=http://ai-proxy:8123
+      - ENABLE_FUNCTIONAL_TESTS=true
+      - DOCKER_CONTAINER=true
+    volumes:
+      - .:/app
+    command:
+      - /bin/sh
+      - -c
+      - |
+        ./wait-for-service.sh http://ai-proxy:8123/health 120
+        echo "AI proxy service is up, running tests..."
+        poetry run pytest tests/functional --tb=short -q 

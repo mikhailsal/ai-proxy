@@ -9,13 +9,22 @@ import fnmatch
 class Settings:
     def __init__(self):
         load_dotenv()
-        self.api_keys: List[str] = os.getenv("API_KEYS", "").split(",")
-        self.openrouter_api_key: Optional[str] = os.getenv("OPENROUTER_API_KEY")
-        self.gemini_api_key: Optional[str] = os.getenv("GEMINI_API_KEY")
+        self.api_keys: List[str] = [self._clean_env_value(key) for key in os.getenv("API_KEYS", "").split(",") if key]
+        self.openrouter_api_key: Optional[str] = self._clean_env_value(os.getenv("OPENROUTER_API_KEY"))
+        self.gemini_api_key: Optional[str] = self._clean_env_value(os.getenv("GEMINI_API_KEY"))
         self.gemini_as_is: bool = os.getenv("GEMINI_AS_IS", "").upper() == "TRUE"
         self.config_path = Path(os.getenv("CONFIG_PATH", "config.yml"))
         self.model_mappings: Dict[str, str] = {}
         self.load_config()
+
+    def _clean_env_value(self, value: Optional[str]) -> Optional[str]:
+        """Remove surrounding quotes from environment variable values."""
+        if not value:
+            return value
+        # Remove surrounding quotes if present
+        if (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
+            return value[1:-1]
+        return value
 
     def load_config(self):
         if self.config_path.exists():

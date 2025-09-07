@@ -29,6 +29,14 @@ test-integration: ## Run integration tests in Docker
 	@echo "Running integration tests in Docker..."
 	@docker run --rm -e DOCKER_CONTAINER=true -v $(PWD):/app ai-proxy sh -c "if [ -n \"\$$(find tests/integration -name 'test_*.py' -type f 2>/dev/null)\" ]; then poetry run pytest tests/integration -q --tb=line; else echo 'No integration tests found, skipping...'; fi"
 
+test-functional: ## Run functional tests with real API keys (disabled by default)
+	@echo "⚠️  WARNING: Functional tests use real API keys and may incur costs!"
+	@echo "Running functional tests with Docker Compose..."
+	@docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --remove-orphans > /dev/null 2>&1 || \
+	(docker compose -f docker-compose.test.yml logs pytest && exit 1)
+	@echo "Functional tests finished, cleaning up..."
+	@docker compose -f docker-compose.test.yml down -v > /dev/null 2>&1
+
 test-watch: ## Run tests in watch mode in Docker
 	@echo "Running tests in watch mode in Docker..."
 	@docker run --rm -e DOCKER_CONTAINER=true -v $(PWD):/app ai-proxy poetry run pytest tests/ -q --tb=line -f
@@ -108,11 +116,11 @@ deploy: ## Deploy to production (use DEPLOY_HOST=hostname make deploy)
 
 deploy-stop: ## Stop production deployment
 	@echo "Stopping production deployment..."
-	@docker-compose down
+	@docker compose down
 
 deploy-logs: ## View production logs
 	@echo "Viewing production logs..."
-	@docker-compose logs -f
+	@docker compose logs -f
 
 # HTTPS setup
 setup-https: ## Set up HTTPS with Let's Encrypt
