@@ -5,3 +5,4 @@
 - [x] Add a linter and automatic lint fixer in the Makefile, similar to ~/myprojects/tts-python-ai/Makefile
 - [x] Split README.md into: README.MD and DEVELOPMENT.MD
 - [x] Create functional tests wich uses real api keys and real data (disabled by default, but could be run with special Makefile target)
+- [x] Create seperate functional tests for different providers (Gemini, OpenRouter, etc.)

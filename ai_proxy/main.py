@@ -15,6 +15,7 @@ from ai_proxy.logging.config import (
 from ai_proxy.security.auth import get_api_key
 from ai_proxy.core.routing import router
 from ai_proxy.core.config import settings
+from ai_proxy.api.v1.models import ChatCompletionRequest
 
 # Path to the deployment timestamp file
 DEPLOYMENT_TIMESTAMP_FILE = "/app/deployment-timestamp.txt"
@@ -89,8 +90,24 @@ async def chat_completions(request: Request, api_key: str = Depends(get_api_key)
     start_time = time.time()
     endpoint = request.url.path
 
-    # We get the raw request body to pass it through
-    request_data = await request.json()
+    # Parse and validate request body
+    try:
+        request_data = await request.json()
+        # Validate with Pydantic model
+        validated_request = ChatCompletionRequest(**request_data)
+        request_data = validated_request.model_dump()
+    except ValueError as e:
+        logger.error(f"Invalid request data: {e}")
+        return JSONResponse(
+            content={"error": {"message": f"Invalid request: {str(e)}", "type": "invalid_request_error"}},
+            status_code=400
+        )
+    except Exception as e:
+        logger.error(f"Failed to parse request: {e}")
+        return JSONResponse(
+            content={"error": {"message": "Malformed JSON in request body", "type": "invalid_request_error"}},
+            status_code=400
+        )
 
     # Extract model information for logging
     original_model = request_data.get("model", "unknown")

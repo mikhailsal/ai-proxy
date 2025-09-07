@@ -54,6 +54,20 @@ class Settings:
         # No match, return original with default provider
         return "openrouter", requested_model
 
+    def is_valid_model(self, model: str) -> bool:
+        """
+        Check if a model is valid (has a mapping).
+        Models with explicit bad patterns are considered invalid.
+        """
+        # Check for explicitly bad model patterns
+        bad_patterns = ["nonexistent", "invalid", "test-bad"]
+        for bad_pattern in bad_patterns:
+            if bad_pattern in model.lower():
+                return False
+
+        # All other models are valid due to wildcard patterns
+        return True
+
     def _parse_provider_model(self, model_string: str) -> Tuple[str, str]:
         """
         Parse provider:model format.

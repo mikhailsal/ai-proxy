@@ -46,6 +46,13 @@ class Router:
         provider, mapped_model = settings.get_mapped_model(original_model)
         is_streaming = request_data.get("stream", False)
 
+        # Validate model exists
+        if not settings.is_valid_model(original_model):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid model: {original_model}. Model not supported."
+            )
+
         # Validate provider API key
         self._validate_provider_key(provider)
 

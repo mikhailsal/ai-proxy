@@ -45,19 +45,20 @@ def docker_container_check():
 def api_keys_check():
     """Check that required API keys are available."""
     missing_keys = []
-    
+
     if not os.getenv("API_KEYS"):
         missing_keys.append("API_KEYS")
-    
-    # Check for at least one provider API key
-    has_provider_key = any([
-        os.getenv("GEMINI_API_KEY"),
-        os.getenv("OPENROUTER_API_KEY")
-    ])
-    
-    if not has_provider_key:
-        missing_keys.append("GEMINI_API_KEY or OPENROUTER_API_KEY")
-    
+
+    # For now, don't require provider API keys for any functional tests
+    # They can be added when testing specific providers
+    # has_provider_key = any([
+    #     os.getenv("GEMINI_API_KEY"),
+    #     os.getenv("OPENROUTER_API_KEY")
+    # ])
+
+    # if not has_provider_key:
+    #     missing_keys.append("GEMINI_API_KEY or OPENROUTER_API_KEY")
+
     if missing_keys:
         pytest.skip(f"Missing required environment variables: {', '.join(missing_keys)}")
 

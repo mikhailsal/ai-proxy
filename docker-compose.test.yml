@@ -25,6 +25,7 @@ services:
       - FUNCTIONAL_TEST_BASE_URL=http://ai-proxy:8123
       - ENABLE_FUNCTIONAL_TESTS=true
       - DOCKER_CONTAINER=true
+      - TEST_PATH=${TEST_PATH:-tests/functional}
     volumes:
       - .:/app
     command:
@@ -33,4 +34,4 @@ services:
       - |
         ./wait-for-service.sh http://ai-proxy:8123/health 120
         echo "AI proxy service is up, running tests..."
-        poetry run pytest tests/functional --tb=short -q 
+        poetry run pytest ${TEST_PATH} --tb=short -q 

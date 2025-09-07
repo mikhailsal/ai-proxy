@@ -29,12 +29,35 @@ test-integration: ## Run integration tests in Docker
 	@echo "Running integration tests in Docker..."
 	@docker run --rm -e DOCKER_CONTAINER=true -v $(PWD):/app ai-proxy sh -c "if [ -n \"\$$(find tests/integration -name 'test_*.py' -type f 2>/dev/null)\" ]; then poetry run pytest tests/integration -q --tb=line; else echo 'No integration tests found, skipping...'; fi"
 
-test-functional: ## Run functional tests with real API keys (disabled by default)
+test-functional: ## Run all functional tests with real API keys (disabled by default)
 	@echo "⚠️  WARNING: Functional tests use real API keys and may incur costs!"
-	@echo "Running functional tests with Docker Compose..."
-	@docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --remove-orphans > /dev/null 2>&1 || \
-	(docker compose -f docker-compose.test.yml logs pytest && exit 1)
+	@echo "Running all functional tests with Docker Compose..."
+	@TEST_PATH=tests/functional docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --remove-orphans > /dev/null 2>&1 || \
+	(TEST_PATH=tests/functional docker compose -f docker-compose.test.yml logs pytest && exit 1)
 	@echo "Functional tests finished, cleaning up..."
+	@docker compose -f docker-compose.test.yml down -v > /dev/null 2>&1
+
+test-functional-gemini: ## Run only Gemini functional tests
+	@echo "⚠️  WARNING: Gemini functional tests use real API keys and may incur costs!"
+	@echo "Running Gemini functional tests..."
+	@TEST_PATH=tests/functional/test_gemini.py docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --remove-orphans > /dev/null 2>&1 || \
+	(TEST_PATH=tests/functional/test_gemini.py docker compose -f docker-compose.test.yml logs pytest && exit 1)
+	@echo "Gemini functional tests finished, cleaning up..."
+	@docker compose -f docker-compose.test.yml down -v > /dev/null 2>&1
+
+test-functional-openrouter: ## Run only OpenRouter functional tests
+	@echo "⚠️  WARNING: OpenRouter functional tests use real API keys and may incur costs!"
+	@echo "Running OpenRouter functional tests..."
+	@TEST_PATH=tests/functional/test_openrouter.py docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --remove-orphans > /dev/null 2>&1 || \
+	(TEST_PATH=tests/functional/test_openrouter.py docker compose -f docker-compose.test.yml logs pytest && exit 1)
+	@echo "OpenRouter functional tests finished, cleaning up..."
+	@docker compose -f docker-compose.test.yml down -v > /dev/null 2>&1
+
+test-functional-general: ## Run only general functional tests (no external API costs)
+	@echo "Running general functional tests (no external API costs)..."
+	@TEST_PATH=tests/functional/test_general.py docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --remove-orphans > /dev/null 2>&1 || \
+	(TEST_PATH=tests/functional/test_general.py docker compose -f docker-compose.test.yml logs pytest && exit 1)
+	@echo "General functional tests finished, cleaning up..."
 	@docker compose -f docker-compose.test.yml down -v > /dev/null 2>&1
 
 test-watch: ## Run tests in watch mode in Docker
