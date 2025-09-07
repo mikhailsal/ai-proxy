@@ -8,6 +8,7 @@ services:
       - HOST=0.0.0.0
       - PORT=8123
       - LOG_LEVEL=ERROR
+      - ENABLE_FILE_LOGGING=false
     volumes:
       - ./config.yml:/app/config.yml
       - ./logs:/app/logs
@@ -34,4 +35,4 @@ services:
       - |
         ./wait-for-service.sh http://ai-proxy:8123/health 120
         echo "AI proxy service is up, running tests..."
-        poetry run pytest ${TEST_PATH} --tb=short -q 
+        poetry run pytest ${TEST_PATH} --tb=line -q --disable-warnings 

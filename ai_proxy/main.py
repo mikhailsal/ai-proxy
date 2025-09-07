@@ -21,7 +21,10 @@ from ai_proxy.api.v1.models import ChatCompletionRequest
 DEPLOYMENT_TIMESTAMP_FILE = "/app/deployment-timestamp.txt"
 
 # Initialize logging with file support
-setup_logging(log_level="INFO", enable_file_logging=True)
+import os
+log_level = os.getenv("LOG_LEVEL", "INFO")
+enable_file_logging = os.getenv("ENABLE_FILE_LOGGING", "true").lower() == "true"
+setup_logging(log_level=log_level, enable_file_logging=enable_file_logging)
 
 
 @asynccontextmanager

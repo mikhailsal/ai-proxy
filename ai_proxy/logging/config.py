@@ -101,6 +101,14 @@ def setup_logging(log_level: str = "INFO", enable_file_logging: bool = True):
     # Console handler with pretty JSON
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(log_level_obj)
+    
+    # Reduce verbosity for higher log levels (WARNING, ERROR)
+    if log_level_obj >= logging.WARNING:
+        # Disable some noisy loggers for tests
+        logging.getLogger("httpx").setLevel(logging.ERROR)
+        logging.getLogger("httpcore").setLevel(logging.ERROR)
+        logging.getLogger("uvicorn").setLevel(logging.ERROR)
+        logging.getLogger("uvicorn.access").setLevel(logging.ERROR)
 
     # Main application log file handler
     if enable_file_logging:
@@ -128,8 +136,13 @@ def setup_logging(log_level: str = "INFO", enable_file_logging: bool = True):
         structlog.processors.format_exc_info,
     ]
 
-    # Use pretty JSON renderer for better readability
-    processors.append(PrettyJSONRenderer())
+    # Use different renderer based on log level
+    if log_level_obj >= logging.WARNING:
+        # For tests/high log levels, use simpler output
+        processors.append(structlog.dev.ConsoleRenderer())
+    else:
+        # Use pretty JSON renderer for better readability in development
+        processors.append(PrettyJSONRenderer())
 
     structlog.configure(
         processors=processors,
