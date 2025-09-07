@@ -98,7 +98,7 @@ async def chat_completions(request: Request, api_key: str = Depends(get_api_key)
         request_data = await request.json()
         # Validate with Pydantic model
         validated_request = ChatCompletionRequest(**request_data)
-        request_data = validated_request.model_dump()
+        request_data = validated_request.model_dump(exclude_none=True)
     except ValueError as e:
         logger.error(f"Invalid request data: {e}")
         return JSONResponse(
@@ -308,11 +308,11 @@ async def chat_completions(request: Request, api_key: str = Depends(get_api_key)
 
             return StreamingResponse(
                 log_and_stream(),
-                media_type="text/plain",
+                media_type="text/event-stream",
                 headers={
                     "Cache-Control": "no-cache",
                     "Connection": "keep-alive",
-                    "Content-Type": "text/plain; charset=utf-8",
+                    "Content-Type": "text/event-stream",
                 },
             )
         else:
