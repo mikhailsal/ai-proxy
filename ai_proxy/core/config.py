@@ -9,7 +9,7 @@ import fnmatch
 class Settings:
     def __init__(self):
         load_dotenv()
-        self.api_keys: List[str] = [self._clean_env_value(key) for key in os.getenv("API_KEYS", "").split(",") if key]
+        self.api_keys: List[str] = [self._clean_env_value(key) for key in os.getenv("API_KEYS", "").split(",") if key] or [""]
         self.openrouter_api_key: Optional[str] = self._clean_env_value(os.getenv("OPENROUTER_API_KEY"))
         self.gemini_api_key: Optional[str] = self._clean_env_value(os.getenv("GEMINI_API_KEY"))
         self.gemini_as_is: bool = os.getenv("GEMINI_AS_IS", "").upper() == "TRUE"

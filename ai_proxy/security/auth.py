@@ -41,7 +41,7 @@ def get_api_key_dependency():
         ):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid API Key",
+                detail="Invalid or missing API Key",
             )
         return key
 

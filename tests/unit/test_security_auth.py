@@ -1,20 +1,31 @@
 import pytest
-from unittest.mock import patch
-from fastapi import HTTPException
+from unittest.mock import patch, Mock
+from fastapi import HTTPException, Request
 from fastapi.security import APIKeyHeader
 
-from ai_proxy.security.auth import get_api_key, API_KEY_HEADER
+from ai_proxy.security.auth import get_api_key_dependency, API_KEY_HEADER
 
 
 class TestSecurityAuth:
     """Test cases for the security auth module."""
+
+    async def _get_test_api_key(self, auth_header: str):
+        """Helper function to test get_api_key with a simple string."""
+        # Create the dependency function
+        get_api_key_func = get_api_key_dependency()
+        
+        # Create mock request
+        mock_request = Mock(spec=Request)
+        
+        # Call the function with the auth header
+        return await get_api_key_func(mock_request, auth_header)
 
     def test_api_key_header_configuration(self):
         """Test that API_KEY_HEADER is properly configured."""
         assert isinstance(API_KEY_HEADER, APIKeyHeader)
         assert API_KEY_HEADER.model.name == "Authorization"
         # auto_error is a parameter of APIKeyHeader constructor, not model attribute
-        assert API_KEY_HEADER.auto_error is True
+        assert API_KEY_HEADER.auto_error is False
 
     @pytest.mark.asyncio
     async def test_get_api_key_valid_bearer_token(self):
@@ -22,7 +33,7 @@ class TestSecurityAuth:
         with patch("ai_proxy.security.auth.settings") as mock_settings:
             mock_settings.api_keys = ["valid_key", "another_key"]
 
-            result = await get_api_key("Bearer valid_key")
+            result = await self._get_test_api_key("Bearer valid_key")
             assert result == "valid_key"
 
     @pytest.mark.asyncio
@@ -31,7 +42,7 @@ class TestSecurityAuth:
         with patch("ai_proxy.security.auth.settings") as mock_settings:
             mock_settings.api_keys = ["key1", "key2", "key3"]
 
-            result = await get_api_key("Bearer key2")
+            result = await self._get_test_api_key("Bearer key2")
             assert result == "key2"
 
     @pytest.mark.asyncio
@@ -41,7 +52,7 @@ class TestSecurityAuth:
             mock_settings.api_keys = ["valid_key"]
 
             with pytest.raises(HTTPException) as exc_info:
-                await get_api_key("InvalidFormat")
+                await self._get_test_api_key("InvalidFormat")
 
             assert exc_info.value.status_code == 401
             assert "Invalid Authorization header format" in exc_info.value.detail
@@ -53,7 +64,7 @@ class TestSecurityAuth:
             mock_settings.api_keys = ["valid_key"]
 
             with pytest.raises(HTTPException) as exc_info:
-                await get_api_key("Basic valid_key")
+                await self._get_test_api_key("Basic valid_key")
 
             assert exc_info.value.status_code == 401
             assert "Invalid Authorization scheme" in exc_info.value.detail
@@ -65,13 +76,13 @@ class TestSecurityAuth:
             mock_settings.api_keys = ["valid_key"]
 
             # Test different cases
-            result1 = await get_api_key("bearer valid_key")
+            result1 = await self._get_test_api_key("bearer valid_key")
             assert result1 == "valid_key"
 
-            result2 = await get_api_key("BEARER valid_key")
+            result2 = await self._get_test_api_key("BEARER valid_key")
             assert result2 == "valid_key"
 
-            result3 = await get_api_key("BeArEr valid_key")
+            result3 = await self._get_test_api_key("BeArEr valid_key")
             assert result3 == "valid_key"
 
     @pytest.mark.asyncio
@@ -81,7 +92,7 @@ class TestSecurityAuth:
             mock_settings.api_keys = ["valid_key1", "valid_key2"]
 
             with pytest.raises(HTTPException) as exc_info:
-                await get_api_key("Bearer invalid_key")
+                await self._get_test_api_key("Bearer invalid_key")
 
             assert exc_info.value.status_code == 401
             assert "Invalid or missing API Key" in exc_info.value.detail
@@ -93,7 +104,7 @@ class TestSecurityAuth:
             mock_settings.api_keys = []
 
             with pytest.raises(HTTPException) as exc_info:
-                await get_api_key("Bearer any_key")
+                await self._get_test_api_key("Bearer any_key")
 
             assert exc_info.value.status_code == 401
             assert "Invalid or missing API Key" in exc_info.value.detail
@@ -104,7 +115,7 @@ class TestSecurityAuth:
         with patch("ai_proxy.security.auth.settings") as mock_settings:
             mock_settings.api_keys = ["", "valid_key", ""]
 
-            result = await get_api_key("Bearer valid_key")
+            result = await self._get_test_api_key("Bearer valid_key")
             assert result == "valid_key"
 
     @pytest.mark.asyncio
@@ -114,7 +125,7 @@ class TestSecurityAuth:
             mock_settings.api_keys = ["", "", ""]
 
             with pytest.raises(HTTPException) as exc_info:
-                await get_api_key("Bearer any_key")
+                await self._get_test_api_key("Bearer any_key")
 
             assert exc_info.value.status_code == 401
             assert "Invalid or missing API Key" in exc_info.value.detail
@@ -129,7 +140,7 @@ class TestSecurityAuth:
             with patch("ai_proxy.security.auth.secrets.compare_digest") as mock_compare:
                 mock_compare.return_value = True
 
-                result = await get_api_key("Bearer secret_key")
+                result = await self._get_test_api_key("Bearer secret_key")
                 assert result == "secret_key"
 
                 # Verify compare_digest was called
@@ -141,7 +152,7 @@ class TestSecurityAuth:
         with patch("ai_proxy.security.auth.settings") as mock_settings:
             mock_settings.api_keys = ["key_with_spaces"]
 
-            result = await get_api_key("Bearer key_with_spaces")
+            result = await self._get_test_api_key("Bearer key_with_spaces")
             assert result == "key_with_spaces"
 
     @pytest.mark.asyncio
@@ -151,5 +162,5 @@ class TestSecurityAuth:
             # The partition method will include the extra space in the key
             mock_settings.api_keys = [" valid_key"]  # Include space in the valid key
 
-            result = await get_api_key("Bearer  valid_key")
+            result = await self._get_test_api_key("Bearer  valid_key")
             assert result == " valid_key"  # Extra space becomes part of the key
