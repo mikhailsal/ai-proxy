@@ -1,12 +1,29 @@
-from pydantic import BaseModel, ConfigDict
-from typing import List, Dict, Any, Optional
+from pydantic import BaseModel, ConfigDict, field_validator
+from typing import List, Dict, Any, Optional, Union
 
 # Based on https://platform.openai.com/docs/api-reference/chat/create
 
 
 class ChatMessage(BaseModel):
     role: str
-    content: str
+    content: Union[str, List[Any]]
+    
+    @field_validator('content')
+    @classmethod
+    def validate_content(cls, v):
+        # Convert list format to string for backward compatibility
+        if isinstance(v, list):
+            # Extract text from list of content objects
+            text_parts = []
+            for item in v:
+                if isinstance(item, dict):
+                    if item.get('type') == 'text':
+                        text_parts.append(item.get('text', ''))
+                    # For now, ignore non-text content like images
+                else:
+                    text_parts.append(str(item))
+            return ' '.join(text_parts)
+        return v
 
 
 class ChatCompletionRequest(BaseModel):

@@ -184,3 +184,7 @@ class TestGeneralEndpoints:
         response = await client.get("/")
         # Could be 404 or redirect, but should not be 500
         assert response.status_code != 500
+
+
+# Content format tests are covered by unit tests in test_api_models.py
+# These functional tests focus on end-to-end behavior without external API costs

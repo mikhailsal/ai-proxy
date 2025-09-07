@@ -21,6 +21,65 @@ class TestChatMessage:
         assert message.role == "user"
         assert message.content == "Hello, world!"
 
+    def test_chat_message_with_string_content(self):
+        """Test ChatMessage with traditional string content."""
+        message = ChatMessage(role="user", content="Simple string message")
+        
+        assert message.role == "user"
+        assert message.content == "Simple string message"
+        
+    def test_chat_message_with_array_content(self):
+        """Test ChatMessage with new array content format."""
+        content_array = [
+            {"type": "text", "text": "Hello"},
+            {"type": "text", "text": "World"}
+        ]
+        message = ChatMessage(role="user", content=content_array)
+        
+        assert message.role == "user"
+        assert message.content == "Hello World"  # Should be joined with spaces
+        
+    def test_chat_message_with_single_text_object(self):
+        """Test ChatMessage with single text object in array."""
+        content_array = [
+            {"type": "text", "text": "Single text message"}
+        ]
+        message = ChatMessage(role="user", content=content_array)
+        
+        assert message.role == "user"
+        assert message.content == "Single text message"
+        
+    def test_chat_message_with_mixed_content_types(self):
+        """Test ChatMessage with mixed content types in array."""
+        content_array = [
+            {"type": "text", "text": "Text part"},
+            {"type": "image", "url": "http://example.com/image.jpg"},  # Should be ignored
+            {"type": "text", "text": "More text"}
+        ]
+        message = ChatMessage(role="user", content=content_array)
+        
+        assert message.role == "user"
+        assert message.content == "Text part More text"  # Only text parts should be included
+        
+    def test_chat_message_with_empty_array(self):
+        """Test ChatMessage with empty content array."""
+        message = ChatMessage(role="user", content=[])
+        
+        assert message.role == "user"
+        assert message.content == ""  # Should be empty string
+        
+    def test_chat_message_with_non_dict_items(self):
+        """Test ChatMessage with non-dict items in array."""
+        content_array = [
+            "string item",
+            123,
+            {"type": "text", "text": "Valid text"}
+        ]
+        message = ChatMessage(role="user", content=content_array)
+        
+        assert message.role == "user"
+        assert message.content == "string item 123 Valid text"  # All converted to strings
+
     def test_chat_message_different_roles(self):
         """Test ChatMessage with different roles."""
         user_msg = ChatMessage(role="user", content="User message")

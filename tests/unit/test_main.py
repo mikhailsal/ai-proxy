@@ -321,7 +321,7 @@ class TestChatCompletions:
 
         # Verify
         assert hasattr(response, "body_iterator")  # StreamingResponse
-        assert response.media_type == "text/plain"
+        assert response.media_type == "text/event-stream"
 
         # Consume the stream to trigger logging
         chunks = []
