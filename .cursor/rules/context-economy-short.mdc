@@ -1,6 +1,4 @@
 ---
-description: 
-globs: **
 alwaysApply: false
 ---
 <rules_block name="Context Economy - Essential Rules" short="Context Economy">
