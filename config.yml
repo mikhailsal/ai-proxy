@@ -1,61 +1,97 @@
 model_mappings:
   # Default catch-all (backward compatible)
-  "*": "openrouter:mistralai/mistral-small-3.2-24b-instruct:free"
+  "*": "openrouter:deepseek/deepseek-chat-v3.1:free"
   
-  # Gemini models - add specific mapping for gemini-2.0-flash
+  # Gemini models - Google's latest models
   "gemini-pro": "gemini:gemini-2.0-flash-001"
   "gemini-flash": "gemini:gemini-2.0-flash-001"
   "gemini-2.0-flash": "gemini:gemini-2.0-flash-001"
+  "gemini-2.5-flash": "openrouter:google/gemini-2.5-flash"
+  "gemini-2.5-pro": "openrouter:google/gemini-2.5-pro"
   "gemini-*": "gemini:gemini-2.0-flash-001"
   
-  # OpenRouter models (explicit provider) - Premium models
+  # TOP WEEKLY MODELS FROM OPENROUTER (Jan 2025)
+  
+  # #1 Most Popular - Grok Code Fast 1 (1.07T tokens/week)
+  "grok-code-fast": "openrouter:x-ai/grok-code-fast-1"
+  "grok-code": "openrouter:x-ai/grok-code-fast-1"
+  
+  # #2 Claude Sonnet 4 (555B tokens/week)
+  "claude-4-sonnet": "openrouter:anthropic/claude-sonnet-4"
+  "claude-sonnet-4": "openrouter:anthropic/claude-sonnet-4"
+  
+  # #3 Gemini 2.5 Flash (491B tokens/week)
+  "gemini-2.5-flash": "openrouter:google/gemini-2.5-flash"
+  
+  # #4 Gemini 2.0 Flash (187B tokens/week) 
+  "gemini-2.0-flash": "openrouter:google/gemini-2.0-flash-001"
+  
+  # #5 DeepSeek V3 0324 (166B tokens/week)
+  "deepseek-v3-0324": "openrouter:deepseek/deepseek-chat-v3-0324"
+  "deepseek-v3": "openrouter:deepseek/deepseek-chat-v3-0324"
+  
+  # #6 Gemini 2.5 Pro (147B tokens/week)
+  "gemini-2.5-pro": "openrouter:google/gemini-2.5-pro"
+  
+  # #7 GPT-4.1 Mini (142B tokens/week) 
+  "gpt-4.1-mini": "openrouter:openai/gpt-4.1-mini"
+  "gpt-4-mini": "openrouter:openai/gpt-4.1-mini"
+  
+  # #8 Qwen3 30B A3B (132B tokens/week)
+  "qwen3-30b": "openrouter:qwen/qwen3-30b-a3b"
+  "qwen3": "openrouter:qwen/qwen3-30b-a3b"
+  
+  # #9 DeepSeek V3.1 FREE (121B tokens/week)
+  "deepseek-v3.1-free": "openrouter:deepseek/deepseek-chat-v3.1:free"
+  "deepseek-free": "openrouter:deepseek/deepseek-chat-v3.1:free"
+  
+  # #10 GPT-5 (81.2B tokens/week)
+  "gpt-5": "openrouter:openai/gpt-5"
+  
+  # POPULAR MODELS BY CATEGORY
+  
+  # OpenAI models
   "gpt-4": "openrouter:openai/gpt-4"
   "gpt-4-turbo": "openrouter:openai/gpt-4-turbo"
   "gpt-4o": "openrouter:openai/gpt-4o"
   "gpt-4o-mini": "openrouter:openai/gpt-4o-mini"
+  
+  # Claude models
   "claude-3-opus": "openrouter:anthropic/claude-3-opus"
   "claude-3-sonnet": "openrouter:anthropic/claude-3-sonnet"
   "claude-3-haiku": "openrouter:anthropic/claude-3-haiku"
   
-  # Mistral models (free and paid)
-  "mistral-small": "openrouter:mistralai/mistral-small-3.2-24b-instruct:free"
-  "mistral-medium": "openrouter:mistralai/mistral-medium"
-  "mistral-large": "openrouter:mistralai/mistral-large"
-  "mistral-nemo": "openrouter:mistralai/mistral-nemo"
-  
-  # DeepSeek models (popular and cheap)
+  # DeepSeek models (very popular and cheap)
   "deepseek-r1": "openrouter:deepseek/deepseek-r1"
-  "deepseek-v3": "openrouter:deepseek/deepseek-v3"
-  "deepseek-coder": "openrouter:deepseek/deepseek-coder"
   "deepseek-chat": "openrouter:deepseek/deepseek-chat"
+  "deepseek-coder": "openrouter:deepseek/deepseek-coder"
+  "deepseek-coder-v2": "openrouter:deepseek/deepseek-coder-v2-lite-instruct"
   
   # Qwen models (efficient and affordable)
+  "qwen-max": "openrouter:qwen/qwen3-max"
   "qwen-32b": "openrouter:qwen/qwen-32b-preview"
   "qwen-72b": "openrouter:qwen/qwen-72b-chat"
   "qwen-14b": "openrouter:qwen/qwen-14b-chat"
   "qwen-7b": "openrouter:qwen/qwen-7b-chat"
+  "codeqwen": "openrouter:qwen/codeqwen-7b-instruct"
   
-  # Microsoft Phi models (reasoning focused)
-  "phi-4": "openrouter:microsoft/phi-4"
-  "phi-3-medium": "openrouter:microsoft/phi-3-medium-4k-instruct"
-  "phi-3-mini": "openrouter:microsoft/phi-3-mini-4k-instruct"
+  # Mistral models
+  "mistral-small": "openrouter:mistralai/mistral-small-3.2-24b-instruct:free"
+  "mistral-medium": "openrouter:mistralai/mistral-medium"
+  "mistral-large": "openrouter:mistralai/mistral-large"
+  "mistral-nemo": "openrouter:mistralai/mistral-nemo"
+  "codestral": "openrouter:mistralai/codestral-mamba"
   
-  # Popular open source models (very cheap)
+  # Other trending models
+  "kimi-k2": "openrouter:moonshotai/kimi-k2-0905"
+  "seed-oss-36b": "openrouter:bytedance/seed-oss-36b-instruct"
+  "cogito-v2-preview": "openrouter:deepcogito/cogito-v2-preview-deepseek-671b"
+  "step3": "openrouter:stepfun-ai/step3"
+  
+  # Free models (great for testing)
   "llama-3.1-8b": "openrouter:meta-llama/llama-3.1-8b-instruct:free"
   "llama-3.1-70b": "openrouter:meta-llama/llama-3.1-70b-instruct"
   "llama-3.2-3b": "openrouter:meta-llama/llama-3.2-3b-instruct:free"
   "llama-3.2-1b": "openrouter:meta-llama/llama-3.2-1b-instruct:free"
-  
-  # Google models via OpenRouter
   "gemma-2-9b": "openrouter:google/gemma-2-9b-it:free"
   "gemma-2-27b": "openrouter:google/gemma-2-27b-it"
-  
-  # Other popular models
-  "hermes-3": "openrouter:nousresearch/hermes-3-llama-3.1-405b"
-  "yi-34b": "openrouter:01-ai/yi-34b-chat"
-  "solar-pro": "openrouter:upstage/solar-pro-preview"
-  
-  # Coding-specific models
-  "codestral": "openrouter:mistralai/codestral-mamba"
-  "codeqwen": "openrouter:qwen/codeqwen-7b-instruct"
-  "deepseek-coder-v2": "openrouter:deepseek/deepseek-coder-v2-lite-instruct"
