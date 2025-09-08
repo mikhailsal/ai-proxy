@@ -109,30 +109,51 @@ docker run --rm -e DOCKER_CONTAINER=true -v $(PWD):/app ai-proxy poetry run pyte
 
 ## Production Deployment Details
 
-The project includes a safe production deployment script that preserves production-specific files while updating code:
+The project includes a **fully automated production deployment script** that can deploy to any clean Ubuntu server with a single command. The script handles everything from dependency installation to SSL certificate setup.
 
 ```bash
-# Deploy latest changes to production
+# Deploy to any clean server (fully automated)
 DEPLOY_HOST=your-server ./scripts/deploy-production.sh
 
 # Rollback to previous version
 DEPLOY_HOST=your-server ./scripts/deploy-production.sh --rollback
+
+# List available backups
+DEPLOY_HOST=your-server ./scripts/deploy-production.sh --list-backups
+
+# Restore specific backup
+DEPLOY_HOST=your-server ./scripts/deploy-production.sh --restore-backup backup-filename.tar.gz
 ```
 
-### What the script does:
+### Automated Setup Features:
+
+**Zero-Configuration Deployment:**
+- ✅ **Automatic dependency installation**: rsync, Docker, Docker Compose
+- ✅ **Remote directory creation**: creates `/root/ai-proxy` if needed
+- ✅ **Universal Docker Compose support**: detects and uses v1 or v2 automatically
+- ✅ **First deployment detection**: syncs local `.env` file on first deployment only
+- ✅ **Automatic HTTPS setup**: generates domain using nip.io service and real email
+
+**HTTPS Auto-Configuration:**
+- ✅ **Public IP detection**: automatically detects server's public IP
+- ✅ **Domain generation**: creates `ai-proxy.YOUR-IP.nip.io` domain
+- ✅ **SSL certificates**: Let's Encrypt certificates with real email (`info@techsupport-services.com`)
+- ✅ **Multiple domain services**: supports nip.io (default), sslip.io, ngrok, custom domains
 
 **Safety Features:**
 - ✅ Creates automatic backup before deployment
 - ✅ Preserves SSL certificates (`certs/` directory)
-- ✅ Preserves environment configuration (`.env` files)
+- ✅ Preserves environment configuration (existing `.env` files)
 - ✅ Preserves production logs (`logs/` directory)
 - ✅ Preserves Traefik configuration (`traefik/` directory)
 - ✅ Only syncs specific code files (never deletes production configs)
 
 **Deployment Process:**
-- ✅ Health check before deployment
+- ✅ Prerequisites check and installation
+- ✅ Health check before deployment (if service exists)
 - ✅ Creates timestamped backup
 - ✅ Syncs only changed code files
+- ✅ HTTPS setup (if not configured)
 - ✅ Rebuilds and restarts containers
 - ✅ Verifies deployment with health checks
 - ✅ Tests basic functionality
@@ -141,6 +162,34 @@ DEPLOY_HOST=your-server ./scripts/deploy-production.sh --rollback
 **Environment Variables:**
 - `DEPLOY_HOST` - Target server hostname (required)
 - `DEPLOY_PATH` - Remote deployment path (default: `/root/ai-proxy`)
+
+### Clean Server Deployment
+
+The deployment script can now deploy to completely clean Ubuntu servers. It will automatically:
+
+1. **Install Docker** using the official installation script
+2. **Install rsync** if not available
+3. **Create deployment directory** if it doesn't exist
+4. **Copy your local .env file** on first deployment (preserves API keys)
+5. **Set up HTTPS** with automatic domain and SSL certificates
+6. **Deploy and start** all services
+
+Example deployment to a fresh server:
+```bash
+# This works on any clean Ubuntu server with SSH access
+DEPLOY_HOST=new-server ./scripts/deploy-production.sh
+```
+
+The script will output something like:
+```
+✅ Created remote directory: /root/ai-proxy
+✅ Docker installed successfully
+✅ Using Docker Compose v2: docker compose
+✅ First deployment detected - syncing local .env file
+✅ HTTPS setup completed successfully
+✅ Generated domain: ai-proxy.45.138.25.40.nip.io
+✅ Service is healthy after deployment
+```
 
 ### Rollback Capability
 
@@ -270,7 +319,35 @@ ssh your-server "cd /path/to/ai-proxy && DOMAIN=\$(grep '^DOMAIN=' .env | cut -d
 
 ## HTTPS Configuration Details
 
-The service uses **Traefik** as a reverse proxy with automatic **Let's Encrypt** SSL certificate management.
+The service uses **Traefik** as a reverse proxy with automatic **Let's Encrypt** SSL certificate management. HTTPS is configured automatically during deployment.
+
+### Automatic HTTPS Setup
+
+The deployment script includes a non-interactive HTTPS setup tool (`scripts/setup-https.sh`) that:
+
+- **Automatically detects your server's public IP**
+- **Generates a domain** using free DNS services (nip.io by default)
+- **Configures SSL certificates** with Let's Encrypt
+- **Uses realistic email** for certificate registration
+- **Only modifies HTTPS settings** in .env (preserves API keys)
+
+#### Manual HTTPS Setup Options
+
+You can also run the HTTPS setup manually with different options:
+
+```bash
+# Use default settings (nip.io)
+./scripts/setup-https.sh -e your-email@example.com
+
+# Use sslip.io service
+./scripts/setup-https.sh -s sslip.io -e your-email@example.com -n myapp
+
+# Use custom domain
+./scripts/setup-https.sh -s custom -d api.example.com -e your-email@example.com
+
+# Use ngrok domain
+./scripts/setup-https.sh -s ngrok -d abc123.ngrok.io -e your-email@example.com
+```
 
 ### Custom Port Configuration
 
@@ -281,7 +358,7 @@ HTTP_PORT=9080  # Example: Change HTTP to 9080
 HTTPS_PORT=9443 # Example: Change HTTPS to 9443
 ```
 
-Ensure these ports are open on your server's firewall and do not conflict with other services.
+⚠️ **Note**: Custom ports may prevent Let's Encrypt from issuing certificates, as it requires access to port 80 for domain validation.
 
 ### Let's Encrypt Certificates and Production Deployment
 

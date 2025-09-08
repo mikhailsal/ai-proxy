@@ -60,9 +60,15 @@ check_prerequisites() {
         error "Cannot connect to remote host: $REMOTE_HOST"
     fi
     
-    # Check if remote directory exists
+    # Check if remote directory exists, create if needed
     if ! ssh "$REMOTE_HOST" "test -d '$REMOTE_PATH'"; then
-        error "Remote directory does not exist: $REMOTE_PATH"
+        warning "Remote directory does not exist: $REMOTE_PATH"
+        log "Creating remote directory..."
+        if ssh "$REMOTE_HOST" "mkdir -p '$REMOTE_PATH'"; then
+            success "Created remote directory: $REMOTE_PATH"
+        else
+            error "Failed to create remote directory: $REMOTE_PATH"
+        fi
     fi
     
     # Check and install rsync on remote host if needed
@@ -96,6 +102,58 @@ check_prerequisites() {
     fi
     
     success "Prerequisites check passed"
+}
+
+# Install Docker if not available
+install_docker_if_needed() {
+    log "Checking Docker installation..."
+    
+    if ssh "$REMOTE_HOST" "command -v docker >/dev/null 2>&1"; then
+        success "Docker is already installed"
+        return 0
+    fi
+    
+    warning "Docker not found, installing Docker..."
+    
+    ssh "$REMOTE_HOST" "
+        # Install Docker using official installation script
+        curl -fsSL https://get.docker.com -o get-docker.sh &&
+        sh get-docker.sh &&
+        rm get-docker.sh &&
+        
+        # Start and enable Docker service
+        systemctl start docker &&
+        systemctl enable docker &&
+        
+        # Add current user to docker group (if not root)
+        if [ \"\$(id -u)\" != \"0\" ]; then
+            usermod -aG docker \$(whoami)
+        fi
+    " > "$LOG_DIR/docker-install-$TIMESTAMP.log" 2>&1
+    
+    if [ $? -eq 0 ]; then
+        success "Docker installed successfully"
+        return 0
+    else
+        error "Failed to install Docker. Check logs: $LOG_DIR/docker-install-$TIMESTAMP.log"
+    fi
+}
+
+# Detect Docker Compose command (supports both v1 and v2)
+detect_docker_compose_command() {
+    log "Detecting Docker Compose command..."
+    
+    # Check if docker compose (v2) is available
+    if ssh "$REMOTE_HOST" "docker compose version >/dev/null 2>&1"; then
+        DOCKER_COMPOSE_CMD="docker compose"
+        success "Using Docker Compose v2: docker compose"
+    # Check if docker-compose (v1) is available
+    elif ssh "$REMOTE_HOST" "docker-compose --version >/dev/null 2>&1"; then
+        DOCKER_COMPOSE_CMD="docker-compose"
+        success "Using Docker Compose v1: docker-compose"
+    else
+        error "Neither 'docker compose' nor 'docker-compose' is available on remote host"
+    fi
 }
 
 # Create backup
@@ -149,8 +207,17 @@ sync_files() {
         "Dockerfile"
         "docker-compose.yml"
         "README.md"
+        ".env.example"
         "deployment-timestamp.txt"
     )
+    
+    # Check if this is first deployment (no .env on remote)
+    if ! ssh "$REMOTE_HOST" "test -f '$REMOTE_PATH/.env'"; then
+        log "First deployment detected - syncing local .env file"
+        config_files+=(".env")
+    else
+        log "Existing .env found on remote - preserving it"
+    fi
     
     for file in "${config_files[@]}"; do
         if [[ -f "$PROJECT_DIR/$file" ]]; then
@@ -197,13 +264,13 @@ check_service_health() {
 
 # Deploy the application
 deploy_application() {
-    log "Deploying application..."
+    log "Deploying application using docker compose..."
     
     ssh "$REMOTE_HOST" "
         cd '$REMOTE_PATH' &&
-        docker-compose down 2>&1 &&
-        docker-compose build --no-cache ai-proxy 2>&1 &&
-        docker-compose up -d 2>&1 &&
+        $DOCKER_COMPOSE_CMD down 2>&1 &&
+        $DOCKER_COMPOSE_CMD build --no-cache ai-proxy 2>&1 &&
+        $DOCKER_COMPOSE_CMD up -d 2>&1 &&
         sleep 10
     " > "$LOG_DIR/deploy-$TIMESTAMP.log" 2>&1
     
@@ -240,7 +307,7 @@ verify_deployment() {
             error "Service health check failed after deployment"
         fi
         
-        sleep 5
+        sleep 1
         ((attempt++))
     done
     
@@ -334,10 +401,10 @@ restore_backup() {
     
     ssh "$REMOTE_HOST" "
         cd '$REMOTE_PATH' &&
-        docker-compose down 2>&1 &&
+        $DOCKER_COMPOSE_CMD down 2>&1 &&
         tar -xzf '$BACKUP_DIR/$backup_file' 2>&1 &&
-        docker-compose build --no-cache ai-proxy 2>&1 &&
-        docker-compose up -d 2>&1 &&
+        $DOCKER_COMPOSE_CMD build --no-cache ai-proxy 2>&1 &&
+        $DOCKER_COMPOSE_CMD up -d 2>&1 &&
         sleep 10
     " > "$LOG_DIR/restore-$backup_file-$TIMESTAMP.log" 2>&1
     
@@ -359,10 +426,10 @@ rollback() {
     
     ssh "$REMOTE_HOST" "
         cd '$REMOTE_PATH' &&
-        docker-compose down 2>&1 &&
+        $DOCKER_COMPOSE_CMD down 2>&1 &&
         tar -xzf '$latest_backup' 2>&1 &&
-        docker-compose build --no-cache ai-proxy 2>&1 &&
-        docker-compose up -d 2>&1 &&
+        $DOCKER_COMPOSE_CMD build --no-cache ai-proxy 2>&1 &&
+        $DOCKER_COMPOSE_CMD up -d 2>&1 &&
         sleep 10
     " > "$LOG_DIR/rollback-$TIMESTAMP.log" 2>&1
     
@@ -381,6 +448,93 @@ cleanup_backups() {
     "
     
     success "Backup cleanup completed"
+}
+
+# Check if HTTPS is already configured
+check_https_configuration() {
+    log "Checking HTTPS configuration..."
+    
+    local https_configured=false
+    
+    # Check if traefik container exists and is running
+    local traefik_status=$(ssh "$REMOTE_HOST" "
+        cd '$REMOTE_PATH' &&
+        docker ps --format 'table {{.Names}}\t{{.Status}}' | grep traefik || echo 'NOT_FOUND'
+    ")
+    
+    # Check if SSL certificates exist
+    local certs_exist=$(ssh "$REMOTE_HOST" "
+        test -f '$REMOTE_PATH/certs/acme.json' && echo 'EXISTS' || echo 'NOT_EXISTS'
+    ")
+    
+    # Check if .env has DOMAIN configured
+    local domain_configured=$(ssh "$REMOTE_HOST" "
+        cd '$REMOTE_PATH' &&
+        if [ -f .env ]; then
+            DOMAIN=\$(grep '^DOMAIN=' .env | cut -d= -f2)
+            if [ -n \"\$DOMAIN\" ] && [ \"\$DOMAIN\" != \"your-domain.com\" ]; then
+                echo 'CONFIGURED'
+            else
+                echo 'NOT_CONFIGURED'
+            fi
+        else
+            echo 'NO_ENV'
+        fi
+    ")
+    
+    if [[ "$traefik_status" == *"Up"* ]] && [[ "$certs_exist" == "EXISTS" ]] && [[ "$domain_configured" == "CONFIGURED" ]]; then
+        https_configured=true
+    fi
+    
+    if $https_configured; then
+        success "HTTPS is already configured and running"
+        return 0
+    else
+        warning "HTTPS is not properly configured"
+        log "Traefik status: $traefik_status"
+        log "Certificates exist: $certs_exist"
+        log "Domain configured: $domain_configured"
+        return 1
+    fi
+}
+
+# Setup HTTPS configuration on remote server
+setup_https_remote() {
+    log "Setting up HTTPS configuration on remote server..."
+    
+    # Copy setup-https.sh script to remote server
+    scp -q "$PROJECT_DIR/scripts/setup-https.sh" "$REMOTE_HOST:$REMOTE_PATH/scripts/" 2>"$LOG_DIR/setup-https-copy-$TIMESTAMP.log"
+    
+    # Make it executable and run it with default settings (nip.io)
+    ssh "$REMOTE_HOST" "
+        cd '$REMOTE_PATH' &&
+        chmod +x scripts/setup-https.sh &&
+        ./scripts/setup-https.sh -e info@techsupport-services.com
+    " > "$LOG_DIR/setup-https-$TIMESTAMP.log" 2>&1
+    
+    # Check if HTTPS setup was successful
+    local setup_status=$?
+    if [[ $setup_status -eq 0 ]]; then
+        success "HTTPS setup completed successfully"
+        
+        # Show the generated domain
+        local generated_domain=$(ssh "$REMOTE_HOST" "
+            cd '$REMOTE_PATH' &&
+            if [ -f .env ]; then
+                grep '^DOMAIN=' .env | cut -d= -f2
+            fi
+        ")
+        
+        if [[ -n "$generated_domain" ]]; then
+            log "Generated domain: $generated_domain"
+        fi
+        
+        return 0
+    else
+        warning "HTTPS setup failed"
+        log "Check setup logs: $LOG_DIR/setup-https-$TIMESTAMP.log"
+        return 1
+    fi
 }
 
 # Main deployment function
@@ -406,6 +560,8 @@ main() {
     # Handle different actions
     case "$action" in
         "--rollback")
+            install_docker_if_needed
+            detect_docker_compose_command
             rollback
             verify_deployment
             return 0
@@ -415,12 +571,16 @@ main() {
             return 0
             ;;
         "--restore-backup")
+            install_docker_if_needed
+            detect_docker_compose_command
             restore_backup "$backup_file"
             verify_deployment
             return 0
             ;;
         "")
             # Normal deployment
+            install_docker_if_needed
+            detect_docker_compose_command
             ;;
         *)
             error "Unknown action: $action"
@@ -435,6 +595,17 @@ main() {
     
     create_backup
     sync_files
+    
+    # Check and setup HTTPS if needed (only for normal deployments, after files are synced)
+    if [[ "$action" == "" ]]; then
+        if ! check_https_configuration; then
+            log "HTTPS not configured, setting up HTTPS..."
+            if ! setup_https_remote; then
+                error "HTTPS setup failed. Please configure domain in .env and try again."
+            fi
+        fi
+    fi
+    
     deploy_application
     verify_deployment
     cleanup_backups
