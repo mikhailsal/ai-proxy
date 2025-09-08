@@ -74,31 +74,35 @@ check_prerequisites() {
     # Check and install rsync on remote host if needed
     log "Checking rsync availability..."
     if ! ssh "$REMOTE_HOST" "command -v rsync >/dev/null 2>&1"; then
-        warning "rsync not found on remote host, attempting to install..."
+        log "Installing rsync..."
         
-        # Try to install rsync
+        # Try to install rsync (suppress stdout, keep stderr for errors)
         if ssh "$REMOTE_HOST" "command -v apt-get >/dev/null 2>&1"; then
             # Debian/Ubuntu
-            ssh "$REMOTE_HOST" "apt-get update && apt-get install -y rsync" || {
+            if ssh "$REMOTE_HOST" "apt-get update >/dev/null 2>&1 && apt-get install -y rsync >/dev/null 2>&1"; then
+                success "rsync installed"
+            else
                 error "Failed to install rsync. Please install manually: apt-get install rsync"
-            }
+            fi
         elif ssh "$REMOTE_HOST" "command -v yum >/dev/null 2>&1"; then
-            # RHEL/CentOS
-            ssh "$REMOTE_HOST" "yum install -y rsync" || {
+            # RHEL/CentOS  
+            if ssh "$REMOTE_HOST" "yum install -y rsync >/dev/null 2>&1"; then
+                success "rsync installed"
+            else
                 error "Failed to install rsync. Please install manually: yum install rsync"
-            }
+            fi
         elif ssh "$REMOTE_HOST" "command -v dnf >/dev/null 2>&1"; then
             # Fedora
-            ssh "$REMOTE_HOST" "dnf install -y rsync" || {
+            if ssh "$REMOTE_HOST" "dnf install -y rsync >/dev/null 2>&1"; then
+                success "rsync installed"
+            else
                 error "Failed to install rsync. Please install manually: dnf install rsync"
-            }
+            fi
         else
             error "Cannot install rsync automatically. Please install rsync on the remote host manually."
         fi
-        
-        success "rsync installed successfully"
     else
-        success "rsync is available"
+        success "rsync available"
     fi
     
     success "Prerequisites check passed"
@@ -247,15 +251,29 @@ check_service_health() {
     
     local health_status=$(ssh "$REMOTE_HOST" "
         cd '$REMOTE_PATH' &&
-        DOMAIN=\$(grep '^DOMAIN=' .env | cut -d= -f2) &&
-        HTTPS_PORT=\$(grep '^HTTPS_PORT=' .env | cut -d= -f2) &&
-        BASE_URL=\"https://\$DOMAIN\${HTTPS_PORT:+:\$HTTPS_PORT}\" &&
-        curl -s \"\$BASE_URL/health\" --max-time 10 || echo 'FAILED'
+        if [ -f .env ]; then
+            DOMAIN=\$(grep '^DOMAIN=' .env 2>/dev/null | cut -d= -f2) &&
+            HTTPS_PORT=\$(grep '^HTTPS_PORT=' .env 2>/dev/null | cut -d= -f2) &&
+            if [ -n \"\$DOMAIN\" ]; then
+                BASE_URL=\"https://\$DOMAIN\${HTTPS_PORT:+:\$HTTPS_PORT}\" &&
+                curl -s \"\$BASE_URL/health\" --max-time 10 || echo 'FAILED'
+            else
+                echo 'NO_DOMAIN'
+            fi
+        else
+            echo 'NO_ENV'
+        fi
     ")
     
     if [[ "$health_status" == *'"status":"ok"'* ]]; then
         success "Service is healthy before deployment"
         return 0
+    elif [[ "$health_status" == "NO_ENV" ]]; then
+        log "No .env file found - first deployment"
+        return 1
+    elif [[ "$health_status" == "NO_DOMAIN" ]]; then
+        log "No domain configured yet"
+        return 1
     else
         warning "Service health check failed, proceeding anyway..."
         return 1
@@ -292,10 +310,14 @@ verify_deployment() {
         
         local health_status=$(ssh "$REMOTE_HOST" "
             cd '$REMOTE_PATH' &&
-            DOMAIN=\$(grep '^DOMAIN=' .env | cut -d= -f2) &&
-            HTTPS_PORT=\$(grep '^HTTPS_PORT=' .env | cut -d= -f2) &&
-            BASE_URL=\"https://\$DOMAIN\${HTTPS_PORT:+:\$HTTPS_PORT}\" &&
-            curl -s \"\$BASE_URL/health\" --max-time 10 || echo 'FAILED'
+            DOMAIN=\$(grep '^DOMAIN=' .env 2>/dev/null | cut -d= -f2) &&
+            HTTPS_PORT=\$(grep '^HTTPS_PORT=' .env 2>/dev/null | cut -d= -f2) &&
+            if [ -n \"\$DOMAIN\" ]; then
+                BASE_URL=\"https://\$DOMAIN\${HTTPS_PORT:+:\$HTTPS_PORT}\" &&
+                curl -s \"\$BASE_URL/health\" --max-time 10 || echo 'FAILED'
+            else
+                echo 'NO_DOMAIN'
+            fi
         " 2>>"$LOG_DIR/health-check-$TIMESTAMP.log")
         
         if [[ "$health_status" == *'"status":"ok"'* ]]; then
@@ -316,15 +338,19 @@ verify_deployment() {
     
     local test_result=$(ssh "$REMOTE_HOST" "
         cd '$REMOTE_PATH' &&
-        DOMAIN=\$(grep '^DOMAIN=' .env | cut -d= -f2) &&
-        HTTPS_PORT=\$(grep '^HTTPS_PORT=' .env | cut -d= -f2) &&
-        API_KEY=\$(grep '^API_KEYS=' .env | cut -d= -f2 | cut -d, -f1) &&
-        BASE_URL=\"https://\$DOMAIN\${HTTPS_PORT:+:\$HTTPS_PORT}\" &&
-        curl -s \"\$BASE_URL/v1/chat/completions\" \
-            -H \"Content-Type: application/json\" \
-            -H \"Authorization: Bearer \$API_KEY\" \
-            -d '{\"model\": \"gemini-pro\", \"messages\": [{\"role\": \"user\", \"content\": \"Hello\"}]}' \
-            --max-time 30 | head -1
+        DOMAIN=\$(grep '^DOMAIN=' .env 2>/dev/null | cut -d= -f2) &&
+        HTTPS_PORT=\$(grep '^HTTPS_PORT=' .env 2>/dev/null | cut -d= -f2) &&
+        API_KEY=\$(grep '^API_KEYS=' .env 2>/dev/null | cut -d= -f2 | cut -d, -f1) &&
+        if [ -n \"\$DOMAIN\" ] && [ -n \"\$API_KEY\" ]; then
+            BASE_URL=\"https://\$DOMAIN\${HTTPS_PORT:+:\$HTTPS_PORT}\" &&
+            curl -s \"\$BASE_URL/v1/chat/completions\" \
+                -H \"Content-Type: application/json\" \
+                -H \"Authorization: Bearer \$API_KEY\" \
+                -d '{\"model\": \"gemini-pro\", \"messages\": [{\"role\": \"user\", \"content\": \"Hello\"}]}' \
+                --max-time 30 | head -1
+        else
+            echo 'NO_CONFIG'
+        fi
     ")
     
     if [[ "$test_result" == *'"id"'* ]]; then
@@ -471,7 +497,7 @@ check_https_configuration() {
     local domain_configured=$(ssh "$REMOTE_HOST" "
         cd '$REMOTE_PATH' &&
         if [ -f .env ]; then
-            DOMAIN=\$(grep '^DOMAIN=' .env | cut -d= -f2)
+            DOMAIN=\$(grep '^DOMAIN=' .env 2>/dev/null | cut -d= -f2)
             if [ -n \"\$DOMAIN\" ] && [ \"\$DOMAIN\" != \"your-domain.com\" ]; then
                 echo 'CONFIGURED'
             else
@@ -521,7 +547,7 @@ setup_https_remote() {
         local generated_domain=$(ssh "$REMOTE_HOST" "
             cd '$REMOTE_PATH' &&
             if [ -f .env ]; then
-                grep '^DOMAIN=' .env | cut -d= -f2
+                grep '^DOMAIN=' .env 2>/dev/null | cut -d= -f2
             fi
         ")
         
@@ -626,9 +652,13 @@ main() {
         docker ps | grep ai-proxy &&
         echo '' &&
         echo 'Service endpoint:' &&
-        DOMAIN=\$(grep '^DOMAIN=' .env | cut -d= -f2) &&
-        HTTPS_PORT=\$(grep '^HTTPS_PORT=' .env | cut -d= -f2) &&
-        echo \"https://\$DOMAIN\${HTTPS_PORT:+:\$HTTPS_PORT}\"
+        DOMAIN=\$(grep '^DOMAIN=' .env 2>/dev/null | cut -d= -f2) &&
+        HTTPS_PORT=\$(grep '^HTTPS_PORT=' .env 2>/dev/null | cut -d= -f2) &&
+        if [ -n \"\$DOMAIN\" ]; then
+            echo \"https://\$DOMAIN\${HTTPS_PORT:+:\$HTTPS_PORT}\"
+        else
+            echo 'Domain not configured'
+        fi
     "
 }
 
