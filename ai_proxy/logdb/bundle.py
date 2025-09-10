@@ -40,12 +40,27 @@ def _collect_db_files(base_db_dir: str, since: dt.date, to: dt.date) -> List[str
 
 
 def _collect_raw_logs(source_logs_dir: str, since: Optional[dt.date], to: Optional[dt.date]) -> List[str]:
-    # Conservative: include all .log files when include_raw requested; stage plan allows flag-driven choice
+    # Include .log files filtered by mtime date within [since, to] if provided
     out: List[str] = []
     for root, _dirs, names in os.walk(source_logs_dir):
         for n in names:
-            if n.endswith(".log") or ".log." in n:
-                out.append(os.path.join(root, n))
+            if not (n.endswith(".log") or ".log." in n):
+                continue
+            p = os.path.join(root, n)
+            try:
+                mtime = os.stat(p).st_mtime
+            except FileNotFoundError:
+                continue
+            # If no bounds provided, include all
+            if since is None and to is None:
+                out.append(p)
+                continue
+            # Normalize inclusive range
+            s = since or to or dt.date.today()
+            e = to or since or dt.date.today()
+            d = dt.datetime.utcfromtimestamp(mtime).date()
+            if s <= d <= e:  # inclusive window
+                out.append(p)
     return sorted(out)
 
 

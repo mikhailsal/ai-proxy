@@ -114,13 +114,27 @@ def build_parser() -> argparse.ArgumentParser:
     p_bundle_create.add_argument("--to", required=True, help="End date YYYY-MM-DD")
     p_bundle_create.add_argument("--out", required=True, help="Output bundle file path (.tgz)")
     p_bundle_create.add_argument("--db", required=False, default="logs/db", help="Base directory for DB partitions")
-    p_bundle_create.add_argument("--include-raw", action="store_true", help="Include raw .log files in bundle")
+    p_bundle_create.add_argument("--include-raw", action="store_true", help="Include raw .log files in bundle (overrides env)")
     p_bundle_create.add_argument("--raw", required=False, default="logs", help="Source logs directory for raw files")
 
     def _cmd_bundle_create(args: argparse.Namespace) -> int:
         since_date = _dt.datetime.strptime(args.since, "%Y-%m-%d").date()
         to_date = _dt.datetime.strptime(args.to, "%Y-%m-%d").date()
-        include_raw = bool(args.include_raw)
+        # Env default for include_raw; CLI flag overrides when provided
+        env_include_raw = os.getenv("LOGDB_BUNDLE_INCLUDE_RAW", "false").lower() == "true"
+        include_raw = bool(args.include_raw) or env_include_raw
+        # Resolve server_id: prefer env LOGDB_SERVER_ID, then .server_id under db dir, else empty
+        server_id = os.getenv("LOGDB_SERVER_ID", "").strip()
+        if not server_id:
+            server_file = os.path.join(os.path.abspath(args.db), ".server_id")
+            try:
+                if os.path.isfile(server_file):
+                    with open(server_file, "r", encoding="utf-8") as f:
+                        sid = f.read().strip()
+                        if sid:
+                            server_id = sid
+            except Exception:
+                server_id = ""
         # Create bundle
         create_bundle(
             base_db_dir=os.path.abspath(args.db),
@@ -129,6 +143,7 @@ def build_parser() -> argparse.ArgumentParser:
             out_path=os.path.abspath(args.out),
             include_raw=include_raw,
             raw_logs_dir=os.path.abspath(args.raw) if include_raw else None,
+            server_id=server_id,
         )
         print(args.out)
         return 0

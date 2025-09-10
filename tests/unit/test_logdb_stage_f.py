@@ -1,4 +1,5 @@
 import datetime as dt
+import datetime
 import json
 import os
 import sqlite3
@@ -57,6 +58,7 @@ def test_bundle_create_and_verify_ok(tmp_path):
         to=date,
         out_path=str(out),
         include_raw=False,
+        server_id="srv-test",
     )
     assert os.path.isfile(bundle_path)
     assert verify_bundle(bundle_path) is True
@@ -115,6 +117,10 @@ def test_bundle_create_with_include_raw_and_metadata(tmp_path):
     os.makedirs(f2.parent, exist_ok=True)
     f1.write_text("hello\n")
     f2.write_text("world\n")
+    # Set mtime within the date range to ensure inclusion
+    target_ts = int(datetime.datetime.combine(date, datetime.time(12, 0)).timestamp())
+    os.utime(f1, (target_ts, target_ts))
+    os.utime(f2, (target_ts, target_ts))
 
     out = tmp_path / "bundles" / "with_raw.tgz"
     os.makedirs(out.parent, exist_ok=True)
@@ -126,6 +132,7 @@ def test_bundle_create_with_include_raw_and_metadata(tmp_path):
         out_path=str(out),
         include_raw=True,
         raw_logs_dir=str(raw_dir),
+        server_id="srv-raw",
     )
     assert os.path.isfile(bundle_path)
 
@@ -141,9 +148,50 @@ def test_bundle_create_with_include_raw_and_metadata(tmp_path):
     for k in ("bundle_id", "created_at", "server_id", "schema_version", "files", "include_raw"):
         assert k in data
     assert data["include_raw"] is True
+    assert isinstance(data["server_id"], str) and data["server_id"]
     # Ensure at least one raw file is referenced
     raw_refs = [x for x in data["files"] if x["path"].startswith("raw/")]
     assert len(raw_refs) >= 2
+
+
+def test_raw_logs_date_filtering_and_env_default(tmp_path, monkeypatch):
+    base_db_dir, date = _create_sample_partition(tmp_path)
+
+    raw_dir = tmp_path / "logs"
+    os.makedirs(raw_dir, exist_ok=True)
+    in_range = raw_dir / "in.log"
+    out_range = raw_dir / "out.log"
+    in_range.write_text("in\n")
+    out_range.write_text("out\n")
+
+    # Set mtimes: in-range on 'date', out-of-range one day before
+    t_in = int(datetime.datetime.combine(date, datetime.time(10, 0)).timestamp())
+    t_out = int(datetime.datetime.combine(date - datetime.timedelta(days=1), datetime.time(10, 0)).timestamp())
+    os.utime(in_range, (t_in, t_in))
+    os.utime(out_range, (t_out, t_out))
+
+    # Enable env default include_raw=true without CLI flag
+    monkeypatch.setenv("LOGDB_BUNDLE_INCLUDE_RAW", "true")
+
+    out = tmp_path / "bundles" / "env-raw.tgz"
+    os.makedirs(out.parent, exist_ok=True)
+    from ai_proxy.logdb import cli as logdb_cli
+    rc = logdb_cli.main([
+        "bundle", "create",
+        "--since", date.strftime("%Y-%m-%d"),
+        "--to", date.strftime("%Y-%m-%d"),
+        "--out", str(out),
+        "--db", base_db_dir,
+        "--raw", str(raw_dir),
+    ])
+    assert rc == 0
+    # Verify only in-range raw included
+    import tarfile
+    with tarfile.open(out, "r:gz") as tar:
+        names = [m.name for m in tar.getmembers() if m.isfile()]
+        raw_names = [n for n in names if n.startswith("raw/")]
+        # Only one raw file should be included
+        assert len(raw_names) == 1 and raw_names[0].endswith("in.log")
 
 
 def test_bundle_metadata_files_count_matches_tar(tmp_path):
