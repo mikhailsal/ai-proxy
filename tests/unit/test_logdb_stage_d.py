@@ -259,6 +259,54 @@ def test_build_fts_for_range_multiple_partitions_and_drop(tmp_path):
         conn.close()
 
 
+def test_build_fts_for_range_weekly_dedup(tmp_path, monkeypatch):
+    # Ensure dedup across dates for weekly granularity
+    monkeypatch.setenv("LOGDB_PARTITION_GRANULARITY", "weekly")
+    base = tmp_path / "logs" / "db"
+    d1 = dt.date(2025, 1, 1)
+    d2 = dt.date(2025, 1, 3)  # same ISO week
+
+    for date in (d1, d2):
+        db_path = compute_partition_path(str(base), date)
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        conn = sqlite3.connect(db_path)
+        try:
+            conn.executescript(
+                """
+                PRAGMA journal_mode=WAL;
+                CREATE TABLE IF NOT EXISTS requests (
+                  request_id TEXT PRIMARY KEY,
+                  server_id TEXT NOT NULL,
+                  ts INTEGER NOT NULL,
+                  endpoint TEXT NOT NULL,
+                  model_original TEXT,
+                  model_mapped TEXT,
+                  status_code INTEGER,
+                  latency_ms REAL,
+                  api_key_hash TEXT,
+                  request_json TEXT NOT NULL,
+                  response_json TEXT NOT NULL,
+                  dialog_id TEXT
+                );
+                """
+            )
+            with conn:
+                conn.execute(
+                    "INSERT OR REPLACE INTO requests (request_id, server_id, ts, endpoint, request_json, response_json) VALUES (?,?,?,?,?,?)",
+                    (
+                        f"r-{date}", "s1", int(dt.datetime(date.year, date.month, date.day, 12, 0, 0).timestamp()),
+                        "/v1/chat", json.dumps({"messages": [{"role": "user", "content": "search me"}]}), json.dumps({"choices": [{"message": {"content": "answer"}}]}),
+                    ),
+                )
+        finally:
+            conn.close()
+
+    from ai_proxy.logdb.fts import build_fts_for_range
+    results = build_fts_for_range(str(base), d1, d2)
+    # Should return exactly one result (same weekly DB)
+    assert len(results) == 1
+
+
 def test_cli_gating_env_flag_for_fts(monkeypatch, tmp_path):
     # When LOGDB_FTS_ENABLED != true, CLI should return 2 and do nothing
     base = tmp_path / "logs" / "db"

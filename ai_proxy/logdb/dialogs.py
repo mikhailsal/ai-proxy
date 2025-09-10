@@ -125,13 +125,19 @@ def assign_dialogs_for_range(
         to = since
 
     out: List[Tuple[str, int]] = []
+    # De-duplicate DB paths to support weekly granularity
+    paths: List[str] = []
     cur_date = since
     while cur_date <= to:  # type: ignore[operator]
         db_path = compute_partition_path(base_db_dir, cur_date)
-        if os.path.isfile(db_path):
-            updated = assign_partition_dialogs(db_path, window_seconds)
-            out.append((db_path, updated))
+        if db_path not in paths:
+            paths.append(db_path)
         cur_date = cur_date + dt.timedelta(days=1)
+
+    for path in paths:
+        if os.path.isfile(path):
+            updated = assign_partition_dialogs(path, window_seconds)
+            out.append((path, updated))
     return out
 
 
@@ -159,18 +165,23 @@ def clear_dialogs_for_range(
         to = since
 
     out: List[Tuple[str, int]] = []
+    paths: List[str] = []
     cur_date = since
     while cur_date <= to:  # type: ignore[operator]
         db_path = compute_partition_path(base_db_dir, cur_date)
-        if os.path.isfile(db_path):
-            conn = open_connection_with_pragmas(db_path)
+        if db_path not in paths:
+            paths.append(db_path)
+        cur_date = cur_date + dt.timedelta(days=1)
+
+    for path in paths:
+        if os.path.isfile(path):
+            conn = open_connection_with_pragmas(path)
             try:
                 with conn:
                     cur = conn.execute("UPDATE requests SET dialog_id=NULL WHERE dialog_id IS NOT NULL")
-                out.append((db_path, cur.rowcount if cur is not None else 0))
+                out.append((path, cur.rowcount if cur is not None else 0))
             finally:
                 conn.close()
-        cur_date = cur_date + dt.timedelta(days=1)
     return out
 
 

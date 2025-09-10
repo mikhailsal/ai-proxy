@@ -12,6 +12,8 @@ from .schema import (
 from .partitioning import (
     compute_partition_path,
     ensure_partition_database,
+    ensure_control_database,
+    control_database_path,
 )
 from .fts import (
     create_fts_table,
@@ -25,6 +27,8 @@ __all__ = [
     "run_integrity_check",
     "compute_partition_path",
     "ensure_partition_database",
+    "ensure_control_database",
+    "control_database_path",
     "create_fts_table",
     "drop_fts_table",
     "build_partition_fts",

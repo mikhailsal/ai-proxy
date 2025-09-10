@@ -19,6 +19,17 @@ def test_compute_partition_path_layout(tmp_path):
     assert path.endswith("/2025/09/ai_proxy_20250910.sqlite3")
 
 
+def test_compute_partition_path_weekly_layout(tmp_path, monkeypatch):
+    base = tmp_path / "logs" / "db"
+    date = dt.date(2025, 1, 2)  # 2025-W01 (ISO)
+    monkeypatch.setenv("LOGDB_PARTITION_GRANULARITY", "weekly")
+    path = compute_partition_path(str(base), date)
+    assert "/2025/W01/ai_proxy_2025W01.sqlite3" in path
+    # ensure DB creation works for weekly
+    db_path = ensure_partition_database(str(base), date)
+    assert os.path.isfile(db_path)
+
+
 def test_ensure_partition_database_creates_schema(tmp_path):
     base = tmp_path / "logs" / "db"
     date = dt.date.today()

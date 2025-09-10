@@ -261,13 +261,19 @@ def build_fts_for_range(base_db_dir: str, since: Optional[dt.date], to: Optional
     assert since is not None and to is not None
 
     results: List[Tuple[str, int, int]] = []
+    # De-duplicate DB paths to support weekly granularity
+    unique_paths: List[str] = []
     cur_date = since
     while cur_date <= to:  # type: ignore[operator]
         db_path = compute_partition_path(base_db_dir, cur_date)
-        if os.path.isfile(db_path):
-            rows_indexed, rows_skipped = build_partition_fts(db_path)
-            results.append((db_path, rows_indexed, rows_skipped))
+        if db_path not in unique_paths:
+            unique_paths.append(db_path)
         cur_date = cur_date + dt.timedelta(days=1)
+
+    for path in unique_paths:
+        if os.path.isfile(path):
+            rows_indexed, rows_skipped = build_partition_fts(path)
+            results.append((path, rows_indexed, rows_skipped))
     return results
 
 

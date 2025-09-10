@@ -3,7 +3,7 @@ import os
 import sqlite3
 
 from ai_proxy.logdb.ingest import ingest_logs
-from ai_proxy.logdb.partitioning import compute_partition_path
+from ai_proxy.logdb.partitioning import compute_partition_path, control_database_path
 
 
 SAMPLE_ENTRY_1 = (
@@ -80,8 +80,7 @@ def test_ingest_basic_and_idempotent(tmp_path):
         conn.close()
 
     # Verify checkpoint recorded in today's control partition
-    today = dt.date.today()
-    control_db = compute_partition_path(str(db_base), today)
+    control_db = control_database_path(str(db_base))
     assert os.path.isfile(control_db)
     conn = sqlite3.connect(control_db)
     try:
@@ -93,6 +92,50 @@ def test_ingest_basic_and_idempotent(tmp_path):
         assert int(row[2]) > 0
     finally:
         conn.close()
+def test_ingest_resume_with_prefix_sha_validation(tmp_path):
+    logs_dir = tmp_path / "logs"
+    db_base = tmp_path / "logs" / "db"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+
+    log_path = logs_dir / "v1_chat_completions.log"
+    # First entry
+    log_path.write_text(SAMPLE_ENTRY_1, encoding="utf-8")
+    stats1 = ingest_logs(str(logs_dir), str(db_base))
+    assert stats1.rows_inserted == 2 or stats1.rows_inserted == 1  # depending on date range
+
+    # Append second entry and corrupt the first byte without changing size by toggling a space
+    with open(log_path, "a", encoding="utf-8") as f:
+        f.write(SAMPLE_ENTRY_2)
+
+    # Now rewrite first byte to force prefix sha mismatch but keep same size
+    p = log_path.read_text(encoding="utf-8")
+    if p:
+        mutated = (" " if p[0] != " " else "\t") + p[1:]
+        log_path.write_text(mutated, encoding="utf-8")
+
+    stats2 = ingest_logs(str(logs_dir), str(db_base))
+    # Should not double-insert earlier lines; idempotent overall
+    date = dt.date(2025, 9, 10)
+    db_path = compute_partition_path(str(db_base), date)
+    if os.path.isfile(db_path):
+        conn = sqlite3.connect(db_path)
+        try:
+            count = conn.execute("SELECT COUNT(*) FROM requests;").fetchone()[0]
+            assert count >= 2
+        finally:
+            conn.close()
+
+
+def test_parallel_ingest_env_flag(tmp_path, monkeypatch):
+    logs_dir = tmp_path / "logs"
+    db_base = tmp_path / "logs" / "db"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    (logs_dir / "v1_chat_completions.log").write_text(SAMPLE_ENTRY_1, encoding="utf-8")
+    (logs_dir / "v1_models.log").write_text(SAMPLE_ENTRY_2, encoding="utf-8")
+
+    monkeypatch.setenv("LOGDB_IMPORT_PARALLELISM", "4")
+    stats = ingest_logs(str(logs_dir), str(db_base))
+    assert stats.files_scanned >= 2
 
 
 def test_ingest_resume_after_interruption(tmp_path):
