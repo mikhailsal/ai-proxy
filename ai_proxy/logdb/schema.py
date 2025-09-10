@@ -50,6 +50,21 @@ def open_connection_with_pragmas(db_path: str) -> sqlite3.Connection:
         conn.execute("PRAGMA synchronous=NORMAL;")
         conn.execute("PRAGMA busy_timeout=5000;")
         conn.execute("PRAGMA foreign_keys=ON;")
+        # Optional: set WAL autocheckpoint pages to keep WAL bounded (Stage I)
+        try:
+            wal_autock = int(os.getenv("LOGDB_WAL_AUTOCHECKPOINT_PAGES", "1000").strip())
+            wal_autock = max(0, wal_autock)
+            conn.execute(f"PRAGMA wal_autocheckpoint={wal_autock};")
+        except Exception:
+            # Leave default if env invalid
+            pass
+        # Optional: cache size (negative means KB units)
+        try:
+            cache_kb = int(os.getenv("LOGDB_SQLITE_CACHE_KB", "0").strip())
+            if cache_kb > 0:
+                conn.execute(f"PRAGMA cache_size=-{cache_kb};")
+        except Exception:
+            pass
     return conn
 
 

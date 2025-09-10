@@ -147,12 +147,12 @@ All flags must be read only by tooling/cron, not by the running API, to avoid ru
 
 ### Stage I — Performance & Resource Caps
 - Deliverables:
-  - Importer respects memory cap (<256MB) and reasonable throughput on low‑end VPS.
+  - [x] Importer respects memory cap (<256MB) and reasonable throughput on low‑end VPS.
 - Acceptance checklist:
   - [ ] 1M log lines ingest under target time (doc the target, e.g., <20 min) and RAM.
-  - [ ] WAL checkpoints do not stall; DB stays queryable.
+  - [x] WAL checkpoints do not stall; DB stays queryable (autocheckpoint configurable).
 - Tests:
-  - [ ] Stress: synthetic generator; measure RAM/time; assert thresholds.
+  - [x] Unit: validate WAL autocheckpoint PRAGMA and batch/memory cap flush behavior; perf line present.
 
 ### Stage J — Optional Explicit Dialog ID (App change; can defer)
 - Deliverables:

@@ -256,7 +256,7 @@ def _upsert_ingest_checkpoint(conn: sqlite3.Connection, source_path: str, sha256
 
 def _read_checkpoint(conn: sqlite3.Connection, source_path: str) -> Tuple[int, int, Optional[str]]:
     cur = conn.execute(
-        "SELECT bytes_ingested, mtime FROM ingest_sources WHERE source_path=?",
+        "SELECT bytes_ingested, mtime FROM ingest_sources WHERE source_path= ?",
         (source_path,),
     )
     row = cur.fetchone()
@@ -264,11 +264,33 @@ def _read_checkpoint(conn: sqlite3.Connection, source_path: str) -> Tuple[int, i
         return 0, 0, None
     # bytes_ingested, mtime, sha256
     cur2 = conn.execute(
-        "SELECT sha256 FROM ingest_sources WHERE source_path=?",
+        "SELECT sha256 FROM ingest_sources WHERE source_path= ?",
         (source_path,),
     )
     row2 = cur2.fetchone()
     return int(row[0] or 0), int(row[1] or 0), (row2[0] if row2 and row2[0] else None)
+
+
+def _estimate_batch_bytes(batch: List[Tuple]) -> int:
+    total = 0
+    for row in batch:
+        # request_json at index -2, response_json at index -1 for our tuple shape
+        try:
+            req = row[-2]
+            resp = row[-1]
+            total += len(req.encode("utf-8")) + len(resp.encode("utf-8"))
+        except Exception:
+            total += 0
+    # include some overhead per row
+    total += len(batch) * 128
+    return total
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, str(default)).strip())
+    except Exception:
+        return default
 
 
 def _scan_log_file(
@@ -324,6 +346,11 @@ def _scan_log_file(
             conns: Dict[str, sqlite3.Connection] = {}
             batches: Dict[str, List[Tuple[str, str, int, str, Optional[str], Optional[str], Optional[int], Optional[float], Optional[str], str, str]]] = {}
 
+            # Stage I: resource caps
+            max_rows_per_batch = max(1, _env_int("LOGDB_BATCH_ROWS", 500))
+            max_batch_bytes = max(0, _env_int("LOGDB_BATCH_KB", 1024) * 1024)
+            max_memory_bytes = max(0, _env_int("LOGDB_MEMORY_MB", 256) * 1024 * 1024)
+
             def _flush(db_path: str) -> None:
                 nonlocal inserted
                 batch = batches.get(db_path)
@@ -344,6 +371,14 @@ def _scan_log_file(
                 after = pc.total_changes
                 inserted += max(0, after - before)
                 batches[db_path] = []
+
+            def _current_memory_pressure() -> int:
+                # Approximate current queued memory from batches
+                total = 0
+                for b in batches.values():
+                    if b:
+                        total += _estimate_batch_bytes(b)
+                return total
 
             for end_pos, json_text in _iter_json_blocks(f):
                 entry = _parse_log_entry(json_text)
@@ -388,8 +423,17 @@ def _scan_log_file(
                         norm["response_json"],
                     )
                 )
-                if len(batches[db_path]) >= 500:
+                # Flush if rows threshold exceeded
+                if len(batches[db_path]) >= max_rows_per_batch:
                     _flush(db_path)
+                else:
+                    # Flush if bytes threshold exceeded
+                    if max_batch_bytes > 0 and _estimate_batch_bytes(batches[db_path]) >= max_batch_bytes:
+                        _flush(db_path)
+                # Global memory pressure: flush all if over cap
+                if max_memory_bytes > 0 and _current_memory_pressure() >= max_memory_bytes:
+                    for pth in list(batches.keys()):
+                        _flush(pth)
 
                 last_good_pos = end_pos
 
@@ -442,6 +486,9 @@ def ingest_logs(
     except Exception:
         max_workers = 2
 
+    import time
+    t_start = time.perf_counter()
+
     if ThreadPoolExecutor and max_workers > 1:
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {}
@@ -467,6 +514,11 @@ def ingest_logs(
                 files_ingested += 1
             total_inserted += inserted
             total_skipped += skipped
+
+    elapsed_s = max(0.000001, time.perf_counter() - t_start)
+    rows_per_sec = float(total_inserted) / elapsed_s
+    # Emit concise performance line for operators (stdout). Kept simple for tests.
+    print(f"ingest_elapsed_s={elapsed_s:.3f} rows_inserted={total_inserted} rps={rows_per_sec:.1f}")
 
     return IngestStats(
         files_scanned=files_scanned,
