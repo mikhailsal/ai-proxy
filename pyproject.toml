@@ -41,3 +41,6 @@ filterwarnings = [
     "ignore::DeprecationWarning:pydantic.*"
 ]
 
+[project.scripts]
+logdb = "ai_proxy.logdb.cli:main"
+

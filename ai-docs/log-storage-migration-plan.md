@@ -38,16 +38,16 @@ All flags must be read only by tooling/cron, not by the running API, to avoid ru
   - Indexes: `requests(ts)`, `requests(endpoint)`, `requests(status_code)`, `requests(model_original)`, `requests(model_mapped)`, `requests(api_key_hash)`.
   - FTS table (created in Stage D when flag enabled): `request_text_index`.
 - Acceptance checklist:
-  - [ ] Schema can be created on an empty DB file.
-  - [ ] PRAGMA `integrity_check` returns `ok`.
-  - [ ] WAL mode active; `journal_mode=WAL`.
-  - [ ] Partition path is created for the current day with correct permissions.
+  - [x] Schema can be created on an empty DB file.
+  - [x] PRAGMA `integrity_check` returns `ok`.
+  - [x] WAL mode active; `journal_mode=WAL`.
+  - [x] Partition path is created for the current day with correct permissions.
 - Tests:
-  - [ ] Unit: schema creation; presence of tables/indexes.
-  - [ ] Unit: PRAGMA checks; WAL on.
-  - [ ] Integration: create two partitions (today/yesterday) and open both.
+  - [x] Unit: schema creation; presence of tables/indexes.
+  - [x] Unit: PRAGMA checks; WAL on.
+  - [x] Integration: create two partitions (today/yesterday) and open both.
 - Rollback:
-  - [ ] Remove generated DB files; no impact to running API (still writes text logs).
+  - [x] Remove generated DB files; no impact to running API (still writes text logs).
 
 ### Stage B — Importer (Parser + Normalizer + Inserter)
 - Deliverables:

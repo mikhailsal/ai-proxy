@@ -97,6 +97,11 @@ dmypy.json
 
 logs/models/
 
+# Log database artifacts
+logs/db/
+logs-local/
+logs/**/*.sqlite3
+
 # HTTPS and SSL certificates
 certs/
 traefik/
