@@ -7,6 +7,7 @@ from .partitioning import ensure_partition_database
 from .ingest import add_cli as add_ingest_cli
 from .schema import open_connection_with_pragmas, run_integrity_check
 from .fts import build_fts_for_range, drop_fts_table
+from .bundle import create_bundle, verify_bundle
 
 
 def cmd_init(args: argparse.Namespace) -> int:
@@ -101,6 +102,46 @@ def build_parser() -> argparse.ArgumentParser:
         return rc
 
     p_fts_drop.set_defaults(func=_cmd_fts_drop)
+
+    # Bundle subcommands
+    p_bundle = sub.add_parser("bundle", help="Bundle operations")
+    sub_bundle = p_bundle.add_subparsers(dest="bundle_command", required=True)
+
+    p_bundle_create = sub_bundle.add_parser("create", help="Create a log bundle tar.gz")
+    p_bundle_create.add_argument("--since", required=True, help="Start date YYYY-MM-DD")
+    p_bundle_create.add_argument("--to", required=True, help="End date YYYY-MM-DD")
+    p_bundle_create.add_argument("--out", required=True, help="Output bundle file path (.tgz)")
+    p_bundle_create.add_argument("--db", required=False, default="logs/db", help="Base directory for DB partitions")
+    p_bundle_create.add_argument("--include-raw", action="store_true", help="Include raw .log files in bundle")
+    p_bundle_create.add_argument("--raw", required=False, default="logs", help="Source logs directory for raw files")
+
+    def _cmd_bundle_create(args: argparse.Namespace) -> int:
+        since_date = _dt.datetime.strptime(args.since, "%Y-%m-%d").date()
+        to_date = _dt.datetime.strptime(args.to, "%Y-%m-%d").date()
+        include_raw = bool(args.include_raw)
+        # Create bundle
+        create_bundle(
+            base_db_dir=os.path.abspath(args.db),
+            since=since_date,
+            to=to_date,
+            out_path=os.path.abspath(args.out),
+            include_raw=include_raw,
+            raw_logs_dir=os.path.abspath(args.raw) if include_raw else None,
+        )
+        print(args.out)
+        return 0
+
+    p_bundle_create.set_defaults(func=_cmd_bundle_create)
+
+    p_bundle_verify = sub_bundle.add_parser("verify", help="Verify a log bundle")
+    p_bundle_verify.add_argument("bundle", help="Path to bundle .tgz")
+
+    def _cmd_bundle_verify(args: argparse.Namespace) -> int:
+        ok = verify_bundle(os.path.abspath(args.bundle))
+        print("ok" if ok else "fail")
+        return 0 if ok else 1
+
+    p_bundle_verify.set_defaults(func=_cmd_bundle_verify)
 
     return parser
 

@@ -114,12 +114,12 @@ All flags must be read only by tooling/cron, not by the running API, to avoid ru
   - `metadata.json`: `{ bundle_id, created_at, server_id, schema_version, files: [{path, sha256, bytes}], include_raw }`.
   - `db/` with `.sqlite3` partitions; optional `raw/` with `.log` if flag enabled.
 - Acceptance checklist:
-  - [ ] Verify recomputed SHA‑256 matches `metadata.json`.
-  - [ ] Tampering a file causes verification to fail.
+  - [x] Verify recomputed SHA‑256 matches `metadata.json`.
+  - [x] Tampering a file causes verification to fail.
   - [ ] Bundle size within expected range for sample dataset.
 - Tests:
-  - [ ] Unit: metadata schema and checksum calc.
-  - [ ] Integration: create→verify→tamper→verify fails.
+  - [x] Unit: metadata schema and checksum calc.
+  - [x] Integration: create→verify→tamper→verify fails.
 
 ### Stage G — Bundle Import & Merge
 - Deliverables:

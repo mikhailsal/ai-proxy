@@ -117,3 +117,8 @@ volumes/
 #temp files
 tmp/
 deployment-timestamp.txt
+
+# Log bundles
+bundles/
+*.tgz
+*.tar.gz
