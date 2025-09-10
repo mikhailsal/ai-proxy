@@ -116,7 +116,7 @@ The AI Proxy includes a powerful SQLite-based log storage system designed for po
 Enable the log storage system by setting environment variables:
 
 ```bash
-# Enable log storage (default: false)
+# Enable log storage system (default: false)
 LOGDB_ENABLED=true
 
 # Enable full-text search (default: false)
@@ -125,30 +125,63 @@ LOGDB_FTS_ENABLED=true
 # Enable dialog grouping (default: false)
 LOGDB_GROUPING_ENABLED=true
 
-# Configure partition granularity (default: daily)
+# Configure partition granularity: daily|weekly (default: daily)
 LOGDB_PARTITION_GRANULARITY=daily
+
+# Include raw logs in bundles (default: false)
+LOGDB_BUNDLE_INCLUDE_RAW=false
+
+# Concurrent file processing (default: 2)
+LOGDB_IMPORT_PARALLELISM=2
+
+# Memory limit for processing (default: 256)
+LOGDB_MEMORY_CAP_MB=256
 ```
 
 ### Basic Operations
 
+**Use the convenient bash script `./scripts/logdb` instead of long commands:**
+
 ```bash
 # Initialize database for today
-poetry run python -m ai_proxy.logdb.cli init
+./scripts/logdb init
 
 # Ingest logs from the last 7 days
-poetry run python -m ai_proxy.logdb.cli ingest --from ./logs --since 2025-09-01 --to 2025-09-07
+./scripts/logdb ingest --from ./logs --since 2025-09-01 --to 2025-09-07
 
 # Build full-text search index
-poetry run python -m ai_proxy.logdb.cli fts build --since 2025-09-01 --to 2025-09-07
+./scripts/logdb fts build --since 2025-09-01 --to 2025-09-07
 
 # Create a portable bundle for backup/transfer
-poetry run python -m ai_proxy.logdb.cli bundle create --since 2025-09-01 --to 2025-09-07 --out ./backup-2025-09-01.tgz
+./scripts/logdb bundle create --since 2025-09-01 --to 2025-09-07 --out ./backup-2025-09-01.tgz
 
 # Transfer bundle to another server
-poetry run python -m ai_proxy.logdb.cli bundle transfer ./backup-2025-09-01.tgz /path/to/destination/
+./scripts/logdb bundle transfer ./backup-2025-09-01.tgz /path/to/destination/
 
 # Import bundle on destination server
-poetry run python -m ai_proxy.logdb.cli bundle import ./backup-2025-09-01.tgz --dest ./logs/db
+./scripts/logdb bundle import ./backup-2025-09-01.tgz --dest ./logs/db
+```
+
+**Or use full Python commands (if script is not available):**
+
+```bash
+# Initialize database for today
+python3 -m ai_proxy.logdb.cli init
+
+# Ingest logs from the last 7 days
+python3 -m ai_proxy.logdb.cli ingest --from ./logs --since 2025-09-01 --to 2025-09-07
+
+# Build full-text search index
+python3 -m ai_proxy.logdb.cli fts build --since 2025-09-01 --to 2025-09-07
+
+# Create a portable bundle for backup/transfer
+python3 -m ai_proxy.logdb.cli bundle create --since 2025-09-01 --to 2025-09-07 --out ./backup-2025-09-01.tgz
+
+# Transfer bundle to another server
+python3 -m ai_proxy.logdb.cli bundle transfer ./backup-2025-09-01.tgz /path/to/destination/
+
+# Import bundle on destination server
+python3 -m ai_proxy.logdb.cli bundle import ./backup-2025-09-01.tgz --dest ./logs/db
 ```
 
 ### Search Examples

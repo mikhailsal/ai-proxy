@@ -450,17 +450,17 @@ Enable log storage features via environment variables:
 
 ```bash
 # Core settings
-LOGDB_ENABLED=true                    # Enable log storage system
-LOGDB_PARTITION_GRANULARITY=daily     # daily|weekly partitioning
-LOGDB_IMPORT_PARALLELISM=2           # Concurrent file processing
+LOGDB_ENABLED=true                    # Enable log storage system (default: false)
+LOGDB_PARTITION_GRANULARITY=daily     # Partition granularity: daily|weekly (default: daily)
+LOGDB_IMPORT_PARALLELISM=2           # Concurrent file processing (default: 2)
 
 # Feature flags
-LOGDB_FTS_ENABLED=true               # Enable full-text search
-LOGDB_GROUPING_ENABLED=true          # Enable dialog grouping
-LOGDB_BUNDLE_INCLUDE_RAW=false       # Include raw logs in bundles
+LOGDB_FTS_ENABLED=true               # Enable full-text search (default: false)
+LOGDB_GROUPING_ENABLED=true          # Enable dialog grouping (default: false)
+LOGDB_BUNDLE_INCLUDE_RAW=false       # Include raw logs in bundles (default: false)
 
 # Performance caps
-LOGDB_MEMORY_CAP_MB=256             # Memory limit for processing
+LOGDB_MEMORY_CAP_MB=256             # Memory limit for processing (default: 256)
 ```
 
 ### Database Schema
@@ -474,27 +474,53 @@ Each partition contains these tables:
 
 ### CLI Operations
 
-#### Database Management
+**Use the convenient bash script `./scripts/logdb` to shorten commands:**
 
 ```bash
 # Initialize database schema for today
-poetry run python -m ai_proxy.logdb.cli init
+./scripts/logdb init
 
 # Initialize for specific date
-poetry run python -m ai_proxy.logdb.cli init --date 2025-09-15
+./scripts/logdb init --date 2025-09-15
 
 # Check database integrity
-poetry run python -m ai_proxy.logdb.cli init --date 2025-09-15 | xargs sqlite3 "PRAGMA integrity_check;"
+./scripts/logdb init --date 2025-09-15 | xargs sqlite3 "PRAGMA integrity_check;"
+```
+
+**Or use full commands:**
+
+```bash
+# Initialize database schema for today
+python3 -m ai_proxy.logdb.cli init
+
+# Initialize for specific date
+python3 -m ai_proxy.logdb.cli init --date 2025-09-15
+
+# Check database integrity
+python3 -m ai_proxy.logdb.cli init --date 2025-09-15 | xargs sqlite3 "PRAGMA integrity_check;"
 ```
 
 #### Log Ingestion
 
 ```bash
 # Ingest logs for date range
-poetry run python -m ai_proxy.logdb.cli ingest --from ./logs --since 2025-09-01 --to 2025-09-07
+./scripts/logdb ingest --from ./logs --since 2025-09-01 --to 2025-09-07
 
 # Ingest with custom parallelism
-LOGDB_IMPORT_PARALLELISM=4 poetry run python -m ai_proxy.logdb.cli ingest --from ./logs --since 2025-09-01 --to 2025-09-07
+LOGDB_IMPORT_PARALLELISM=4 ./scripts/logdb ingest --from ./logs --since 2025-09-01 --to 2025-09-07
+
+# Check ingestion progress
+sqlite3 logs/db/2025/09/ai_proxy_20250907.sqlite3 "SELECT * FROM ingest_sources;"
+```
+
+**Full commands:**
+
+```bash
+# Ingest logs for date range
+python3 -m ai_proxy.logdb.cli ingest --from ./logs --since 2025-09-01 --to 2025-09-07
+
+# Ingest with custom parallelism
+LOGDB_IMPORT_PARALLELISM=4 python3 -m ai_proxy.logdb.cli ingest --from ./logs --since 2025-09-01 --to 2025-09-07
 
 # Check ingestion progress
 sqlite3 logs/db/2025/09/ai_proxy_20250907.sqlite3 "SELECT * FROM ingest_sources;"
@@ -504,52 +530,104 @@ sqlite3 logs/db/2025/09/ai_proxy_20250907.sqlite3 "SELECT * FROM ingest_sources;
 
 ```bash
 # Build FTS index for date range
-poetry run python -m ai_proxy.logdb.cli fts build --since 2025-09-01 --to 2025-09-07
+./scripts/logdb fts build --since 2025-09-01 --to 2025-09-07
 
 # Remove FTS index (non-destructive)
-poetry run python -m ai_proxy.logdb.cli fts drop --since 2025-09-01 --to 2025-09-07
+./scripts/logdb fts drop --since 2025-09-01 --to 2025-09-07
+```
+
+**Full commands:**
+
+```bash
+# Build FTS index for date range
+python3 -m ai_proxy.logdb.cli fts build --since 2025-09-01 --to 2025-09-07
+
+# Remove FTS index (non-destructive)
+python3 -m ai_proxy.logdb.cli fts drop --since 2025-09-01 --to 2025-09-07
 ```
 
 #### Dialog Grouping
 
 ```bash
 # Assign dialog IDs with 30-minute windows
-poetry run python -m ai_proxy.logdb.cli dialogs assign --since 2025-09-01 --to 2025-09-07 --window 30m
+./scripts/logdb dialogs assign --since 2025-09-01 --to 2025-09-07 --window 30m
 
 # Use custom window size
-poetry run python -m ai_proxy.logdb.cli dialogs assign --since 2025-09-01 --to 2025-09-07 --window 2h
+./scripts/logdb dialogs assign --since 2025-09-01 --to 2025-09-07 --window 2h
 
 # Clear dialog assignments
-poetry run python -m ai_proxy.logdb.cli dialogs clear --since 2025-09-01 --to 2025-09-07
+./scripts/logdb dialogs clear --since 2025-09-01 --to 2025-09-07
+```
+
+**Full commands:**
+
+```bash
+# Assign dialog IDs with 30-minute windows
+python3 -m ai_proxy.logdb.cli dialogs assign --since 2025-09-01 --to 2025-09-07 --window 30m
+
+# Use custom window size
+python3 -m ai_proxy.logdb.cli dialogs assign --since 2025-09-01 --to 2025-09-07 --window 2h
+
+# Clear dialog assignments
+python3 -m ai_proxy.logdb.cli dialogs clear --since 2025-09-01 --to 2025-09-07
 ```
 
 #### Bundle Operations
 
 ```bash
 # Create bundle for date range
-poetry run python -m ai_proxy.logdb.cli bundle create --since 2025-09-01 --to 2025-09-07 --out ./backup-2025-09-01.tgz
+./scripts/logdb bundle create --since 2025-09-01 --to 2025-09-07 --out ./backup-2025-09-01.tgz
 
 # Include raw log files in bundle
-poetry run python -m ai_proxy.logdb.cli bundle create --since 2025-09-01 --to 2025-09-07 --out ./backup-2025-09-01.tgz --include-raw
+./scripts/logdb bundle create --since 2025-09-01 --to 2025-09-07 --out ./backup-2025-09-01.tgz --include-raw
 
 # Verify bundle integrity
-poetry run python -m ai_proxy.logdb.cli bundle verify ./backup-2025-09-01.tgz
+./scripts/logdb bundle verify ./backup-2025-09-01.tgz
 
 # Transfer bundle with resume capability
-poetry run python -m ai_proxy.logdb.cli bundle transfer ./backup-2025-09-01.tgz /dest/path/backup-2025-09-01.tgz
+./scripts/logdb bundle transfer ./backup-2025-09-01.tgz /dest/path/backup-2025-09-01.tgz
 
 # Import bundle to destination
-poetry run python -m ai_proxy.logdb.cli bundle import ./backup-2025-09-01.tgz --dest ./logs/db
+./scripts/logdb bundle import ./backup-2025-09-01.tgz --dest ./logs/db
+```
+
+**Full commands:**
+
+```bash
+# Create bundle for date range
+python3 -m ai_proxy.logdb.cli bundle create --since 2025-09-01 --to 2025-09-07 --out ./backup-2025-09-01.tgz
+
+# Include raw log files in bundle
+python3 -m ai_proxy.logdb.cli bundle create --since 2025-09-01 --to 2025-09-07 --out ./backup-2025-09-01.tgz --include-raw
+
+# Verify bundle integrity
+python3 -m ai_proxy.logdb.cli bundle verify ./backup-2025-09-01.tgz
+
+# Transfer bundle with resume capability
+python3 -m ai_proxy.logdb.cli bundle transfer ./backup-2025-09-01.tgz /dest/path/backup-2025-09-01.tgz
+
+# Import bundle to destination
+python3 -m ai_proxy.logdb.cli bundle import ./backup-2025-09-01.tgz --dest ./logs/db
 ```
 
 #### Database Merging
 
 ```bash
 # Merge daily partitions into monthly database
-poetry run python -m ai_proxy.logdb.cli merge --from ./logs/db/2025/09 --to ./logs/db/monthly/2025-09.sqlite3
+./scripts/logdb merge --from ./logs/db/2025/09 --to ./logs/db/monthly/2025-09.sqlite3
 
 # Verify merge integrity
-poetry run python -m ai_proxy.logdb.cli merge --from ./logs/db/2025/09 --to ./logs/db/monthly/2025-09.sqlite3 | grep integrity
+./scripts/logdb merge --from ./logs/db/2025/09 --to ./logs/db/monthly/2025-09.sqlite3 | grep integrity
+```
+
+**Full commands:**
+
+```bash
+# Merge daily partitions into monthly database
+python3 -m ai_proxy.logdb.cli merge --from ./logs/db/2025/09 --to ./logs/db/monthly/2025-09.sqlite3
+
+# Verify merge integrity
+python3 -m ai_proxy.logdb.cli merge --from ./logs/db/2025/09 --to ./logs/db/monthly/2025-09.sqlite3 | grep integrity
 ```
 
 ### Advanced Search Examples
@@ -656,13 +734,13 @@ export LOGDB_GROUPING_ENABLED=true
 YESTERDAY=$(date -d 'yesterday' +%Y-%m-%d)
 
 # Ingest new logs
-poetry run python -m ai_proxy.logdb.cli ingest --from ./logs --since $YESTERDAY --to $YESTERDAY
+./scripts/logdb ingest --from ./logs --since $YESTERDAY --to $YESTERDAY
 
 # Update FTS index
-poetry run python -m ai_proxy.logdb.cli fts build --since $YESTERDAY --to $YESTERDAY
+./scripts/logdb fts build --since $YESTERDAY --to $YESTERDAY
 
 # Update dialog groups
-poetry run python -m ai_proxy.logdb.cli dialogs assign --since $YESTERDAY --to $YESTERDAY
+./scripts/logdb dialogs assign --since $YESTERDAY --to $YESTERDAY
 
 # Create weekly bundle (if it's Sunday)
 if [ $(date +%u) -eq 7 ]; then
@@ -670,13 +748,13 @@ if [ $(date +%u) -eq 7 ]; then
     WEEK_END=$(date -d 'last sunday' +%Y-%m-%d)
     BUNDLE_NAME="weekly-$(date +%Y-%U).tgz"
 
-    poetry run python -m ai_proxy.logdb.cli bundle create \
+    ./scripts/logdb bundle create \
         --since $WEEK_START \
         --to $WEEK_END \
         --out ./bundles/$BUNDLE_NAME
 
     # Verify bundle integrity
-    if poetry run python -m ai_proxy.logdb.cli bundle verify ./bundles/$BUNDLE_NAME; then
+    if ./scripts/logdb bundle verify ./bundles/$BUNDLE_NAME; then
         echo "Weekly bundle created successfully: $BUNDLE_NAME"
     else
         echo "ERROR: Bundle verification failed!"
@@ -699,13 +777,13 @@ START_DATE=$(date -d '7 days ago' +%Y-%m-%d)
 END_DATE=$(date -d 'yesterday' +%Y-%m-%d)
 BUNDLE_NAME="backup-$(date +%Y%m%d).tgz"
 
-poetry run python -m ai_proxy.logdb.cli bundle create \
+./scripts/logdb bundle create \
     --since $START_DATE \
     --to $END_DATE \
     --out ./tmp_$BUNDLE_NAME
 
 # Transfer to remote server
-poetry run python -m ai_proxy.logdb.cli bundle transfer \
+./scripts/logdb bundle transfer \
     ./tmp_$BUNDLE_NAME \
     $REMOTE_HOST:$REMOTE_PATH/$BUNDLE_NAME
 
@@ -713,7 +791,7 @@ poetry run python -m ai_proxy.logdb.cli bundle transfer \
 rm ./tmp_$BUNDLE_NAME
 
 # Verify remote bundle
-ssh $REMOTE_HOST "cd /opt/ai-proxy && poetry run python -m ai_proxy.logdb.cli bundle verify $REMOTE_PATH/$BUNDLE_NAME"
+ssh $REMOTE_HOST "cd /opt/ai-proxy && ./scripts/logdb bundle verify $REMOTE_PATH/$BUNDLE_NAME"
 ```
 
 ### Troubleshooting
