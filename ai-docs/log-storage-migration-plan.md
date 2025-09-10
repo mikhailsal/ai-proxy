@@ -73,11 +73,11 @@ All flags must be read only by tooling/cron, not by the running API, to avoid ru
 - Deliverables:
   - Stable `server_id` per host (UUID stored once), included in importer context.
 - Acceptance checklist:
-  - [ ] `servers` row created on first run; reused on later runs.
-  - [ ] Same logs ingested on different machines with same `server_id` stay deduped.
+  - [x] `servers` row created on first run; reused on later runs.
+  - [x] Same logs ingested on different machines with same `server_id` stay deduped.
 - Tests:
-  - [ ] Unit: deterministic `server_id` derivation from hostname/env or persisted file.
-  - [ ] Integration: simulate two hosts; verify dedupe via `request_id`.
+  - [x] Unit: deterministic `server_id` derivation from persisted file or env override.
+  - [x] Integration (unit-simulated): simulate two runs with same `server_id`; verify dedupe via `request_id`.
 
 ### Stage D — FTS5 Full‑Text Index
 - Deliverables:
