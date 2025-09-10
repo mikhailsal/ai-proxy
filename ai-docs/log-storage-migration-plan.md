@@ -51,23 +51,23 @@ All flags must be read only by tooling/cron, not by the running API, to avoid ru
 
 ### Stage B — Importer (Parser + Normalizer + Inserter)
 - Deliverables:
-  - CLI `logdb ingest --from logs/ --since YYYY-MM-DD --to YYYY-MM-DD`.
-  - Incremental ingestion using `ingest_sources` checkpoints.
+  - [x] CLI `logdb ingest --from logs/ --since YYYY-MM-DD --to YYYY-MM-DD`.
+  - [x] Incremental ingestion using `ingest_sources` checkpoints.
 - Implementation outline:
   - Parse existing endpoint/model logs under `logs/` line‑by‑line.
   - Extract JSON payload after the `asctime - level -` prefix; validate fields.
   - Compute `request_id = sha256(server_id|ts_iso|endpoint|sha256(req)|sha256(resp))`.
   - Batch insert with `INSERT OR IGNORE`.
 - Acceptance checklist:
-  - [ ] First run ingests sample files and reports counters.
-  - [ ] Second run ingests 0 new rows (idempotent).
-  - [ ] Checkpoint in `ingest_sources` reflects `bytes_ingested` and `mtime`.
+  - [x] First run ingests sample files and reports counters.
+  - [x] Second run ingests 0 new rows (idempotent).
+  - [x] Checkpoint in `ingest_sources` reflects `bytes_ingested` and `mtime`.
 - Tests:
-  - [ ] Unit: parser tolerates minor noise/rotation.
-  - [ ] Integration: ingest two rotated files; resume after interruption.
-  - [ ] Integration: duplicate lines produce no duplicates in `requests`.
+  - [x] Unit: parser tolerates minor noise/rotation.
+  - [x] Integration: ingest two rotated files; resume after interruption.
+  - [x] Integration: duplicate lines produce no duplicates in `requests`.
 - Rollback:
-  - [ ] Delete created partitions; importer can be re‑run safely.
+  - [x] Delete created partitions; importer can be re‑run safely.
 
 ### Stage C — Server Identity & Deduplication
 - Deliverables:

@@ -4,6 +4,7 @@ import os
 from typing import Optional
 
 from .partitioning import ensure_partition_database
+from .ingest import add_cli as add_ingest_cli
 from .schema import open_connection_with_pragmas, run_integrity_check
 
 
@@ -35,6 +36,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_init.add_argument("--date", help="Partition date YYYY-MM-DD", required=False)
     p_init.add_argument("--out", help="Base directory for DB partitions", required=False, default="logs/db")
     p_init.set_defaults(func=cmd_init)
+
+    # Ingest subcommand
+    add_ingest_cli(sub)
 
     return parser
 
