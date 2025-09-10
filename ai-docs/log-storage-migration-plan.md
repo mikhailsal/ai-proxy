@@ -97,14 +97,14 @@ All flags must be read only by tooling/cron, not by the running API, to avoid ru
 - Deliverables:
   - Offline grouper that assigns `dialog_id` using sliding window (default 30m), grouped by `api_key_hash+endpoint+model_mapped`.
 - Acceptance checklist:
-  - [ ] Enabled only if `LOGDB_GROUPING_ENABLED=true`.
-  - [ ] Sequences within window share one `dialog_id`; gaps beyond window split.
-  - [ ] Re‑running grouper is idempotent and stable.
+  - [x] Enabled only if `LOGDB_GROUPING_ENABLED=true`.
+  - [x] Sequences within window share one `dialog_id`; gaps beyond window split.
+  - [x] Re‑running grouper is idempotent and stable.
 - Tests:
-  - [ ] Synthetic timeline validates window boundaries.
-  - [ ] Mixed models/endpoints create distinct dialogs.
+  - [x] Synthetic timeline validates window boundaries.
+  - [x] Mixed models/endpoints create distinct dialogs.
 - Rollback:
-  - [ ] Clear `dialog_id` column; no impact on base queries.
+  - [x] Clear `dialog_id` column; no impact on base queries.
 
 ### Stage F — Bundle Create & Verify (Log Bundle v1)
 - Deliverables:

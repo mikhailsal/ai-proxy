@@ -8,6 +8,7 @@ from .ingest import add_cli as add_ingest_cli
 from .schema import open_connection_with_pragmas, run_integrity_check
 from .fts import build_fts_for_range, drop_fts_table
 from .bundle import create_bundle, verify_bundle
+from .dialogs import assign_dialogs_for_range, _parse_window_to_seconds, clear_dialogs_for_range
 
 
 def cmd_init(args: argparse.Namespace) -> int:
@@ -142,6 +143,53 @@ def build_parser() -> argparse.ArgumentParser:
         return 0 if ok else 1
 
     p_bundle_verify.set_defaults(func=_cmd_bundle_verify)
+
+    # Dialog grouping subcommands
+    p_dialogs = sub.add_parser("dialogs", help="Dialog grouping utilities")
+    sub_dialogs = p_dialogs.add_subparsers(dest="dialogs_command", required=True)
+
+    p_dialogs_assign = sub_dialogs.add_parser("assign", help="Assign dialog_id for a date range")
+    p_dialogs_assign.add_argument("--out", required=False, default="logs/db", help="Base directory for DB partitions")
+    p_dialogs_assign.add_argument("--since", required=False, help="Start date YYYY-MM-DD")
+    p_dialogs_assign.add_argument("--to", required=False, help="End date YYYY-MM-DD")
+    p_dialogs_assign.add_argument(
+        "--window",
+        required=False,
+        default="30m",
+        help="Window size (e.g., 30m, 15m, 2h, 1800s)",
+    )
+
+    def _cmd_dialogs_assign(args: argparse.Namespace) -> int:
+        if os.getenv("LOGDB_GROUPING_ENABLED", "false").lower() != "true":
+            print("Dialogs disabled by LOGDB_GROUPING_ENABLED")
+            return 2
+        since_date = _dt.datetime.strptime(args.since, "%Y-%m-%d").date() if args.since else None
+        to_date = _dt.datetime.strptime(args.to, "%Y-%m-%d").date() if args.to else None
+        window_seconds = _parse_window_to_seconds(args.window)
+        results = assign_dialogs_for_range(os.path.abspath(args.out), since_date, to_date, window_seconds)
+        for db_path, updated in results:
+            print(f"{db_path} updated={updated}")
+        return 0
+
+    p_dialogs_assign.set_defaults(func=_cmd_dialogs_assign)
+
+    p_dialogs_clear = sub_dialogs.add_parser("clear", help="Clear dialog_id values for a date range")
+    p_dialogs_clear.add_argument("--out", required=False, default="logs/db", help="Base directory for DB partitions")
+    p_dialogs_clear.add_argument("--since", required=False, help="Start date YYYY-MM-DD")
+    p_dialogs_clear.add_argument("--to", required=False, help="End date YYYY-MM-DD")
+
+    def _cmd_dialogs_clear(args: argparse.Namespace) -> int:
+        if os.getenv("LOGDB_GROUPING_ENABLED", "false").lower() != "true":
+            print("Dialogs disabled by LOGDB_GROUPING_ENABLED")
+            return 2
+        since_date = _dt.datetime.strptime(args.since, "%Y-%m-%d").date() if args.since else None
+        to_date = _dt.datetime.strptime(args.to, "%Y-%m-%d").date() if args.to else None
+        results = clear_dialogs_for_range(os.path.abspath(args.out), since_date, to_date)
+        for db_path, updated in results:
+            print(f"{db_path} cleared={updated}")
+        return 0
+
+    p_dialogs_clear.set_defaults(func=_cmd_dialogs_clear)
 
     return parser
 
