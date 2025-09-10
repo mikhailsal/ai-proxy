@@ -406,32 +406,369 @@ If HTTPS is not working:
 ```
 ai-proxy/
 ├── ai_proxy/               # Main application code
+│   └── logdb/             # Log storage system
+│       ├── cli.py         # Command-line interface
+│       ├── schema.py      # Database schema definitions
+│       ├── ingest.py      # Log ingestion logic
+│       ├── fts.py         # Full-text search management
+│       ├── dialogs.py     # Dialog grouping logic
+│       ├── bundle.py      # Bundle creation/verification
+│       ├── transport.py   # File transfer utilities
+│       ├── merge.py       # Database merging utilities
+│       └── partitioning.py # Date-based partitioning
 ├── scripts/                # Setup and testing scripts
 │   ├── setup-https.sh     # HTTPS configuration script
 │   └── test-https.sh      # HTTPS testing script
+├── logs/                   # Application logs and databases
+│   ├── db/                # SQLite partitions (YYYY/MM/*.sqlite3)
+│   │   └── monthly/       # Merged monthly databases
+│   ├── models/            # Model-specific logs
+│   └── *.log              # Traditional text logs
+├── bundles/                # Log bundles for backup/transfer
 ├── docker-compose.yml     # Production deployment with HTTPS
 ├── Dockerfile             # Application container
 ├── .env.example          # Environment configuration template
 └── README.md             # This file
 ```
 
-## Log Bundle Transfer (Stage H)
+## Advanced Log Storage System (Stages A-H Implemented)
 
-Use the CLI to create, verify, transfer, import, and merge bundles. The transfer command supports automatic resume using a temporary .part file and verifies bundle contents when the target filename ends with .tgz.
+The AI Proxy includes a comprehensive SQLite-based log storage system that transforms text logs into a powerful, searchable database. This system is designed for production use with features like incremental processing, full-text search, dialog grouping, and portable bundles.
+
+### Core Features
+
+*   **SQLite Storage**: Efficient partitioned database with WAL mode and optimized indexing
+*   **Full-Text Search**: FTS5 virtual tables for natural language queries
+*   **Dialog Grouping**: Automatic conversation grouping based on time windows and API keys
+*   **Portable Bundles**: Compressed archives with integrity verification
+*   **Incremental Processing**: Resume log ingestion safely from checkpoints
+*   **Multi-Server Support**: Server identity management and deduplication
+
+### Configuration
+
+Enable log storage features via environment variables:
 
 ```bash
-# Create a bundle for a date range
-poetry run python -m ai_proxy.logdb.cli bundle create --since 2025-09-01 --to 2025-09-10 --out ./tmp_bundle.tgz --db logs/db
+# Core settings
+LOGDB_ENABLED=true                    # Enable log storage system
+LOGDB_PARTITION_GRANULARITY=daily     # daily|weekly partitioning
+LOGDB_IMPORT_PARALLELISM=2           # Concurrent file processing
 
-# Verify a bundle
-poetry run python -m ai_proxy.logdb.cli bundle verify ./tmp_bundle.tgz
+# Feature flags
+LOGDB_FTS_ENABLED=true               # Enable full-text search
+LOGDB_GROUPING_ENABLED=true          # Enable dialog grouping
+LOGDB_BUNDLE_INCLUDE_RAW=false       # Include raw logs in bundles
 
-# Transfer with resume to a destination path; verifies contents if .tgz
-poetry run python -m ai_proxy.logdb.cli bundle transfer ./tmp_bundle.tgz /dest/path/tmp_bundle.tgz
+# Performance caps
+LOGDB_MEMORY_CAP_MB=256             # Memory limit for processing
+```
 
-# Import into destination DB tree (idempotent)
-poetry run python -m ai_proxy.logdb.cli bundle import ./tmp_bundle.tgz --dest ./logs/db
+### Database Schema
 
-# Optional: Merge partitions into a compact monthly DB
+Each partition contains these tables:
+
+- **`servers`**: Server identity and metadata
+- **`requests`**: Main request/response data with timestamps and performance metrics
+- **`ingest_sources`**: Incremental processing checkpoints
+- **`request_text_index`**: FTS5 virtual table (when enabled)
+
+### CLI Operations
+
+#### Database Management
+
+```bash
+# Initialize database schema for today
+poetry run python -m ai_proxy.logdb.cli init
+
+# Initialize for specific date
+poetry run python -m ai_proxy.logdb.cli init --date 2025-09-15
+
+# Check database integrity
+poetry run python -m ai_proxy.logdb.cli init --date 2025-09-15 | xargs sqlite3 "PRAGMA integrity_check;"
+```
+
+#### Log Ingestion
+
+```bash
+# Ingest logs for date range
+poetry run python -m ai_proxy.logdb.cli ingest --from ./logs --since 2025-09-01 --to 2025-09-07
+
+# Ingest with custom parallelism
+LOGDB_IMPORT_PARALLELISM=4 poetry run python -m ai_proxy.logdb.cli ingest --from ./logs --since 2025-09-01 --to 2025-09-07
+
+# Check ingestion progress
+sqlite3 logs/db/2025/09/ai_proxy_20250907.sqlite3 "SELECT * FROM ingest_sources;"
+```
+
+#### Full-Text Search Management
+
+```bash
+# Build FTS index for date range
+poetry run python -m ai_proxy.logdb.cli fts build --since 2025-09-01 --to 2025-09-07
+
+# Remove FTS index (non-destructive)
+poetry run python -m ai_proxy.logdb.cli fts drop --since 2025-09-01 --to 2025-09-07
+```
+
+#### Dialog Grouping
+
+```bash
+# Assign dialog IDs with 30-minute windows
+poetry run python -m ai_proxy.logdb.cli dialogs assign --since 2025-09-01 --to 2025-09-07 --window 30m
+
+# Use custom window size
+poetry run python -m ai_proxy.logdb.cli dialogs assign --since 2025-09-01 --to 2025-09-07 --window 2h
+
+# Clear dialog assignments
+poetry run python -m ai_proxy.logdb.cli dialogs clear --since 2025-09-01 --to 2025-09-07
+```
+
+#### Bundle Operations
+
+```bash
+# Create bundle for date range
+poetry run python -m ai_proxy.logdb.cli bundle create --since 2025-09-01 --to 2025-09-07 --out ./backup-2025-09-01.tgz
+
+# Include raw log files in bundle
+poetry run python -m ai_proxy.logdb.cli bundle create --since 2025-09-01 --to 2025-09-07 --out ./backup-2025-09-01.tgz --include-raw
+
+# Verify bundle integrity
+poetry run python -m ai_proxy.logdb.cli bundle verify ./backup-2025-09-01.tgz
+
+# Transfer bundle with resume capability
+poetry run python -m ai_proxy.logdb.cli bundle transfer ./backup-2025-09-01.tgz /dest/path/backup-2025-09-01.tgz
+
+# Import bundle to destination
+poetry run python -m ai_proxy.logdb.cli bundle import ./backup-2025-09-01.tgz --dest ./logs/db
+```
+
+#### Database Merging
+
+```bash
+# Merge daily partitions into monthly database
 poetry run python -m ai_proxy.logdb.cli merge --from ./logs/db/2025/09 --to ./logs/db/monthly/2025-09.sqlite3
+
+# Verify merge integrity
+poetry run python -m ai_proxy.logdb.cli merge --from ./logs/db/2025/09 --to ./logs/db/monthly/2025-09.sqlite3 | grep integrity
+```
+
+### Advanced Search Examples
+
+#### Full-Text Search Queries
+
+```sql
+-- Natural language search
+SELECT * FROM request_text_index
+WHERE request_text_index MATCH 'machine learning';
+
+-- Proximity search (words within 5 positions)
+SELECT * FROM request_text_index
+WHERE request_text_index MATCH 'error NEAR/5 timeout';
+
+-- Boolean combinations
+SELECT * FROM request_text_index
+WHERE request_text_index MATCH '("machine learning" OR AI) AND python';
+
+-- Search specific fields
+SELECT * FROM request_text_index
+WHERE role = 'user' AND request_text_index MATCH 'help';
+```
+
+#### Dialog Analysis
+
+```sql
+-- Find conversation patterns
+SELECT dialog_id, COUNT(*) as message_count,
+       MIN(ts) as start_time, MAX(ts) as end_time,
+       api_key_hash
+FROM requests
+WHERE dialog_id IS NOT NULL
+GROUP BY dialog_id
+HAVING message_count > 5
+ORDER BY start_time DESC;
+
+-- Analyze model usage in conversations
+SELECT dialog_id, model_original, COUNT(*) as usage_count
+FROM requests
+WHERE dialog_id IS NOT NULL
+GROUP BY dialog_id, model_original
+ORDER BY dialog_id, usage_count DESC;
+```
+
+#### Performance Analysis
+
+```sql
+-- Find slowest requests
+SELECT request_id, endpoint, model_original,
+       latency_ms, status_code,
+       datetime(ts, 'unixepoch') as timestamp
+FROM requests
+ORDER BY latency_ms DESC
+LIMIT 10;
+
+-- Error rate analysis
+SELECT model_original,
+       COUNT(*) as total_requests,
+       SUM(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END) as errors,
+       ROUND(100.0 * SUM(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END) / COUNT(*), 2) as error_rate
+FROM requests
+GROUP BY model_original
+ORDER BY error_rate DESC;
+```
+
+#### Multi-Partition Queries
+
+```sql
+-- Attach multiple partitions for cross-range analysis
+ATTACH DATABASE 'logs/db/2025/09/ai_proxy_20250901.sqlite3' AS sept01;
+ATTACH DATABASE 'logs/db/2025/09/ai_proxy_20250902.sqlite3' AS sept02;
+
+-- Cross-partition analysis
+SELECT COUNT(*) as total_requests,
+       AVG(latency_ms) as avg_latency,
+       MIN(ts) as earliest, MAX(ts) as latest
+FROM (
+    SELECT * FROM sept01.requests
+    UNION ALL
+    SELECT * FROM sept02.requests
+);
+
+DETACH DATABASE sept01;
+DETACH DATABASE sept02;
+```
+
+### Production Integration Examples
+
+#### Daily Log Processing Cron Job
+
+```bash
+#!/bin/bash
+# /etc/cron.daily/process-ai-proxy-logs
+
+cd /opt/ai-proxy
+
+# Export configuration
+export LOGDB_ENABLED=true
+export LOGDB_FTS_ENABLED=true
+export LOGDB_GROUPING_ENABLED=true
+
+# Process yesterday's logs
+YESTERDAY=$(date -d 'yesterday' +%Y-%m-%d)
+
+# Ingest new logs
+poetry run python -m ai_proxy.logdb.cli ingest --from ./logs --since $YESTERDAY --to $YESTERDAY
+
+# Update FTS index
+poetry run python -m ai_proxy.logdb.cli fts build --since $YESTERDAY --to $YESTERDAY
+
+# Update dialog groups
+poetry run python -m ai_proxy.logdb.cli dialogs assign --since $YESTERDAY --to $YESTERDAY
+
+# Create weekly bundle (if it's Sunday)
+if [ $(date +%u) -eq 7 ]; then
+    WEEK_START=$(date -d 'last monday -6 days' +%Y-%m-%d)
+    WEEK_END=$(date -d 'last sunday' +%Y-%m-%d)
+    BUNDLE_NAME="weekly-$(date +%Y-%U).tgz"
+
+    poetry run python -m ai_proxy.logdb.cli bundle create \
+        --since $WEEK_START \
+        --to $WEEK_END \
+        --out ./bundles/$BUNDLE_NAME
+
+    # Verify bundle integrity
+    if poetry run python -m ai_proxy.logdb.cli bundle verify ./bundles/$BUNDLE_NAME; then
+        echo "Weekly bundle created successfully: $BUNDLE_NAME"
+    else
+        echo "ERROR: Bundle verification failed!"
+        exit 1
+    fi
+fi
+```
+
+#### Remote Backup Script
+
+```bash
+#!/bin/bash
+# Backup logs to remote server
+
+REMOTE_HOST="backup.example.com"
+REMOTE_PATH="/var/backups/ai-proxy"
+
+# Create bundle for last 7 days
+START_DATE=$(date -d '7 days ago' +%Y-%m-%d)
+END_DATE=$(date -d 'yesterday' +%Y-%m-%d)
+BUNDLE_NAME="backup-$(date +%Y%m%d).tgz"
+
+poetry run python -m ai_proxy.logdb.cli bundle create \
+    --since $START_DATE \
+    --to $END_DATE \
+    --out ./tmp_$BUNDLE_NAME
+
+# Transfer to remote server
+poetry run python -m ai_proxy.logdb.cli bundle transfer \
+    ./tmp_$BUNDLE_NAME \
+    $REMOTE_HOST:$REMOTE_PATH/$BUNDLE_NAME
+
+# Clean up local temporary file
+rm ./tmp_$BUNDLE_NAME
+
+# Verify remote bundle
+ssh $REMOTE_HOST "cd /opt/ai-proxy && poetry run python -m ai_proxy.logdb.cli bundle verify $REMOTE_PATH/$BUNDLE_NAME"
+```
+
+### Troubleshooting
+
+#### Common Issues
+
+**Ingestion fails with "database locked"**
+```bash
+# Check for long-running queries
+sqlite3 logs/db/2025/09/ai_proxy_20250907.sqlite3 "SELECT * FROM sqlite_master WHERE type='table';"
+
+# Force WAL checkpoint
+sqlite3 logs/db/2025/09/ai_proxy_20250907.sqlite3 "PRAGMA wal_checkpoint(PASSIVE);"
+```
+
+**FTS search returns no results**
+```bash
+# Check if FTS table exists
+sqlite3 logs/db/2025/09/ai_proxy_20250907.sqlite3 "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%fts%';"
+
+# Rebuild FTS index
+poetry run python -m ai_proxy.logdb.cli fts drop --since 2025-09-07 --to 2025-09-07
+poetry run python -m ai_proxy.logdb.cli fts build --since 2025-09-07 --to 2025-09-07
+```
+
+**Bundle verification fails**
+```bash
+# Check bundle contents
+tar -tzf backup-2025-09-01.tgz | head -20
+
+# Manual SHA256 verification
+sha256sum logs/db/2025/09/ai_proxy_20250901.sqlite3
+grep "ai_proxy_20250901.sqlite3" backup-2025-09-01.tgz.metadata.json
+```
+
+#### Performance Optimization
+
+**Large dataset queries**
+```sql
+-- Use indexes effectively
+EXPLAIN QUERY PLAN
+SELECT * FROM requests
+WHERE ts BETWEEN strftime('%s', '2025-09-01') AND strftime('%s', '2025-09-07')
+  AND model_original LIKE 'gpt-4%'
+ORDER BY ts DESC;
+
+-- Consider covering indexes for common queries
+CREATE INDEX idx_requests_covering ON requests(ts, model_original, latency_ms, status_code);
+```
+
+**Memory usage during ingestion**
+```bash
+# Monitor memory usage
+LOGDB_MEMORY_CAP_MB=128 poetry run python -m ai_proxy.logdb.cli ingest --from ./logs --since 2025-09-01 --to 2025-09-07
+
+# Use smaller batch sizes for memory-constrained environments
+LOGDB_IMPORT_PARALLELISM=1 poetry run python -m ai_proxy.logdb.cli ingest --from ./logs --since 2025-09-01 --to 2025-09-07
 ```
