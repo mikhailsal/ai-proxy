@@ -154,3 +154,75 @@ class _BytesIO:
         return self._b[start:end]
 
 
+def import_bundle(bundle_path: str, dest_dir: str) -> Tuple[int, int]:
+    """Import DB partitions from a bundle into dest_dir.
+
+    Copies files under `db/` from the tar.gz bundle into `dest_dir`, preserving
+    subdirectories. Existing destination files are skipped (idempotent). Each
+    copied file is verified against the checksum from metadata.json during copy.
+
+    Returns (imported_count, skipped_count).
+    """
+    import_posix_sep = "/"
+
+    os.makedirs(os.path.abspath(dest_dir), exist_ok=True)
+
+    with tarfile.open(bundle_path, mode="r:gz") as tar:
+        # Load metadata map
+        try:
+            meta_member = tar.getmember("metadata.json")
+        except KeyError:
+            raise ValueError("Bundle missing metadata.json")
+        with tar.extractfile(meta_member) as f:
+            assert f is not None
+            meta = json.loads(f.read().decode("utf-8"))
+        files_meta = {item["path"]: (item.get("sha256"), int(item.get("bytes", 0))) for item in meta.get("files", [])}
+
+        imported = 0
+        skipped = 0
+        base_abs = os.path.realpath(os.path.abspath(dest_dir))
+
+        for member in tar.getmembers():
+            if not member.isfile():
+                continue
+            name = member.name
+            if not name.startswith("db" + import_posix_sep):
+                continue
+
+            expected_sha, _expected_bytes = files_meta.get(name, (None, 0))
+            rel = os.path.relpath(name, start="db")
+            # Prevent path traversal
+            dest_path = os.path.join(dest_dir, rel)
+            dest_real = os.path.realpath(os.path.abspath(dest_path))
+            if not (dest_real == base_abs or dest_real.startswith(base_abs + os.sep)):
+                raise ValueError(f"Refusing to write outside destination: {dest_path}")
+
+            if os.path.exists(dest_real):
+                skipped += 1
+                continue
+
+            os.makedirs(os.path.dirname(dest_real), exist_ok=True)
+            # Stream copy while hashing
+            with tar.extractfile(member) as src:  # type: ignore[assignment]
+                assert src is not None
+                h = hashlib.sha256()
+                tmp_path = dest_real + ".part"
+                with open(tmp_path, "wb") as dst:
+                    for chunk in iter(lambda: src.read(65536), b""):
+                        if not chunk:
+                            break
+                        h.update(chunk)
+                        dst.write(chunk)
+                actual_sha = h.hexdigest()
+                if expected_sha and actual_sha != expected_sha:
+                    try:
+                        os.remove(tmp_path)
+                    finally:
+                        pass
+                    raise ValueError(f"Checksum mismatch for {name}")
+                os.replace(tmp_path, dest_real)
+                imported += 1
+
+    return imported, skipped
+
+

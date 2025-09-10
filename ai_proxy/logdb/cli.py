@@ -7,7 +7,8 @@ from .partitioning import ensure_partition_database
 from .ingest import add_cli as add_ingest_cli
 from .schema import open_connection_with_pragmas, run_integrity_check
 from .fts import build_fts_for_range, drop_fts_table
-from .bundle import create_bundle, verify_bundle
+from .bundle import create_bundle, verify_bundle, import_bundle
+from .merge import merge_partitions
 from .dialogs import assign_dialogs_for_range, _parse_window_to_seconds, clear_dialogs_for_range
 
 
@@ -190,6 +191,30 @@ def build_parser() -> argparse.ArgumentParser:
         return 0
 
     p_dialogs_clear.set_defaults(func=_cmd_dialogs_clear)
+
+    # Bundle import subcommand
+    p_bundle_import = sub_bundle.add_parser("import", help="Import a log bundle into destination dir")
+    p_bundle_import.add_argument("bundle", help="Path to bundle .tgz")
+    p_bundle_import.add_argument("--dest", required=False, default="logs/db", help="Destination base directory for DB partitions")
+
+    def _cmd_bundle_import(args: argparse.Namespace) -> int:
+        imp, skip = import_bundle(os.path.abspath(args.bundle), os.path.abspath(args.dest))
+        print(f"imported={imp} skipped={skip}")
+        return 0
+
+    p_bundle_import.set_defaults(func=_cmd_bundle_import)
+
+    # Merge utility
+    p_merge = sub.add_parser("merge", help="Merge partitions from a directory into a single SQLite file")
+    p_merge.add_argument("--from", dest="src", required=True, help="Source directory containing partitions")
+    p_merge.add_argument("--to", dest="dst", required=True, help="Destination SQLite file path")
+
+    def _cmd_merge(args: argparse.Namespace) -> int:
+        nsrc, total, status = merge_partitions(os.path.abspath(args.src), os.path.abspath(args.dst))
+        print(f"sources={nsrc} total_requests={total} integrity={status}")
+        return 0 if status == "ok" else 1
+
+    p_merge.set_defaults(func=_cmd_merge)
 
     return parser
 

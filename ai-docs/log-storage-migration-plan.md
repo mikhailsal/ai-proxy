@@ -122,16 +122,16 @@ All flags must be read only by tooling/cron, not by the running API, to avoid ru
   - [x] Integration: create→verify→tamper→verify fails.
 
 ### Stage G — Bundle Import & Merge
-- Deliverables:
+ - Deliverables:
   - `logdb bundle import bundle.tgz --dest logs/db/` (copy new partitions, skip existing).
   - Optional merge CLI: `logdb merge --from logs/db/2025/09 --to logs/db/monthly/2025-09.sqlite3`.
-- Acceptance checklist:
-  - [ ] Import is idempotent; re‑import does nothing.
-  - [ ] Attached multi‑DB queries across partitions work.
-  - [ ] Merge produces a compact file with same row counts (`INSERT OR IGNORE`).
-- Tests:
-  - [ ] Integration: ATTACH multiple partitions and run a cross‑range query.
-  - [ ] Integration: pre/post merge counts equal; `integrity_check=ok`.
+ - Acceptance checklist:
+  - [x] Import is idempotent; re‑import does nothing.
+  - [x] Attached multi‑DB queries across partitions work.
+  - [x] Merge produces a compact file with same row counts (`INSERT OR IGNORE`).
+ - Tests:
+  - [x] Integration: ATTACH multiple partitions and run a cross‑range query.
+  - [x] Integration: pre/post merge counts equal; `integrity_check=ok`.
 
 ### Stage H — Transport (rsync/scp) & Integrity
 - Deliverables:
