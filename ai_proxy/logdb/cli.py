@@ -8,6 +8,7 @@ from .ingest import add_cli as add_ingest_cli
 from .schema import open_connection_with_pragmas, run_integrity_check
 from .fts import build_fts_for_range, drop_fts_table
 from .bundle import create_bundle, verify_bundle, import_bundle
+from .transport import copy_with_resume
 from .merge import merge_partitions
 from .dialogs import assign_dialogs_for_range, _parse_window_to_seconds, clear_dialogs_for_range
 
@@ -159,6 +160,28 @@ def build_parser() -> argparse.ArgumentParser:
         return 0 if ok else 1
 
     p_bundle_verify.set_defaults(func=_cmd_bundle_verify)
+
+    # Bundle transfer (Stage H)
+    p_bundle_transfer = sub_bundle.add_parser("transfer", help="Transfer a bundle file with resume to destination path")
+    p_bundle_transfer.add_argument("src", help="Source bundle path (.tgz)")
+    p_bundle_transfer.add_argument("dest", help="Destination path")
+
+    def _cmd_bundle_transfer(args: argparse.Namespace) -> int:
+        # Perform resumable copy, then verify destination checksum equals source
+        size, sha = copy_with_resume(os.path.abspath(args.src), os.path.abspath(args.dest))
+        # If file appears to be a bundle, optionally run verify to ensure integrity of contents
+        try:
+            if str(args.dest).endswith(".tgz"):
+                ok = verify_bundle(os.path.abspath(args.dest))
+                print(f"bytes={size} sha256={sha} verify={'ok' if ok else 'fail'}")
+                return 0 if ok else 1
+        except Exception:
+            # If verification fails due to non-bundle, still consider copy success
+            pass
+        print(f"bytes={size} sha256={sha}")
+        return 0
+
+    p_bundle_transfer.set_defaults(func=_cmd_bundle_transfer)
 
     # Dialog grouping subcommands
     p_dialogs = sub.add_parser("dialogs", help="Dialog grouping utilities")

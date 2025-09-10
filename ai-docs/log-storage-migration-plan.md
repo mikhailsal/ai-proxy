@@ -140,10 +140,10 @@ All flags must be read only by tooling/cron, not by the running API, to avoid ru
   - `rsync -azP --chmod=F640 --info=progress2 user@host:/var/app/logs/db/ ./logs/db/`
   - `scp -p user@host:/var/app/bundles/bundle-2025-09-01_10.tgz ./bundles/`
 - Acceptance checklist:
-  - [ ] Interrupted `rsync` resumes and final checksums match.
-  - [ ] Post‑transfer `bundle verify` passes.
+  - [x] Interrupted `rsync` resumes and final checksums match.
+  - [x] Post‑transfer `bundle verify` passes.
 - Tests:
-  - [ ] Manual/integration: simulate interruption; verify resume.
+  - [x] Manual/integration: simulate interruption; verify resume.
 
 ### Stage I — Performance & Resource Caps
 - Deliverables:

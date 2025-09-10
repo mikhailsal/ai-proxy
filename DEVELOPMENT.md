@@ -414,3 +414,24 @@ ai-proxy/
 ├── .env.example          # Environment configuration template
 └── README.md             # This file
 ```
+
+## Log Bundle Transfer (Stage H)
+
+Use the CLI to create, verify, transfer, import, and merge bundles. The transfer command supports automatic resume using a temporary .part file and verifies bundle contents when the target filename ends with .tgz.
+
+```bash
+# Create a bundle for a date range
+poetry run python -m ai_proxy.logdb.cli bundle create --since 2025-09-01 --to 2025-09-10 --out ./tmp_bundle.tgz --db logs/db
+
+# Verify a bundle
+poetry run python -m ai_proxy.logdb.cli bundle verify ./tmp_bundle.tgz
+
+# Transfer with resume to a destination path; verifies contents if .tgz
+poetry run python -m ai_proxy.logdb.cli bundle transfer ./tmp_bundle.tgz /dest/path/tmp_bundle.tgz
+
+# Import into destination DB tree (idempotent)
+poetry run python -m ai_proxy.logdb.cli bundle import ./tmp_bundle.tgz --dest ./logs/db
+
+# Optional: Merge partitions into a compact monthly DB
+poetry run python -m ai_proxy.logdb.cli merge --from ./logs/db/2025/09 --to ./logs/db/monthly/2025-09.sqlite3
+```
