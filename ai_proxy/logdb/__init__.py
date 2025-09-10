@@ -1,4 +1,4 @@
-"""Log database utilities: schema creation and partitioning.
+"""Log database utilities: schema creation, partitioning, and FTS
 
 This module provides programmatic APIs used by the `logdb` CLI and by tests
 to initialize SQLite databases for structured log storage.
@@ -13,6 +13,11 @@ from .partitioning import (
     compute_partition_path,
     ensure_partition_database,
 )
+from .fts import (
+    create_fts_table,
+    drop_fts_table,
+    build_partition_fts,
+)
 
 __all__ = [
     "create_or_migrate_schema",
@@ -20,6 +25,9 @@ __all__ = [
     "run_integrity_check",
     "compute_partition_path",
     "ensure_partition_database",
+    "create_fts_table",
+    "drop_fts_table",
+    "build_partition_fts",
 ]
 
 
