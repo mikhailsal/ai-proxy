@@ -36,6 +36,18 @@ def test_ensure_partition_database_creates_schema(tmp_path):
         # Check required tables
         tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()}
         assert {"servers", "requests", "ingest_sources"}.issubset(tables)
+
+        # Check required indexes exist
+        indexes = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='index';").fetchall()}
+        expected_indexes = {
+            "idx_requests_ts",
+            "idx_requests_endpoint",
+            "idx_requests_status",
+            "idx_requests_model_orig",
+            "idx_requests_model_mapped",
+            "idx_requests_api",
+        }
+        assert expected_indexes.issubset(indexes)
     finally:
         conn.close()
 
@@ -49,6 +61,26 @@ def test_integrity_check_ok(tmp_path):
         assert run_integrity_check(conn) == "ok"
     finally:
         conn.close()
+
+
+def test_create_two_partitions_today_and_yesterday(tmp_path):
+    base = tmp_path / "logs" / "db"
+    today = dt.date.today()
+    yesterday = today - dt.timedelta(days=1)
+
+    db_today = ensure_partition_database(str(base), today)
+    db_yesterday = ensure_partition_database(str(base), yesterday)
+
+    assert os.path.isfile(db_today)
+    assert os.path.isfile(db_yesterday)
+
+    # Both should pass integrity_check
+    for path in (db_today, db_yesterday):
+        conn = open_connection_with_pragmas(path)
+        try:
+            assert run_integrity_check(conn) == "ok"
+        finally:
+            conn.close()
 
 
 

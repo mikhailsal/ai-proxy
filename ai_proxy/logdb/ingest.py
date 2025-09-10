@@ -360,7 +360,8 @@ def ingest_logs(
     files: List[str] = []
     for root, _dirs, filenames in os.walk(source_dir):
         for name in filenames:
-            if not name.endswith(".log"):
+            # Accept rotated files too: *.log, *.log.1, *.log.20250910, etc.
+            if not (name.endswith(".log") or ".log." in name):
                 continue
             files.append(os.path.join(root, name))
 
@@ -393,6 +394,10 @@ def add_cli(subparsers) -> None:
     p.add_argument("--to", dest="to", required=False, help="End date YYYY-MM-DD")
 
     def _cmd(args: argparse.Namespace) -> int:
+        # Feature flag gate: importer is controlled by LOGDB_ENABLED (tooling-only)
+        if os.getenv("LOGDB_ENABLED", "false").lower() != "true":
+            print("Ingest disabled by LOGDB_ENABLED")
+            return 2
         since_date = dt.datetime.strptime(args.since, "%Y-%m-%d").date() if args.since else None
         to_date = dt.datetime.strptime(args.to, "%Y-%m-%d").date() if args.to else None
         stats = ingest_logs(args.source, args.out, since_date, to_date)
