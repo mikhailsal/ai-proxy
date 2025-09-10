@@ -103,3 +103,67 @@ def test_bundle_verify_detects_tamper(tmp_path):
     assert verify_bundle(str(tampered)) is False
 
 
+def test_bundle_create_with_include_raw_and_metadata(tmp_path):
+    base_db_dir, date = _create_sample_partition(tmp_path)
+
+    # Create a small raw logs tree
+    raw_dir = tmp_path / "logs"
+    os.makedirs(raw_dir, exist_ok=True)
+    # two log files in nested dirs
+    f1 = raw_dir / "app.log"
+    f2 = raw_dir / "sub" / "service.log.1"
+    os.makedirs(f2.parent, exist_ok=True)
+    f1.write_text("hello\n")
+    f2.write_text("world\n")
+
+    out = tmp_path / "bundles" / "with_raw.tgz"
+    os.makedirs(out.parent, exist_ok=True)
+
+    bundle_path = create_bundle(
+        base_db_dir=base_db_dir,
+        since=date,
+        to=date,
+        out_path=str(out),
+        include_raw=True,
+        raw_logs_dir=str(raw_dir),
+    )
+    assert os.path.isfile(bundle_path)
+
+    # Verify should still pass
+    assert verify_bundle(bundle_path) is True
+
+    # Inspect metadata.json
+    with tarfile.open(bundle_path, "r:gz") as tar:
+        meta_member = tar.getmember("metadata.json")
+        with tar.extractfile(meta_member) as f:
+            data = json.loads(f.read().decode("utf-8"))
+    # Required fields present
+    for k in ("bundle_id", "created_at", "server_id", "schema_version", "files", "include_raw"):
+        assert k in data
+    assert data["include_raw"] is True
+    # Ensure at least one raw file is referenced
+    raw_refs = [x for x in data["files"] if x["path"].startswith("raw/")]
+    assert len(raw_refs) >= 2
+
+
+def test_bundle_metadata_files_count_matches_tar(tmp_path):
+    base_db_dir, date = _create_sample_partition(tmp_path)
+    out = tmp_path / "bundles" / "meta_count.tgz"
+    os.makedirs(out.parent, exist_ok=True)
+
+    bundle_path = create_bundle(
+        base_db_dir=base_db_dir,
+        since=date,
+        to=date,
+        out_path=str(out),
+        include_raw=False,
+    )
+
+    # Count entries in tar under db/ and compare to metadata files entries
+    with tarfile.open(bundle_path, "r:gz") as tar:
+        meta = json.loads(tar.extractfile("metadata.json").read().decode("utf-8"))  # type: ignore[arg-type]
+        files_meta = [x for x in meta.get("files", []) if isinstance(x, dict)]
+        db_members = [m for m in tar.getmembers() if m.isfile() and m.name.startswith("db/")]
+    assert len(files_meta) == len(db_members)
+
+

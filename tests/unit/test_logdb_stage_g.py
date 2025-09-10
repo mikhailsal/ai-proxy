@@ -126,3 +126,87 @@ def test_merge_produces_equal_counts_and_ok(tmp_path):
     assert status2 == "ok"
 
 
+def test_import_bundle_raises_on_checksum_mismatch(tmp_path):
+    # Prepare two partitions and build a bundle
+    base_db = tmp_path / "src" / "logs" / "db"
+    d1 = dt.date(2025, 9, 18)
+    d2 = dt.date(2025, 9, 19)
+    _make_partition(str(base_db), d1, 1, 0)
+    _make_partition(str(base_db), d2, 1, 10)
+
+    bundle_path = tmp_path / "bundles" / "b-bad.tgz"
+    os.makedirs(bundle_path.parent, exist_ok=True)
+    create_bundle(str(base_db), d1, d2, str(bundle_path), include_raw=False)
+
+    # Tamper one DB entry inside the tar to break checksum
+    work = tmp_path / "wrk"
+    os.makedirs(work, exist_ok=True)
+    import tarfile
+    with tarfile.open(bundle_path, "r:gz") as tar:
+        tar.extractall(work)
+    # Find a db file and modify
+    target = None
+    for root, _dirs, names in os.walk(work / "db"):
+        for n in names:
+            if n.endswith(".sqlite3"):
+                target = os.path.join(root, n)
+                break
+        if target:
+            break
+    assert target is not None
+    with open(target, "ab") as f:
+        f.write(b"X")
+    # Repack without updating metadata.json
+    bad = tmp_path / "bundles" / "b-bad2.tgz"
+    with tarfile.open(bad, "w:gz") as tar:
+        tar.add(work / "db", arcname="db")
+        tar.add(work / "metadata.json", arcname="metadata.json")
+
+    dest_dir = tmp_path / "dest" / "db"
+    from pytest import raises
+    with raises(ValueError):
+        import_bundle(str(bad), str(dest_dir))
+
+
+def test_cross_db_attach_query_single_connection(tmp_path):
+    # Create two partitions and import via bundle
+    base_db = tmp_path / "src" / "logs" / "db"
+    d1 = dt.date(2025, 9, 20)
+    d2 = dt.date(2025, 9, 21)
+    _make_partition(str(base_db), d1, 2, 0)
+    _make_partition(str(base_db), d2, 3, 100)
+
+    bundle_path = tmp_path / "bundles" / "b2.tgz"
+    os.makedirs(bundle_path.parent, exist_ok=True)
+    create_bundle(str(base_db), d1, d2, str(bundle_path), include_raw=False)
+
+    dest_dir = tmp_path / "dest2" / "db"
+    import_bundle(str(bundle_path), str(dest_dir))
+
+    # Collect two db files
+    db_files = []
+    for root, _dirs, names in os.walk(dest_dir):
+        for n in names:
+            if n.endswith(".sqlite3"):
+                db_files.append(os.path.join(root, n))
+    assert len(db_files) == 2
+
+    # Open single connection, attach both, run a cross-DB aggregate
+    # Use an in-memory main DB just to run the query
+    conn = sqlite3.connect(":memory:")
+    try:
+        conn.executescript(
+            """
+            CREATE TABLE requests(request_id TEXT PRIMARY KEY);
+            """
+        )
+        # Attach two source DBs
+        conn.execute("ATTACH DATABASE ? AS db1", (db_files[0],))
+        conn.execute("ATTACH DATABASE ? AS db2", (db_files[1],))
+        cur = conn.execute("SELECT (SELECT COUNT(*) FROM db1.requests) + (SELECT COUNT(*) FROM db2.requests)")
+        total = int(cur.fetchone()[0])
+        assert total == 5  # 2 + 3 rows as created above
+    finally:
+        conn.close()
+
+
