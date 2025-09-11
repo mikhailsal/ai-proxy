@@ -220,7 +220,7 @@ ui-e2e: ## Run UI E2E tests with Playwright (Dockerized Node)
 		-w /app \
 		-p 5173:5173 \
 		--ipc=host \
-		mcr.microsoft.com/playwright:v1.48.2-jammy bash -lc "npm ci --no-audit --fund=false --loglevel=error && UI_NO_WEBSERVER= npm run test:ui || npx playwright test"
+		mcr.microsoft.com/playwright:v1.55.0-jammy bash -lc "npm ci --no-audit --fund=false --loglevel=error && UI_NO_WEBSERVER= npx playwright test --reporter=list"
 
 # Quick development workflow
 quick-test: lint-fix test-unit ## Quick test cycle for development in Docker

@@ -1,4 +1,5 @@
 import React from 'react'
+import JsonViewer from './JsonViewer'
 
 type ConnectionState =
   | { status: 'disconnected' }
@@ -33,6 +34,7 @@ export default function App() {
   const [state, setState] = React.useState<ConnectionState>({ status: 'disconnected' })
   const [requests, setRequests] = React.useState<any[] | null>(null)
   const [nextCursor, setNextCursor] = React.useState<string | null>(null)
+  const [selected, setSelected] = React.useState<any | null>(null)
   const [dateRange, setDateRange] = React.useState<{ since: string; to: string }>(() => {
     const today = new Date()
     const ymd = today.toISOString().slice(0, 10)
@@ -83,6 +85,17 @@ export default function App() {
     const data = await res.json()
     setRequests((prev) => (reset || !prev ? data.items : [...prev, ...data.items]))
     setNextCursor(data.nextCursor || null)
+  }
+
+  async function loadRequestDetails(requestId: string) {
+    if (state.status !== 'connected') return
+    const base = state.baseUrl.replace(/\/$/, '')
+    const res = await fetch(`${base}/ui/v1/requests/${encodeURIComponent(requestId)}` , {
+      headers: { Authorization: `Bearer ${localStorage.getItem('aiProxyLogs.apiKey') || apiKey}` },
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = await res.json()
+    setSelected(data)
   }
 
   return (
@@ -181,7 +194,7 @@ export default function App() {
             </thead>
             <tbody>
               {(requests || []).map((r) => (
-                <tr key={r.request_id}>
+                <tr key={r.request_id} onClick={() => loadRequestDetails(r.request_id)} style={{ cursor: 'pointer' }}>
                   <td style={{ padding: 4 }}>{new Date(r.ts * 1000).toISOString()}</td>
                   <td style={{ padding: 4 }}>{r.endpoint}</td>
                   <td style={{ padding: 4 }}>{r.model}</td>
@@ -200,6 +213,38 @@ export default function App() {
             <button aria-label="load-more" disabled={!nextCursor} onClick={() => loadRequests(false)}>
               Next
             </button>
+          </div>
+        </div>
+      )}
+
+      {state.status === 'connected' && selected && (
+        <div style={{ marginTop: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <h2>Request Details</h2>
+            <button aria-label="close-details" onClick={() => setSelected(null)}>Back</button>
+          </div>
+          <div style={{ display: 'grid', gap: 8 }}>
+            <div>
+              <strong>ID:</strong> <code>{selected.request_id}</code>
+            </div>
+            <div>
+              <strong>Endpoint:</strong> <code>{selected.endpoint}</code>
+            </div>
+            <div>
+              <strong>Model:</strong> <code>{selected.model_mapped || selected.model_original || ''}</code>
+            </div>
+            <div>
+              <strong>Status:</strong> <code>{String(selected.status_code)}</code>
+            </div>
+            <div>
+              <strong>Latency:</strong> <code>{String(selected.latency_ms)}</code>
+            </div>
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <JsonViewer label="Request JSON" value={selected.request_json} />
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <JsonViewer label="Response JSON" value={selected.response_json} />
           </div>
         </div>
       )}

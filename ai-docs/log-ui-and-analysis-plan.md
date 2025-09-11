@@ -143,12 +143,12 @@ Swagger/OpenAPI:
   - `GET /ui/requests/{request_id}` with full JSON payloads.
   - GUI: JSON pretty view with syntax highlighting; collapsible long arrays/strings; copy buttons.
 - Acceptance:
-  - [ ] Large payloads render with collapse-by-default beyond threshold.
-  - [ ] Syntax highlighting works for JSON and code-like strings.
+  - [x] Large payloads render with collapse-by-default beyond threshold.
+  - [x] Syntax highlighting works for JSON and code-like strings.
 - Tests:
-  - [ ] API unit: 404 on missing; payload round-trip.
-  - [ ] GUI unit: expand/collapse logic; copy.
-  - [ ] E2E: navigate from list to details and back.
+  - [x] API unit: 404 on missing; payload round-trip.
+  - [x] GUI unit: expand/collapse logic; copy.
+  - [x] E2E: navigate from list to details and back.
 
 ### Stage U5 — Dialog Grouping & Aggregations
 - Deliverables:

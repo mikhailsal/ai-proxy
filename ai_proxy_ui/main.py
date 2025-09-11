@@ -9,6 +9,7 @@ import base64
 import datetime as _dt
 import sqlite3
 from typing import Literal, Optional, List, Tuple
+import json
 
 
 def _get_allowed_origins() -> list[str]:
@@ -321,6 +322,85 @@ async def list_requests(
             last = rows[limit - 1]
             next_cursor = _encode_cursor(int(last[1]), str(last[0]))
         return {"items": items, "nextCursor": next_cursor}
+    finally:
+        conn.close()
+
+
+# ---- Request details (Stage U4) ----
+
+def _iter_all_partitions(base_dir: str) -> List[str]:
+    paths: List[str] = []
+    for root, _dirs, files in os.walk(base_dir):
+        for fname in files:
+            if not fname.endswith(".sqlite3"):
+                continue
+            # basic pattern guard: ai_proxy_YYYYMMDD.sqlite3
+            if not fname.startswith("ai_proxy_"):
+                continue
+            paths.append(os.path.join(root, fname))
+    # stable order to improve determinism
+    paths.sort()
+    return paths
+
+
+@v1.get("/requests/{request_id}")
+async def get_request_details(request_id: str):
+    base_dir = os.getenv("LOGUI_DB_ROOT", os.path.join(".", "logs", "db"))
+
+    db_files = _iter_all_partitions(base_dir)
+    if not db_files:
+        raise HTTPException(status_code=404, detail="Request not found")
+
+    # Build union query to fetch one row by request_id
+    select_cols = (
+        "request_id, server_id, ts, endpoint, model_original, model_mapped, "
+        "status_code, latency_ms, api_key_hash, request_json, response_json, dialog_id"
+    )
+    union_sql_parts: List[str] = []
+    for i in range(len(db_files)):
+        alias = f"db{i}"
+        union_sql_parts.append(f"SELECT {select_cols} FROM {alias}.requests WHERE request_id = ?")
+    union_sql = " UNION ALL ".join(union_sql_parts)
+    sql = f"SELECT {select_cols} FROM (" + union_sql + ") LIMIT 1"
+
+    conn = sqlite3.connect("file::memory:?cache=shared", uri=True)
+    try:
+        conn.execute("PRAGMA query_only=ON;")
+        for i, path in enumerate(db_files):
+            alias = f"db{i}"
+            uri_path = f"file:{os.path.abspath(path)}?mode=ro&immutable=1"
+            conn.execute("ATTACH DATABASE ? AS "+alias, (uri_path,))
+
+        # Prepare params repeated for each union branch
+        params: List[object] = [request_id] * len(db_files)
+        cur = conn.execute(sql, params)
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Request not found")
+
+        def _safe_json_loads(text: Optional[str]):
+            if text is None:
+                return None
+            try:
+                return json.loads(text)
+            except Exception:
+                return text  # return raw text if not valid JSON
+
+        body = {
+            "request_id": row[0],
+            "server_id": row[1],
+            "ts": int(row[2]),
+            "endpoint": row[3],
+            "model_original": row[4],
+            "model_mapped": row[5],
+            "status_code": int(row[6]) if row[6] is not None else None,
+            "latency_ms": float(row[7]) if row[7] is not None else None,
+            "api_key_hash": row[8],
+            "request_json": _safe_json_loads(row[9]),
+            "response_json": _safe_json_loads(row[10]),
+            "dialog_id": row[11],
+        }
+        return body
     finally:
         conn.close()
 
