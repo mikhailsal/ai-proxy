@@ -502,6 +502,26 @@ Each partition contains these tables:
 ./scripts/logdb init --date 2025-09-15 | xargs sqlite3 "PRAGMA integrity_check;"
 ```
 
+#### Wrapper global flags and environment precedence
+
+- The wrapper auto-loads variables from `.env` before running commands.
+- Already-exported environment variables always take precedence over `.env` values.
+- To disable auto-loading `.env`, pass a global flag before the command: `--no-dotenv`.
+- History expansion is disabled to avoid `!` issues in JSON strings during shell invocations.
+
+Examples:
+
+```bash
+# Use .env values automatically
+./scripts/logdb ingest --from ./logs --since 2025-09-01 --to 2025-09-07
+
+# Explicitly override a value just for this invocation
+LOGDB_IMPORT_PARALLELISM=4 ./scripts/logdb ingest --from ./logs --since 2025-09-01 --to 2025-09-07
+
+# Run without loading .env (only current environment is used)
+./scripts/logdb --no-dotenv ingest --from ./logs --since 2025-09-01 --to 2025-09-07
+```
+
 **Or use full commands:**
 
 ```bash
@@ -526,6 +546,34 @@ LOGDB_IMPORT_PARALLELISM=4 ./scripts/logdb ingest --from ./logs --since 2025-09-
 
 # Check ingestion progress
 sqlite3 logs/db/2025/09/ai_proxy_20250907.sqlite3 "SELECT * FROM ingest_sources;"
+```
+
+### Logs UI API: DB volume and permissions for local runs
+
+The Logs UI API reads SQLite partitions from a mounted directory. For local development:
+
+- Ensure `logs-ui-api` service mounts the DB directory read-only and runs as your host user:
+
+```yaml
+services:
+  logs-ui-api:
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    volumes:
+      - ./logs/db:/app/logs/db:ro
+```
+
+- Export your host UID/GID when starting services so the container uses matching permissions:
+
+```bash
+export HOST_UID=$(id -u)
+export HOST_GID=$(id -g)
+docker compose up -d logs-ui-api logs-ui-web
+```
+
+- Ingestion writes should be performed on the host (or via a one-off write-capable helper container), not from the read-only API container. If you encounter permission issues on an existing DB path, you can fix ownership/permissions safely with a temporary container:
+
+```bash
+docker run --rm -v $(PWD)/logs/db:/work alpine sh -c "chown -R $(id -u):$(id -g) /work || true; chmod -R u+rwX /work || true"
 ```
 
 **Full commands:**

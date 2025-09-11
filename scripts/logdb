@@ -16,6 +16,47 @@
 
 set -e  # Exit on any error
 
+# Optional: disable bash history expansion to avoid bangs in JSON breaking commands
+set +H 2>/dev/null || true
+
+# Flag to control dotenv autoload (env or CLI)
+LOGDB_AUTO_DOTENV_DEFAULT="1"
+LOGDB_AUTO_DOTENV="${LOGDB_AUTO_DOTENV:-$LOGDB_AUTO_DOTENV_DEFAULT}"
+
+# Parse optional global flag --no-dotenv (must come before command)
+if [[ "${1:-}" == "--no-dotenv" ]]; then
+    LOGDB_AUTO_DOTENV="0"
+    shift
+fi
+
+# Load variables from .env without overriding already-set env vars
+load_dotenv_if_enabled() {
+    if [[ "$LOGDB_AUTO_DOTENV" != "1" ]]; then
+        return 0
+    fi
+    if [[ -f .env ]]; then
+        # Shell-safe parse of KEY=VALUE lines, ignore comments/blank lines
+        while IFS= read -r line || [[ -n "$line" ]]; do
+            # Trim leading/trailing spaces
+            line="${line#\ }"; line="${line%\ }"
+            # Skip comments and blanks
+            [[ -z "$line" || "$line" =~ ^# ]] && continue
+            # Only simple KEY=VALUE (no export, no spaces around =)
+            if [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
+                key="${BASH_REMATCH[1]}"
+                val="${BASH_REMATCH[2]}"
+                # Remove optional surrounding quotes for common cases
+                if [[ "$val" =~ ^"(.*)"$ ]]; then val="${BASH_REMATCH[1]}"; fi
+                if [[ "$val" =~ ^'(.*)'$ ]]; then val="${BASH_REMATCH[1]}"; fi
+                # Export only if not already set in the environment
+                if [[ -z "${!key+x}" ]]; then
+                    export "$key"="$val"
+                fi
+            fi
+        done < .env
+    fi
+}
+
 # Colors for output (with fallback for terminals that don't support them)
 if command -v tput >/dev/null 2>&1 && [[ $(tput colors 2>/dev/null || echo 0) -ge 8 ]] && [[ -t 1 ]]; then
     RED=$(tput setaf 1 2>/dev/null || echo '\033[0;31m')
@@ -90,6 +131,8 @@ ${GREEN}Environment Variables (current values):${NC}
 ${GREEN}Help:${NC}
   $0 --help                            # Show this help
   $0 <command> --help                  # Show help for specific command
+  ${YELLOW}Global flags:${NC}
+  --no-dotenv                          # Do not auto-load .env (env vars take precedence by default)
 
 EOF
 }
@@ -126,6 +169,9 @@ run_command() {
 main() {
     # Check if we're in the project directory
     check_project_dir
+
+    # Auto-load .env (without clobbering existing env) unless disabled
+    load_dotenv_if_enabled
 
     # Handle help
     if [[ $# -eq 0 ]] || [[ "$1" == "--help" ]] || [[ "$1" == "-h" ]]; then
