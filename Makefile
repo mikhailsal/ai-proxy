@@ -1,7 +1,7 @@
 # AI Proxy Service Makefile
 # This Makefile provides common development and deployment tasks
 
-.PHONY: help install test test-unit test-integration lint lint-fix type-check clean build run dev docker-build docker-run docker-clean deploy setup-https test-https coverage pre-commit
+.PHONY: help install test test-unit test-integration lint lint-fix type-check clean build run dev docker-build docker-run docker-clean deploy setup-https test-https coverage pre-commit ui-test
 
 # Default target
 help: ## Show this help message
@@ -207,6 +207,11 @@ setup: install setup-hooks env-example ## Complete development setup
 
 ci: lint test coverage ## Run all CI checks (excluding type-check due to missing stubs) in Docker
 	@echo "All CI checks completed!"
+
+# UI testing
+ui-test: ## Run UI unit tests (Dockerized Node)
+	@echo "Running UI unit tests in Docker (Node 20)..."
+	@docker run --rm -v $(PWD)/ui:/app -w /app node:20 bash -lc "npm ci --no-audit --fund=false --loglevel=error && npm run test --silent"
 
 # Quick development workflow
 quick-test: lint-fix test-unit ## Quick test cycle for development in Docker

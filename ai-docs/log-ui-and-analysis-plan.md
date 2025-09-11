@@ -115,15 +115,15 @@ Swagger/OpenAPI:
   - Standard error schema responses; include `X-API-Version`, `X-Request-Id` headers.
   - GUI Connect flow: save `baseURL` + `apiKey`; test connection to `/ui/v1/health`.
 - Acceptance:
-  - [ ] Requests without/invalid key → 401.
-  - [ ] User key → 200 for user endpoints, 403 for admin endpoints.
-  - [ ] Admin key → 200 for admin endpoints.
-  - [ ] Swagger UI inaccessible in prod without admin auth.
-  - [ ] GUI shows connected target badge.
+  - [x] Requests without/invalid key → 401.
+  - [x] User key → 200 for user endpoints, 403 for admin endpoints.
+  - [x] Admin key → 200 for admin endpoints.
+  - [x] Swagger UI inaccessible in prod without admin auth.
+  - [x] GUI shows connected target badge.
 - Tests:
-  - [ ] API unit: auth middleware, RBAC, rate-limiting, error schema.
-  - [ ] GUI unit: connection form; error state on 401.
-  - [ ] E2E: user enters server + key; sees “Connected”.
+  - [x] API unit: auth middleware, RBAC, rate-limiting, error schema.
+  - [x] GUI unit: connection form; error state on 401.
+  - [x] E2E: user enters server + key; sees “Connected”.
 
 ### Stage U3 — Requests Listing (DB-backed, minimal)
 - Deliverables:

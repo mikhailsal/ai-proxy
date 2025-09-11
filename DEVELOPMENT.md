@@ -85,6 +85,21 @@ make test-specific TEST=tests/unit/test_config.py::TestSettings::test_init_with_
 make test-watch
 ```
 
+### UI Unit Tests (Dockerized Node)
+
+Run the Logs UI unit tests without installing Node locally. Use the `ui-test` target, which runs tests inside a Node 20 Docker container:
+
+```bash
+# Run UI unit tests
+make ui-test
+```
+
+This target mounts the `ui/` folder and executes:
+
+```bash
+docker run --rm -v $(PWD)/ui:/app -w /app node:20 bash -lc "npm ci --no-audit --fund=false --loglevel=error && npm run test --silent"
+```
+
 ### Direct Docker Commands
 
 You can also run tests directly with Docker Compose:
