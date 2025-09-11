@@ -25,7 +25,7 @@ it('renders Connect screen text', () => {
 it('connects successfully and shows connected badge', async () => {
   mockFetchImpl({
     'https://api.example/ui/v1/health': () => ({ status: 200, body: { status: 'ok' } }),
-    'https://api.example/ui/v1/config': () => ({ status: 200, body: { features: { admin_enabled: false } } }),
+    'https://api.example/ui/v1/whoami': () => ({ status: 200, body: { role: 'user' } }),
   })
   render(<App />)
   fireEvent.change(screen.getByLabelText('base-url'), { target: { value: 'https://api.example' } })
@@ -67,7 +67,7 @@ it('loads requests and paginates', async () => {
   }
   mockFetchImpl({
     'https://api.example/ui/v1/health': () => ({ status: 200, body: { status: 'ok' } }),
-    'https://api.example/ui/v1/config': () => ({ status: 200, body: { features: { admin_enabled: false } } }),
+    'https://api.example/ui/v1/whoami': () => ({ status: 200, body: { role: 'user' } }),
     'https://api.example/ui/v1/requests': (init?: RequestInit) => {
       const url = new URL('https://api.example/ui/v1/requests')
       const req = (init as any) // not used
@@ -120,7 +120,7 @@ it('opens request details and renders JSON viewer', async () => {
 
   mockFetchImpl({
     'https://api.example/ui/v1/health': () => ({ status: 200, body: { status: 'ok' } }),
-    'https://api.example/ui/v1/config': () => ({ status: 200, body: { features: { admin_enabled: false } } }),
+    'https://api.example/ui/v1/whoami': () => ({ status: 200, body: { role: 'user' } }),
     'https://api.example/ui/v1/requests': () => ({ status: 200, body: listPage }),
     'https://api.example/ui/v1/requests/r1': () => ({ status: 200, body: details }),
   })
@@ -169,7 +169,7 @@ it('collapses long JSON by default and toggles open', async () => {
 
   mockFetchImpl({
     'https://api.example/ui/v1/health': () => ({ status: 200, body: { status: 'ok' } }),
-    'https://api.example/ui/v1/config': () => ({ status: 200, body: { features: { admin_enabled: false } } }),
+    'https://api.example/ui/v1/whoami': () => ({ status: 200, body: { role: 'user' } }),
     'https://api.example/ui/v1/requests': () => ({ status: 200, body: listPage }),
     'https://api.example/ui/v1/requests/r2': () => ({ status: 200, body: details }),
   })

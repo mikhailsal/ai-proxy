@@ -131,6 +131,25 @@ def test_rate_limit_enforced_per_key():
     assert body["code"] == 429
 
 
+def test_whoami_returns_effective_role(monkeypatch):
+    monkeypatch.setenv("LOGUI_API_KEYS", "user-key")
+    monkeypatch.setenv("LOGUI_ADMIN_API_KEYS", "admin-key")
+
+    from ai_proxy_ui.main import app
+
+    client = TestClient(app)
+    # user token → user
+    r_user = client.get("/ui/v1/whoami", headers={"Authorization": "Bearer user-key"})
+    assert r_user.status_code == 200
+    assert r_user.json()["role"] == "user"
+    # admin token → admin
+    r_admin = client.get("/ui/v1/whoami", headers={"Authorization": "Bearer admin-key"})
+    assert r_admin.status_code == 200
+    assert r_admin.json()["role"] == "admin"
+    # invalid → 401
+    r_bad = client.get("/ui/v1/whoami", headers={"Authorization": "Bearer bad"})
+    assert r_bad.status_code == 401
+
 def _make_partition(db_path: str, rows: int, base_ts: int, start_id: int = 0):
     import sqlite3
     import os as _os

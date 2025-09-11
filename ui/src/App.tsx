@@ -28,6 +28,15 @@ async function getConfig(baseUrl: string, apiKey: string): Promise<{ admin_enabl
   return { admin_enabled: !!data?.features?.admin_enabled }
 }
 
+async function getWhoAmI(baseUrl: string, apiKey: string): Promise<'user'|'admin'> {
+  const res = await fetch(`${baseUrl.replace(/\/$/, '')}/ui/v1/whoami`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  const data = await res.json()
+  return data?.role === 'admin' ? 'admin' : 'user'
+}
+
 export default function App() {
   const [baseUrl, setBaseUrl] = React.useState<string>(() => localStorage.getItem('aiProxyLogs.baseUrl') || '')
   const [apiKey, setApiKey] = React.useState<string>(() => localStorage.getItem('aiProxyLogs.apiKey') || '')
@@ -55,8 +64,8 @@ export default function App() {
     setState({ status: 'connecting' })
     try {
       await checkHealth(baseUrl, apiKey)
-      const cfg = await getConfig(baseUrl, apiKey)
-      const role = cfg.admin_enabled ? 'admin' : 'user'
+      // Determine effective role from whoami endpoint
+      const role = await getWhoAmI(baseUrl, apiKey)
       localStorage.setItem('aiProxyLogs.baseUrl', baseUrl)
       localStorage.setItem('aiProxyLogs.apiKey', apiKey)
       setState({ status: 'connected', baseUrl, role })

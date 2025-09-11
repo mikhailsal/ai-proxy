@@ -173,6 +173,12 @@ async def get_config():
     }
 
 
+@v1.get("/whoami")
+async def whoami(role: Literal["user", "admin"] = Depends(_require_auth())):
+    # Return the effective role for the caller's token
+    return {"role": role}
+
+
 admin = APIRouter(prefix="/ui/v1/admin", dependencies=[Depends(_require_auth("admin"))])
 
 

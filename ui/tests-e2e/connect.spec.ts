@@ -10,8 +10,8 @@ test('Connects and shows connected badge (mocked API)', async ({ page }) => {
   await page.route('https://api.example/ui/v1/health', async (route) => {
     await route.fulfill({ status: 200, body: JSON.stringify({ status: 'ok' }), contentType: 'application/json' })
   })
-  await page.route('https://api.example/ui/v1/config', async (route) => {
-    await route.fulfill({ status: 200, body: JSON.stringify({ features: { admin_enabled: false } }), contentType: 'application/json' })
+  await page.route('https://api.example/ui/v1/whoami', async (route) => {
+    await route.fulfill({ status: 200, body: JSON.stringify({ role: 'user' }), contentType: 'application/json' })
   })
 
   await page.goto('/')
@@ -27,8 +27,8 @@ test('List → Details → Back navigation (mocked API)', async ({ page }) => {
   await page.route('https://api.example/ui/v1/health', async (route) => {
     await route.fulfill({ status: 200, body: JSON.stringify({ status: 'ok' }), contentType: 'application/json' })
   })
-  await page.route('https://api.example/ui/v1/config', async (route) => {
-    await route.fulfill({ status: 200, body: JSON.stringify({ features: { admin_enabled: false } }), contentType: 'application/json' })
+  await page.route('https://api.example/ui/v1/whoami', async (route) => {
+    await route.fulfill({ status: 200, body: JSON.stringify({ role: 'user' }), contentType: 'application/json' })
   })
   // First list response (match with query params)
   await page.route(/https:\/\/api\.example\/ui\/v1\/requests.*/, async (route) => {
