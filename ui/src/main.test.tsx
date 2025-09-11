@@ -29,6 +29,9 @@ it('connects successfully and shows connected badge', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Connect' }))
   await waitFor(() => expect(screen.getByLabelText('connected-badge')).toBeInTheDocument())
   expect(screen.getByText(/Connected to https:\/\/api\.example as user/)).toBeInTheDocument()
+  // localStorage persistence
+  expect(localStorage.getItem('aiProxyLogs.baseUrl')).toBe('https://api.example')
+  expect(localStorage.getItem('aiProxyLogs.apiKey')).toBe('user-key')
 })
 
 it('shows unauthorized error on 401', async () => {

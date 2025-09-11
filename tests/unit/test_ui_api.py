@@ -64,6 +64,55 @@ def test_config_endpoint_and_rbac():
     assert r.json() == {"ok": True}
 
 
+def test_cors_allows_configured_origin():
+    os.environ["LOGUI_ALLOWED_ORIGINS"] = "http://localhost:5173"
+    os.environ["LOGUI_API_KEYS"] = "user-key"
+
+    from ai_proxy_ui.main import app
+
+    client = TestClient(app)
+    origin = "http://localhost:5173"
+    r = client.options(
+        "/ui/v1/health",
+        headers={
+            "Origin": origin,
+            "Access-Control-Request-Method": "GET",
+            "Authorization": "Bearer user-key",
+        },
+    )
+    # Preflight should succeed and reflect the origin
+    assert r.status_code in (200, 204)
+    allow_origin = r.headers.get("access-control-allow-origin")
+    assert allow_origin == origin or allow_origin == "*"
+
+
+def test_swagger_ui_gated_in_production_for_admin_only(monkeypatch):
+    # Force production environment
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.setenv("LOGUI_API_KEYS", "user-key")
+    monkeypatch.setenv("LOGUI_ADMIN_API_KEYS", "admin-key")
+
+    # Import app after env set to apply gating
+    from importlib import reload
+    import ai_proxy_ui.main as main_module
+    reload(main_module)
+    app = main_module.app
+    client = TestClient(app)
+
+    # Unauthenticated should be 401
+    r = client.get("/ui/v1/docs")
+    assert r.status_code == 401
+
+    # User key should be 403
+    r = client.get("/ui/v1/docs", headers={"Authorization": "Bearer user-key"})
+    assert r.status_code == 403
+
+    # Admin key should get HTML page
+    r = client.get("/ui/v1/docs", headers={"Authorization": "Bearer admin-key"})
+    assert r.status_code == 200
+    assert "text/html" in r.headers.get("content-type", "")
+
+
 def test_rate_limit_enforced_per_key():
     os.environ["LOGUI_API_KEYS"] = "user-key"
     os.environ["LOGUI_RATE_LIMIT_RPS"] = "2"

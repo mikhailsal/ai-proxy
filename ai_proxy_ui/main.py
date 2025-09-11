@@ -1,6 +1,7 @@
 from fastapi import FastAPI, APIRouter, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.openapi.docs import get_swagger_ui_html
 import os
 import time
 import uuid
@@ -179,4 +180,13 @@ async def admin_ping():
 app.include_router(v1)
 app.include_router(admin)
 
+
+# In production, expose Swagger UI only to admins
+if ENVIRONMENT == "production":
+    @app.get("/ui/v1/docs", dependencies=[Depends(_require_auth("admin"))])
+    async def _swagger_ui_admin_only():
+        return get_swagger_ui_html(
+            openapi_url="/ui/v1/openapi.json",
+            title="AI Proxy Logs UI API - Docs",
+        )
 

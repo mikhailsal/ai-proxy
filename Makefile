@@ -1,7 +1,7 @@
 # AI Proxy Service Makefile
 # This Makefile provides common development and deployment tasks
 
-.PHONY: help install test test-unit test-integration lint lint-fix type-check clean build run dev docker-build docker-run docker-clean deploy setup-https test-https coverage pre-commit ui-test
+.PHONY: help install test test-unit test-integration lint lint-fix type-check clean build run dev docker-build docker-run docker-clean deploy setup-https test-https coverage pre-commit ui-test ui-e2e
 
 # Default target
 help: ## Show this help message
@@ -212,6 +212,15 @@ ci: lint test coverage ## Run all CI checks (excluding type-check due to missing
 ui-test: ## Run UI unit tests (Dockerized Node)
 	@echo "Running UI unit tests in Docker (Node 20)..."
 	@docker run --rm -v $(PWD)/ui:/app -w /app node:20 bash -lc "npm ci --no-audit --fund=false --loglevel=error && npm run test --silent"
+
+ui-e2e: ## Run UI E2E tests with Playwright (Dockerized Node)
+	@echo "Running UI E2E tests in Docker (Node 20 + Playwright)..."
+	@docker run --rm \
+		-v $(PWD)/ui:/app \
+		-w /app \
+		-p 5173:5173 \
+		--ipc=host \
+		mcr.microsoft.com/playwright:v1.48.2-jammy bash -lc "npm ci --no-audit --fund=false --loglevel=error && UI_NO_WEBSERVER= npm run test:ui || npx playwright test"
 
 # Quick development workflow
 quick-test: lint-fix test-unit ## Quick test cycle for development in Docker
