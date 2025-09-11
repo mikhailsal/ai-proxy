@@ -66,6 +66,37 @@ services:
       - "traefik.http.middlewares.security-headers.headers.stsIncludeSubdomains=true"
       - "traefik.http.middlewares.security-headers.headers.stsPreload=true"
 
+  logs-ui-api:
+    build: .
+    container_name: logs-ui-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8124
+    command: ["./docker-setup.sh", "uvicorn", "ai_proxy_ui.main:app", "--host", "0.0.0.0", "--port", "8124"]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.logs-ui-api.rule=Host(`logs-api.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.logs-ui-api.entrypoints=websecure"
+      - "traefik.http.routers.logs-ui-api.tls=true"
+      - "traefik.http.routers.logs-ui-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.logs-ui-api.loadbalancer.server.port=8124"
+
+  logs-ui-web:
+    build:
+      context: ./ui
+    container_name: logs-ui-web
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.logs-ui-web.rule=Host(`logs.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.logs-ui-web.entrypoints=websecure"
+      - "traefik.http.routers.logs-ui-web.tls=true"
+      - "traefik.http.routers.logs-ui-web.tls.certresolver=letsencrypt"
+      - "traefik.http.services.logs-ui-web.loadbalancer.server.port=80"
+
 networks:
   default:
     name: ai-proxy-network 

@@ -71,6 +71,8 @@ This guide will walk you through setting up the AI Proxy service with HTTPS.
 Your service will be available at:
 - **AI Proxy**: `https://your-domain.com`
 - **Traefik Dashboard**: `https://traefik.your-domain.com`
+ - **Logs UI (web)**: `https://logs.your-domain.com`
+ - **Logs UI API**: `https://logs-api.your-domain.com`
 
 ### Domain Options
 
@@ -235,3 +237,25 @@ For more details on deployment, local development, and testing, see the [Develop
 - **Logs**: Structured JSON logs are available in the `logs/` directory.
 - **Log Database**: SQLite-based log storage with advanced search capabilities in `logs/db/` directory.
 - **Log Bundles**: Portable compressed archives for backup and transfer in `bundles/` directory.
+
+## Logs UI (Stage U1)
+
+The repository includes a separate Logs UI API and a static web UI scaffold.
+
+- Logs UI API (FastAPI): served by the `logs-ui-api` service, health endpoints at `/ui/health` and `/ui/v1/health`.
+- Logs UI Web (Nginx): served by the `logs-ui-web` service, static page with a Connect message.
+
+Environment variables (add to `.env` as needed):
+
+```bash
+# Logs UI API keys (comma-separated)
+LOGUI_API_KEYS=logs-ui-user-key-1
+LOGUI_ADMIN_API_KEYS=logs-ui-admin-key-1
+# Allowed origins for CORS
+LOGUI_ALLOWED_ORIGINS=https://logs.your-domain.com,http://localhost:5173
+```
+
+Both services are routed via Traefik:
+
+- Web: `logs.$DOMAIN`
+- API: `logs-api.$DOMAIN`

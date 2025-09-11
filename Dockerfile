@@ -21,6 +21,7 @@ RUN poetry install --no-root
 
 # Copy application source code
 COPY ./ai_proxy ./ai_proxy
+COPY ./ai_proxy_ui ./ai_proxy_ui
 COPY ./config.yml ./config.yml
 
 # Copy setup script to handle deployment timestamp

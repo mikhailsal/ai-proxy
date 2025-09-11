@@ -122,3 +122,5 @@ deployment-timestamp.txt
 bundles/
 *.tgz
 *.tar.gz
+
+**/*/node_modules/

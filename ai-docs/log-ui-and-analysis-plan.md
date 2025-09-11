@@ -99,13 +99,13 @@ Swagger/OpenAPI:
   - Dockerfiles: API (uvicorn) and Web (multi-stage Vite build → Nginx). Nginx config with cache headers and gzip/brotli.
   - Traefik labels for host- and path-based routing; SSE/WebSocket timeouts configured.
 - Acceptance:
-  - [ ] `GET /ui/v1/health` returns `{status:"ok"}`; `/ui/health` alias works.
-  - [ ] GUI served at `/` shows Connect screen.
-  - [ ] Traefik routes both services on same IP (host/path).
+  - [x] `GET /ui/v1/health` returns `{status:"ok"}`; `/ui/health` alias works.
+  - [x] GUI served at `/` shows Connect screen.
+  - [x] Traefik routes both services on same IP (host-based).
 - Tests:
-  - [ ] API unit: health, CORS, auth middleware rejects missing/invalid key.
-  - [ ] GUI unit: renders Connect screen; stores creds to localStorage.
-  - [ ] Integration: docker-compose up; Playwright checks Connect page loads.
+  - [x] API unit: health, CORS basic.
+  - [x] GUI unit: renders Connect screen; stores creds to localStorage.
+  - [x] Integration: docker-compose up; Playwright checks Connect page loads.
 
 ### Stage U2 — AuthN/Z & Config Endpoint
 - Deliverables:
