@@ -1,0 +1,19 @@
+You should stage all edited files and make a commit with description of changes we made in chat with you.
+# Start of Selection
+Your commit must include the most edited file(s) and a reason based on the original user request. The first line of your commit should be brief and very clear.
+
+When using a terminal tool to create a multiline commit message, use multiple `-m` flags, with each flag representing a line in the commit message. Do not use newline escape sequences (`\n` or `\n`). Crucially, **never use backticks (`) in commit messages**.
+
+You should check if your commit message is correct (`git log -1`) and if it is not, you should edit it (e.g. `git commit --amend -m "<fixed message here>"`).
+
+# Example of a good commit:
+
+Refactor: Align 0cd_test_info.sh output with standard format
+
+Refactors tests/0cd_test_info.sh to adhere to the project's standard test output format (docs/test_output_format.md).
+
+Changes include:
+- Implementing standard INFO, TEST, and summary lines.
+- Ensuring DEBUG output is printed only when the --debug flag is used.
+- Removing set -e to allow all tests to run and report a final summary.
+- Using internal counters for tracking test results.
