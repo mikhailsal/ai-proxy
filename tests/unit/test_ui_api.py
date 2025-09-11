@@ -195,6 +195,8 @@ def test_requests_listing_cross_partitions_and_pagination(tmp_path, monkeypatch)
 
     # Configure API env
     monkeypatch.setenv("LOGUI_API_KEYS", "user-key")
+    # Avoid cross-test rate limit flakiness
+    monkeypatch.setenv("LOGUI_RATE_LIMIT_RPS", "1000")
     monkeypatch.setenv("LOGUI_DB_ROOT", str(base_dir))
 
     from ai_proxy_ui.main import app

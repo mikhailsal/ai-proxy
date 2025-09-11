@@ -135,7 +135,7 @@ Swagger/OpenAPI:
   - [x] GUI lists first page and paginates.
 - Tests:
   - [x] API unit: partition resolution; pagination with stable `(ts, request_id)` ordering and server caps; filter correctness.
-  - [ ] Integration: sample fixtures for 2 days; counts match.
+  - [x] Integration: sample fixtures for 2 days; counts match.
   - [x] GUI unit: renders rows; pagination buttons operate.
 
 ### Stage U4 — Request Details View
