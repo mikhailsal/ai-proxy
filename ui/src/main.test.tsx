@@ -47,4 +47,49 @@ it('shows unauthorized error on 401', async () => {
   expect(screen.getByText('Unauthorized (check API key)')).toBeInTheDocument()
 })
 
+it('loads requests and paginates', async () => {
+  const firstPage = {
+    items: [
+      { request_id: 'a', ts: 2, endpoint: '/v1/x', model: 'm', status_code: 200, latency_ms: 10 },
+      { request_id: 'b', ts: 1, endpoint: '/v1/y', model: 'm', status_code: 200, latency_ms: 12 },
+    ],
+    nextCursor: 'CUR1',
+  }
+  const secondPage = {
+    items: [
+      { request_id: 'c', ts: 1, endpoint: '/v1/z', model: 'm', status_code: 500, latency_ms: 20 },
+    ],
+    nextCursor: null,
+  }
+  mockFetchImpl({
+    'https://api.example/ui/v1/health': () => ({ status: 200, body: { status: 'ok' } }),
+    'https://api.example/ui/v1/config': () => ({ status: 200, body: { features: { admin_enabled: false } } }),
+    'https://api.example/ui/v1/requests': (init?: RequestInit) => {
+      const url = new URL('https://api.example/ui/v1/requests')
+      const req = (init as any) // not used
+      // Simulate two sequential calls by toggling internal state
+      ;(global as any).__calls = ((global as any).__calls || 0) + 1
+      return { status: 200, body: ((global as any).__calls === 1 ? firstPage : secondPage) }
+    },
+  })
+
+  render(<App />)
+  // Connect
+  fireEvent.change(screen.getByLabelText('base-url'), { target: { value: 'https://api.example' } })
+  fireEvent.change(screen.getByLabelText('api-key'), { target: { value: 'user-key' } })
+  // Submit the form directly to avoid racing with disabled state label
+  fireEvent.submit(screen.getByLabelText('connect-form'))
+  await waitFor(() => expect(screen.getByLabelText('connected-badge')).toBeInTheDocument())
+
+  // Load first page
+  fireEvent.click(screen.getByLabelText('load-requests'))
+  await waitFor(() => expect(screen.getByLabelText('requests-table')).toBeInTheDocument())
+  expect(screen.getByText('/v1/x')).toBeInTheDocument()
+  expect(screen.getByText('/v1/y')).toBeInTheDocument()
+
+  // Next page
+  fireEvent.click(screen.getByLabelText('load-more'))
+  await waitFor(() => expect(screen.getByText('/v1/z')).toBeInTheDocument())
+})
+
 

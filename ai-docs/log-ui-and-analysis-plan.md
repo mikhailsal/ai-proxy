@@ -130,13 +130,13 @@ Swagger/OpenAPI:
   - `GET /ui/requests` with filters (`since`, `to`, `limit`, `cursor`).
   - GUI table: columns ts, endpoint, model, status, latency; basic filters (date range), pagination.
 - Acceptance:
-  - [ ] Query spans multiple partitions by attaching DBs based on date range.
-  - [ ] Stable cursor pagination; consistent order by `(ts DESC, request_id DESC)`.
-  - [ ] GUI lists first page and paginates.
+  - [x] Query spans multiple partitions by attaching DBs based on date range.
+  - [x] Stable cursor pagination; consistent order by `(ts DESC, request_id DESC)`.
+  - [x] GUI lists first page and paginates.
 - Tests:
-  - [ ] API unit: partition resolution; pagination with stable `(ts, request_id)` ordering and server caps; filter correctness.
+  - [x] API unit: partition resolution; pagination with stable `(ts, request_id)` ordering and server caps; filter correctness.
   - [ ] Integration: sample fixtures for 2 days; counts match.
-  - [ ] GUI unit: renders rows; pagination buttons operate.
+  - [x] GUI unit: renders rows; pagination buttons operate.
 
 ### Stage U4 — Request Details View
 - Deliverables:

@@ -1,11 +1,14 @@
-from fastapi import FastAPI, APIRouter, Depends, HTTPException, Request
+from fastapi import FastAPI, APIRouter, Depends, HTTPException, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.openapi.docs import get_swagger_ui_html
 import os
 import time
 import uuid
-from typing import Literal
+import base64
+import datetime as _dt
+import sqlite3
+from typing import Literal, Optional, List, Tuple
 
 
 def _get_allowed_origins() -> list[str]:
@@ -177,8 +180,10 @@ async def admin_ping():
     return {"ok": True}
 
 
-app.include_router(v1)
-app.include_router(admin)
+"""
+Routers are included after all endpoints are defined below.
+This ensures endpoints added later (e.g., /ui/v1/requests) are registered.
+"""
 
 
 # In production, expose Swagger UI only to admins
@@ -189,4 +194,138 @@ if ENVIRONMENT == "production":
             openapi_url="/ui/v1/openapi.json",
             title="AI Proxy Logs UI API - Docs",
         )
+
+
+# ---- Requests listing (Stage U3) ----
+
+def _parse_date_param(value: Optional[str], default: Optional[_dt.date] = None) -> _dt.date:
+    if not value:
+        if default is None:
+            raise HTTPException(status_code=400, detail="Missing date parameter")
+        return default
+    try:
+        return _dt.date.fromisoformat(value)
+    except Exception:
+        raise HTTPException(status_code=400, detail=f"Invalid date: {value}")
+
+
+def _epoch_range_for_dates(since: _dt.date, to: _dt.date) -> Tuple[int, int]:
+    start = int(_dt.datetime.combine(since, _dt.time.min).timestamp())
+    end = int(_dt.datetime.combine(to, _dt.time.max).timestamp())
+    return start, end
+
+
+def _iter_partition_paths(base_dir: str, since: _dt.date, to: _dt.date) -> List[str]:
+    # Lazy import to avoid coupling at module import time
+    from ai_proxy.logdb.partitioning import compute_partition_path
+
+    # Support daily and weekly via compute_partition_path; de-duplicate paths
+    current = since
+    paths: List[str] = []
+    seen: set[str] = set()
+    # Iterate by 1 day increments to cover both daily and weekly groupings
+    while current <= to:
+        p = compute_partition_path(base_dir, current)
+        if p not in seen and os.path.isfile(p):
+            paths.append(p)
+            seen.add(p)
+        current += _dt.timedelta(days=1)
+    return paths
+
+
+def _encode_cursor(ts: int, request_id: str) -> str:
+    raw = f"{ts}|{request_id}".encode("utf-8")
+    return base64.urlsafe_b64encode(raw).decode("ascii")
+
+
+def _decode_cursor(cursor: str) -> Tuple[int, str]:
+    try:
+        raw = base64.urlsafe_b64decode(cursor.encode("ascii")).decode("utf-8")
+        ts_str, rid = raw.split("|", 1)
+        return int(ts_str), rid
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid cursor")
+
+
+@v1.get("/requests")
+async def list_requests(
+    since: Optional[str] = Query(None, description="ISO date YYYY-MM-DD inclusive"),
+    to: Optional[str] = Query(None, description="ISO date YYYY-MM-DD inclusive"),
+    limit: int = Query(50, ge=1, le=500),
+    cursor: Optional[str] = Query(None),
+):
+    base_dir = os.getenv("LOGUI_DB_ROOT", os.path.join(".", "logs", "db"))
+
+    today = _dt.date.today()
+    start_date = _parse_date_param(since, default=today)
+    end_date = _parse_date_param(to, default=today)
+    if end_date < start_date:
+        raise HTTPException(status_code=400, detail="'to' date must be on/after 'since'")
+
+    # Resolve partitions
+    db_files = _iter_partition_paths(base_dir, start_date, end_date)
+    if not db_files:
+        return {"items": [], "nextCursor": None}
+
+    # Build query
+    ts_start, ts_end = _epoch_range_for_dates(start_date, end_date)
+    where_clauses = ["ts >= ?", "ts <= ?"]
+    params: List[object] = [ts_start, ts_end]
+    if cursor:
+        c_ts, c_rid = _decode_cursor(cursor)
+        # For DESC order, fetch rows strictly less than the cursor tuple
+        where_clauses.append("(ts < ?) OR (ts = ? AND request_id < ?)")
+        params.extend([c_ts, c_ts, c_rid])
+
+    union_sql_parts: List[str] = []
+    for i in range(len(db_files)):
+        alias = f"db{i}"
+        union_sql_parts.append(
+            f"SELECT request_id, ts, endpoint, COALESCE(model_mapped, model_original) AS model, status_code, latency_ms FROM {alias}.requests"
+        )
+    union_sql = " UNION ALL ".join(union_sql_parts)
+    sql = (
+        "WITH allreq AS ("
+        + union_sql
+        + ") SELECT request_id, ts, endpoint, model, status_code, latency_ms FROM allreq WHERE "
+        + " AND ".join(where_clauses)
+        + " ORDER BY ts DESC, request_id DESC LIMIT ?"
+    )
+    params.append(limit + 1)  # overfetch to determine next cursor
+
+    # Query via single in-memory connection, attach partitions as read-only immutable
+    conn = sqlite3.connect("file::memory:?cache=shared", uri=True)
+    try:
+        conn.execute("PRAGMA query_only=ON;")
+        for i, path in enumerate(db_files):
+            alias = f"db{i}"
+            uri_path = f"file:{os.path.abspath(path)}?mode=ro&immutable=1"
+            conn.execute("ATTACH DATABASE ? AS "+alias, (uri_path,))
+
+        cur = conn.execute(sql, params)
+        rows = cur.fetchall()
+        # Build items and next cursor
+        items = [
+            {
+                "request_id": r[0],
+                "ts": int(r[1]),
+                "endpoint": r[2],
+                "model": r[3],
+                "status_code": int(r[4]) if r[4] is not None else None,
+                "latency_ms": float(r[5]) if r[5] is not None else None,
+            }
+            for r in rows[:limit]
+        ]
+        next_cursor = None
+        if len(rows) > limit:
+            last = rows[limit - 1]
+            next_cursor = _encode_cursor(int(last[1]), str(last[0]))
+        return {"items": items, "nextCursor": next_cursor}
+    finally:
+        conn.close()
+
+
+# Include routers after all route declarations
+app.include_router(v1)
+app.include_router(admin)
 

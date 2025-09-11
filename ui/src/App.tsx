@@ -31,6 +31,13 @@ export default function App() {
   const [baseUrl, setBaseUrl] = React.useState<string>(() => localStorage.getItem('aiProxyLogs.baseUrl') || '')
   const [apiKey, setApiKey] = React.useState<string>(() => localStorage.getItem('aiProxyLogs.apiKey') || '')
   const [state, setState] = React.useState<ConnectionState>({ status: 'disconnected' })
+  const [requests, setRequests] = React.useState<any[] | null>(null)
+  const [nextCursor, setNextCursor] = React.useState<string | null>(null)
+  const [dateRange, setDateRange] = React.useState<{ since: string; to: string }>(() => {
+    const today = new Date()
+    const ymd = today.toISOString().slice(0, 10)
+    return { since: ymd, to: ymd }
+  })
 
   React.useEffect(() => {
     if (baseUrl && apiKey) {
@@ -59,6 +66,23 @@ export default function App() {
 
   function handleDisconnect() {
     setState({ status: 'disconnected' })
+  }
+
+  async function loadRequests(reset: boolean = false) {
+    if (state.status !== 'connected') return
+    const base = state.baseUrl.replace(/\/$/, '')
+    const url = new URL(`${base}/ui/v1/requests`)
+    url.searchParams.set('since', dateRange.since)
+    url.searchParams.set('to', dateRange.to)
+    url.searchParams.set('limit', '10')
+    if (!reset && nextCursor) url.searchParams.set('cursor', nextCursor)
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${localStorage.getItem('aiProxyLogs.apiKey') || apiKey}` },
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = await res.json()
+    setRequests((prev) => (reset || !prev ? data.items : [...prev, ...data.items]))
+    setNextCursor(data.nextCursor || null)
   }
 
   return (
@@ -118,6 +142,66 @@ export default function App() {
             </div>
           )}
         </form>
+      )}
+
+      {state.status === 'connected' && (
+        <div>
+          <h2>Requests</h2>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+            <label>
+              Since
+              <input
+                aria-label="since-date"
+                type="date"
+                value={dateRange.since}
+                onChange={(e) => setDateRange((r) => ({ ...r, since: e.target.value }))}
+              />
+            </label>
+            <label>
+              To
+              <input
+                aria-label="to-date"
+                type="date"
+                value={dateRange.to}
+                onChange={(e) => setDateRange((r) => ({ ...r, to: e.target.value }))}
+              />
+            </label>
+            <button aria-label="load-requests" onClick={() => loadRequests(true)}>Load</button>
+          </div>
+
+          <table aria-label="requests-table" style={{ borderCollapse: 'collapse', width: '100%' }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 4 }}>ts</th>
+                <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 4 }}>endpoint</th>
+                <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 4 }}>model</th>
+                <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 4 }}>status</th>
+                <th style={{ textAlign: 'left', borderBottom: '1px solid #ddd', padding: 4 }}>latency</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(requests || []).map((r) => (
+                <tr key={r.request_id}>
+                  <td style={{ padding: 4 }}>{new Date(r.ts * 1000).toISOString()}</td>
+                  <td style={{ padding: 4 }}>{r.endpoint}</td>
+                  <td style={{ padding: 4 }}>{r.model}</td>
+                  <td style={{ padding: 4 }}>{String(r.status_code)}</td>
+                  <td style={{ padding: 4 }}>{r.latency_ms}</td>
+                </tr>
+              ))}
+              {(!requests || requests.length === 0) && (
+                <tr>
+                  <td colSpan={5} style={{ padding: 8, color: '#666' }}>No data</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+          <div style={{ marginTop: 8 }}>
+            <button aria-label="load-more" disabled={!nextCursor} onClick={() => loadRequests(false)}>
+              Next
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )
