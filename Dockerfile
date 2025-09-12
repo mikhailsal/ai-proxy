@@ -25,9 +25,9 @@ COPY ./ai_proxy_ui ./ai_proxy_ui
 COPY ./config.yml ./config.yml
 
 # Copy setup script to handle deployment timestamp
-COPY ./scripts/docker-setup.sh ./docker-setup.sh
-RUN chmod +x ./docker-setup.sh
+COPY ./scripts/ensure-deployment-timestamp.sh ./ensure-deployment-timestamp.sh
+RUN chmod +x ./ensure-deployment-timestamp.sh
 
 # Expose port and run application
 EXPOSE 8123
-CMD ["./docker-setup.sh", "uvicorn", "ai_proxy.main:app", "--host", "0.0.0.0", "--port", "8123"] 
+CMD ["./ensure-deployment-timestamp.sh", "uvicorn", "ai_proxy.main:app", "--host", "0.0.0.0", "--port", "8123"]

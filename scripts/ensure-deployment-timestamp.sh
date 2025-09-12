@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Docker setup script - handles deployment timestamp
-# This script ensures deployment-timestamp.txt exists for the health endpoint
+# Ensure deployment timestamp script
+# Creates /app/deployment-timestamp.txt if missing for health endpoint
 
 TIMESTAMP_FILE="/app/deployment-timestamp.txt"
 
@@ -14,3 +14,4 @@ fi
 
 # Execute the original command
 exec "$@" 
+

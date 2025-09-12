@@ -95,7 +95,6 @@ test-ui-e2e: ## Run UI E2E tests with Playwright (Dockerized Node)
 	@docker run --rm \
 		-v $(PWD)/ui:/app \
 		-w /app \
-		-p 5173:5173 \
 		--ipc=host \
 		mcr.microsoft.com/playwright:v1.55.0-jammy bash -lc "npm ci --no-audit --fund=false --loglevel=error && UI_NO_WEBSERVER= npx playwright test --reporter=list"
 

@@ -48,7 +48,7 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=8123
-    command: ["bash", "scripts/docker-setup.sh", "uvicorn", "ai_proxy.main:app", "--host", "0.0.0.0", "--port", "8123"]
+    command: ["bash", "scripts/ensure-deployment-timestamp.sh", "uvicorn", "ai_proxy.main:app", "--host", "0.0.0.0", "--port", "8123"]
     volumes:
       - .:/app
       - ./config.yml:/app/config.yml
@@ -81,7 +81,7 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=8124
-    command: ["./docker-setup.sh", "uvicorn", "ai_proxy_ui.main:app", "--host", "0.0.0.0", "--port", "8124"]
+    command: ["./ensure-deployment-timestamp.sh", "uvicorn", "ai_proxy_ui.main:app", "--host", "0.0.0.0", "--port", "8124"]
     volumes:
       - ./logs/db:/app/logs/db:ro
     labels:
