@@ -77,14 +77,14 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     )
 
 
-# Simple per-key rate limiter (fixed window per second)
+# Simple per-key, per-path rate limiter (fixed window per second)
 _rate_limit_rps_default = 10
-_rate_limit_buckets: dict[str, tuple[int, int]] = {}
+# (token, path) -> (window_epoch_second, count)
+_rate_limit_buckets: dict[tuple[str, str], tuple[int, int]] = {}
 _rate_limit_cached_rps: int | None = None
-# token -> (window_epoch_second, count)
 
 
-def _check_rate_limit(token: str):
+def _check_rate_limit(token: str, path: str):
     global _rate_limit_cached_rps
     try:
         rps = int(os.getenv("LOGUI_RATE_LIMIT_RPS", str(_rate_limit_rps_default)))
@@ -96,11 +96,12 @@ def _check_rate_limit(token: str):
         _rate_limit_buckets.clear()
         _rate_limit_cached_rps = rps
     now_sec = int(time.time())
-    window, count = _rate_limit_buckets.get(token, (now_sec, 0))
+    key = (token, path)
+    window, count = _rate_limit_buckets.get(key, (now_sec, 0))
     if window != now_sec:
         window, count = now_sec, 0
     count += 1
-    _rate_limit_buckets[token] = (window, count)
+    _rate_limit_buckets[key] = (window, count)
     if count > rps:
         # Advise client when to retry (next second)
         raise HTTPException(status_code=429, detail="Rate limit exceeded")
@@ -119,8 +120,8 @@ def _require_auth(role: Literal["user", "admin"] | None = None):
         if not token:
             raise HTTPException(status_code=401, detail="Empty token")
 
-        # Rate limit per token
-        _check_rate_limit(token)
+        # Rate limit per token per path to avoid cross-endpoint interference
+        _check_rate_limit(token, request.url.path)
 
         effective_role: Literal["admin", "user"] | None = None
         if token in admin_keys:
