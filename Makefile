@@ -105,7 +105,7 @@ type-check-ui: ## Run frontend type checking (Dockerized)
 
 coverage-ui: ## Run frontend tests with coverage (Dockerized)
 	@echo "Running frontend coverage in Docker (Node 20)..."
-	@docker run --rm -v $(PWD)/ui:/app -w /app node:20 bash -lc "npm ci --no-audit --fund=false --loglevel=error && npm run coverage"
+	@docker run --rm --network host -v $(PWD)/ui:/app -w /app node:20 bash -lc "npm ci --no-audit --fund=false --loglevel=error && npm run coverage"
 
 test-ui-e2e: ## Run UI E2E tests with Playwright (Dockerized Node)
 	@echo "Running UI E2E tests in Docker (Node 20 + Playwright)..."
