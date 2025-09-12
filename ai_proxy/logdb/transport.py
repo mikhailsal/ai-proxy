@@ -77,5 +77,3 @@ def copy_with_resume(src_path: str, dst_path: str) -> Tuple[int, str]:
 __all__ = [
     "copy_with_resume",
 ]
-
-

@@ -95,6 +95,7 @@ def test_swagger_ui_gated_in_production_for_admin_only(monkeypatch):
     # Import app after env set to apply gating
     from importlib import reload
     import ai_proxy_ui.main as main_module
+
     reload(main_module)
     app = main_module.app
     client = TestClient(app)
@@ -150,9 +151,11 @@ def test_whoami_returns_effective_role(monkeypatch):
     r_bad = client.get("/ui/v1/whoami", headers={"Authorization": "Bearer bad"})
     assert r_bad.status_code == 401
 
+
 def _make_partition(db_path: str, rows: int, base_ts: int, start_id: int = 0):
     import sqlite3
     import os as _os
+
     _os.makedirs(_os.path.dirname(db_path), exist_ok=True)
     conn = sqlite3.connect(db_path)
     try:
@@ -201,11 +204,22 @@ def _make_partition(db_path: str, rows: int, base_ts: int, start_id: int = 0):
 def test_requests_listing_cross_partitions_and_pagination(tmp_path, monkeypatch):
     # Prepare two daily partitions under logs/db/YYYY/MM
     import datetime as dt
+
     base_dir = tmp_path / "logs" / "db"
     d1 = dt.date(2025, 9, 9)
     d2 = dt.date(2025, 9, 10)
-    p1 = base_dir / f"{d1.year:04d}" / f"{d1.month:02d}" / f"ai_proxy_{d1.strftime('%Y%m%d')}.sqlite3"
-    p2 = base_dir / f"{d2.year:04d}" / f"{d2.month:02d}" / f"ai_proxy_{d2.strftime('%Y%m%d')}.sqlite3"
+    p1 = (
+        base_dir
+        / f"{d1.year:04d}"
+        / f"{d1.month:02d}"
+        / f"ai_proxy_{d1.strftime('%Y%m%d')}.sqlite3"
+    )
+    p2 = (
+        base_dir
+        / f"{d2.year:04d}"
+        / f"{d2.month:02d}"
+        / f"ai_proxy_{d2.strftime('%Y%m%d')}.sqlite3"
+    )
     # Insert 3 rows on day1 and 2 rows on day2 with increasing timestamps
     base_ts1 = int(dt.datetime(d1.year, d1.month, d1.day, 12, 0).timestamp())
     base_ts2 = int(dt.datetime(d2.year, d2.month, d2.day, 12, 0).timestamp())
@@ -219,6 +233,7 @@ def test_requests_listing_cross_partitions_and_pagination(tmp_path, monkeypatch)
     monkeypatch.setenv("LOGUI_DB_ROOT", str(base_dir))
 
     from ai_proxy_ui.main import app
+
     client = TestClient(app)
 
     # First page (limit 3) over both days should return most recent rows from day2 first
@@ -238,7 +253,12 @@ def test_requests_listing_cross_partitions_and_pagination(tmp_path, monkeypatch)
     # Next page
     r2 = client.get(
         "/ui/v1/requests",
-        params={"since": str(d1), "to": str(d2), "limit": 3, "cursor": data["nextCursor"]},
+        params={
+            "since": str(d1),
+            "to": str(d2),
+            "limit": 3,
+            "cursor": data["nextCursor"],
+        },
         headers={"Authorization": "Bearer user-key"},
     )
     assert r2.status_code == 200
@@ -251,13 +271,20 @@ def test_requests_listing_cross_partitions_and_pagination(tmp_path, monkeypatch)
 
 def test_request_details_endpoint_returns_full_payload(tmp_path, monkeypatch):
     import datetime as dt
+
     base_dir = tmp_path / "logs" / "db"
     d = dt.date(2025, 9, 10)
-    p = base_dir / f"{d.year:04d}" / f"{d.month:02d}" / f"ai_proxy_{d.strftime('%Y%m%d')}.sqlite3"
+    p = (
+        base_dir
+        / f"{d.year:04d}"
+        / f"{d.month:02d}"
+        / f"ai_proxy_{d.strftime('%Y%m%d')}.sqlite3"
+    )
 
     # Create one row with JSON payloads
     os.makedirs(os.path.dirname(p), exist_ok=True)
     import sqlite3 as _sqlite
+
     conn = _sqlite.connect(str(p))
     try:
         conn.executescript(
@@ -303,9 +330,12 @@ def test_request_details_endpoint_returns_full_payload(tmp_path, monkeypatch):
     monkeypatch.setenv("LOGUI_DB_ROOT", str(base_dir))
 
     from ai_proxy_ui.main import app
+
     client = TestClient(app)
 
-    r = client.get("/ui/v1/requests/rid-1", headers={"Authorization": "Bearer user-key"})
+    r = client.get(
+        "/ui/v1/requests/rid-1", headers={"Authorization": "Bearer user-key"}
+    )
     assert r.status_code == 200
     data = r.json()
     assert data["request_id"] == "rid-1"
@@ -314,7 +344,7 @@ def test_request_details_endpoint_returns_full_payload(tmp_path, monkeypatch):
     assert isinstance(data["request_json"], dict)
     assert isinstance(data["response_json"], dict)
     # not found case
-    r2 = client.get("/ui/v1/requests/unknown", headers={"Authorization": "Bearer user-key"})
+    r2 = client.get(
+        "/ui/v1/requests/unknown", headers={"Authorization": "Bearer user-key"}
+    )
     assert r2.status_code == 404
-
-

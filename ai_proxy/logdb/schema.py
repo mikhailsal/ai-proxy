@@ -1,6 +1,6 @@
 import os
 import sqlite3
-from typing import Iterable, Optional
+from typing import Iterable
 
 
 SCHEMA_DDL: str = """
@@ -52,7 +52,9 @@ def open_connection_with_pragmas(db_path: str) -> sqlite3.Connection:
         conn.execute("PRAGMA foreign_keys=ON;")
         # Optional: set WAL autocheckpoint pages to keep WAL bounded (Stage I)
         try:
-            wal_autock = int(os.getenv("LOGDB_WAL_AUTOCHECKPOINT_PAGES", "1000").strip())
+            wal_autock = int(
+                os.getenv("LOGDB_WAL_AUTOCHECKPOINT_PAGES", "1000").strip()
+            )
             wal_autock = max(0, wal_autock)
             conn.execute(f"PRAGMA wal_autocheckpoint={wal_autock};")
         except Exception:
@@ -69,7 +71,9 @@ def open_connection_with_pragmas(db_path: str) -> sqlite3.Connection:
 
 
 def create_or_migrate_schema(conn: sqlite3.Connection) -> None:
-    statements: Iterable[str] = (stmt.strip() for stmt in SCHEMA_DDL.split(";") if stmt.strip())
+    statements: Iterable[str] = (
+        stmt.strip() for stmt in SCHEMA_DDL.split(";") if stmt.strip()
+    )
     with conn:
         for stmt in statements:
             conn.execute(stmt)
@@ -90,6 +94,3 @@ def ensure_schema(db_path: str) -> None:
             conn.execute("PRAGMA synchronous=FULL;")
     finally:
         conn.close()
-
-
-

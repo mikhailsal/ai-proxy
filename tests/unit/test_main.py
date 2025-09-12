@@ -4,7 +4,13 @@ from fastapi.testclient import TestClient
 from fastapi import FastAPI
 import json
 
-from ai_proxy.main import app, health_check, chat_completions_options, chat_completions, list_models
+from ai_proxy.main import (
+    app,
+    health_check,
+    chat_completions_options,
+    chat_completions,
+    list_models,
+)
 
 
 class TestMainApp:
@@ -578,12 +584,12 @@ class TestListModels:
         # Setup mock model mappings
         mock_settings.model_mappings = {
             "gpt-4": "openrouter:openai/gpt-4",
-            "claude-3-opus": "openrouter:anthropic/claude-3-opus", 
+            "claude-3-opus": "openrouter:anthropic/claude-3-opus",
             "gemini-pro": "gemini:gemini-2.0-flash-001",
             "mistral-small": "openrouter:mistralai/mistral-small-3.2-24b-instruct:free",
-            "*": "openrouter:mistralai/mistral-small-3.2-24b-instruct:free"  # Should be skipped
+            "*": "openrouter:mistralai/mistral-small-3.2-24b-instruct:free",  # Should be skipped
         }
-        
+
         # Mock the _parse_provider_model method
         def mock_parse(model_string):
             if ":" in model_string:
@@ -591,7 +597,7 @@ class TestListModels:
                 return provider.strip(), model.strip()
             else:
                 return "openrouter", model_string.strip()
-        
+
         mock_settings._parse_provider_model.side_effect = mock_parse
 
         # Execute
@@ -602,11 +608,11 @@ class TestListModels:
         assert response["object"] == "list"
         assert "data" in response
         assert isinstance(response["data"], list)
-        
+
         # Should have 4 models (excluding wildcard "*")
         models = response["data"]
         assert len(models) == 4
-        
+
         # Check model structure
         for model in models:
             assert "id" in model
@@ -658,7 +664,7 @@ class TestListModels:
         mock_settings.model_mappings = {
             "*": "openrouter:mistralai/mistral-small-3.2-24b-instruct:free",
             "gpt-*": "openrouter:openai/gpt-4",
-            "claude-*": "openrouter:anthropic/claude-3-opus"
+            "claude-*": "openrouter:anthropic/claude-3-opus",
         }
 
         # Execute
@@ -680,9 +686,9 @@ class TestListModels:
             "gpt-4": "openrouter:openai/gpt-4",
             "gpt-*": "openrouter:openai/gpt-4",  # Should be skipped
             "claude-3-opus": "openrouter:anthropic/claude-3-opus",
-            "*": "openrouter:mistralai/mistral-small-3.2-24b-instruct:free"  # Should be skipped
+            "*": "openrouter:mistralai/mistral-small-3.2-24b-instruct:free",  # Should be skipped
         }
-        
+
         # Mock the _parse_provider_model method
         def mock_parse(model_string):
             if ":" in model_string:
@@ -690,7 +696,7 @@ class TestListModels:
                 return provider.strip(), model.strip()
             else:
                 return "openrouter", model_string.strip()
-        
+
         mock_settings._parse_provider_model.side_effect = mock_parse
 
         # Execute

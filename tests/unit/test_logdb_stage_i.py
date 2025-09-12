@@ -1,4 +1,3 @@
-import os
 import re
 import sqlite3
 import datetime as dt
@@ -11,18 +10,18 @@ from ai_proxy.logdb.schema import open_connection_with_pragmas
 
 SAMPLE_TEMPLATE = (
     "2025-09-10 12:00:00 - INFO - {\n"
-    "  \"timestamp\": \"__TS__\",\n"
-    "  \"endpoint\": \"/v1/chat/completions\",\n"
-    "  \"status_code\": 200,\n"
-    "  \"latency_ms\": 1.2,\n"
-    "  \"request\": {\n"
-    "    \"model\": \"gpt-4\",\n"
-    "    \"messages\": [{\"role\": \"user\", \"content\": \"Hi\"}]\n"
+    '  "timestamp": "__TS__",\n'
+    '  "endpoint": "/v1/chat/completions",\n'
+    '  "status_code": 200,\n'
+    '  "latency_ms": 1.2,\n'
+    '  "request": {\n'
+    '    "model": "gpt-4",\n'
+    '    "messages": [{"role": "user", "content": "Hi"}]\n'
     "  },\n"
-    "  \"response\": {\n"
-    "    \"id\": \"r1\",\n"
-    "    \"model\": \"mapped\",\n"
-    "    \"choices\": [{\"index\": 0, \"message\": {\"role\": \"assistant\", \"content\": \"Hello\"}}]\n"
+    '  "response": {\n'
+    '    "id": "r1",\n'
+    '    "model": "mapped",\n'
+    '    "choices": [{"index": 0, "message": {"role": "assistant", "content": "Hello"}}]\n'
     "  }\n"
     "}\n"
 )
@@ -55,7 +54,9 @@ def test_batch_rows_and_bytes_flush(tmp_path, monkeypatch):
         # unique timestamps to avoid INSERT OR IGNORE de-duplication
         ts = f"2025-09-10T12:00:{i:02d}Z"
         entries.append(_sample_with_ts(ts))
-    (logs_dir / "v1_chat_completions.log").write_text("".join(entries), encoding="utf-8")
+    (logs_dir / "v1_chat_completions.log").write_text(
+        "".join(entries), encoding="utf-8"
+    )
 
     # Set tiny batch sizes to force frequent flushes
     monkeypatch.setenv("LOGDB_BATCH_ROWS", "3")
@@ -84,11 +85,13 @@ def test_perf_line_printed(tmp_path, monkeypatch):
     for i in range(5):
         ts = f"2025-09-10T12:01:{i:02d}Z"
         entries.append(_sample_with_ts(ts))
-    (logs_dir / "v1_chat_completions.log").write_text("".join(entries), encoding="utf-8")
+    (logs_dir / "v1_chat_completions.log").write_text(
+        "".join(entries), encoding="utf-8"
+    )
 
     buf = StringIO()
     with redirect_stdout(buf):
-        stats = ingest_logs(str(logs_dir), str(db_base))
+        ingest_logs(str(logs_dir), str(db_base))
     out = buf.getvalue()
 
     assert "ingest_elapsed_s=" in out

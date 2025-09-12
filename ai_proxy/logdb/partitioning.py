@@ -1,7 +1,6 @@
 import datetime as _dt
 import os
 from dataclasses import dataclass
-import math
 
 from .schema import ensure_schema
 
@@ -20,7 +19,7 @@ def compute_partition_path(base_dir: str, date: _dt.date) -> str:
     - "daily" (default): logs/db/YYYY/MM/ai_proxy_YYYYMMDD.sqlite3
     - "weekly": logs/db/YYYY/WNN/ai_proxy_YYYYWNN.sqlite3 (ISO week)
     """
-    granularity = (os.getenv("LOGDB_PARTITION_GRANULARITY", "daily").strip().lower())
+    granularity = os.getenv("LOGDB_PARTITION_GRANULARITY", "daily").strip().lower()
     year_dir = os.path.join(base_dir, f"{date.year:04d}")
     if granularity == "weekly":
         iso_year, iso_week, _ = date.isocalendar()
@@ -52,6 +51,3 @@ def ensure_control_database(base_dir: str) -> str:
     os.makedirs(os.path.dirname(path), exist_ok=True)
     ensure_schema(path)
     return path
-
-
-

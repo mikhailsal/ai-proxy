@@ -7,8 +7,8 @@ from typing import List, Dict, Any, Optional, Union
 class ChatMessage(BaseModel):
     role: str
     content: Union[str, List[Any]]
-    
-    @field_validator('content')
+
+    @field_validator("content")
     @classmethod
     def validate_content(cls, v):
         # Convert list format to string for backward compatibility
@@ -17,12 +17,12 @@ class ChatMessage(BaseModel):
             text_parts = []
             for item in v:
                 if isinstance(item, dict):
-                    if item.get('type') == 'text':
-                        text_parts.append(item.get('text', ''))
+                    if item.get("type") == "text":
+                        text_parts.append(item.get("text", ""))
                     # For now, ignore non-text content like images
                 else:
                     text_parts.append(str(item))
-            return ' '.join(text_parts)
+            return " ".join(text_parts)
         return v
 
 

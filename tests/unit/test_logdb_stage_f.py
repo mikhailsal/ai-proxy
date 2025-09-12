@@ -145,7 +145,14 @@ def test_bundle_create_with_include_raw_and_metadata(tmp_path):
         with tar.extractfile(meta_member) as f:
             data = json.loads(f.read().decode("utf-8"))
     # Required fields present
-    for k in ("bundle_id", "created_at", "server_id", "schema_version", "files", "include_raw"):
+    for k in (
+        "bundle_id",
+        "created_at",
+        "server_id",
+        "schema_version",
+        "files",
+        "include_raw",
+    ):
         assert k in data
     assert data["include_raw"] is True
     assert isinstance(data["server_id"], str) and data["server_id"]
@@ -166,7 +173,11 @@ def test_raw_logs_date_filtering_and_env_default(tmp_path, monkeypatch):
 
     # Set mtimes: in-range on 'date', out-of-range one day before
     t_in = int(datetime.datetime.combine(date, datetime.time(10, 0)).timestamp())
-    t_out = int(datetime.datetime.combine(date - datetime.timedelta(days=1), datetime.time(10, 0)).timestamp())
+    t_out = int(
+        datetime.datetime.combine(
+            date - datetime.timedelta(days=1), datetime.time(10, 0)
+        ).timestamp()
+    )
     os.utime(in_range, (t_in, t_in))
     os.utime(out_range, (t_out, t_out))
 
@@ -176,17 +187,27 @@ def test_raw_logs_date_filtering_and_env_default(tmp_path, monkeypatch):
     out = tmp_path / "bundles" / "env-raw.tgz"
     os.makedirs(out.parent, exist_ok=True)
     from ai_proxy.logdb import cli as logdb_cli
-    rc = logdb_cli.main([
-        "bundle", "create",
-        "--since", date.strftime("%Y-%m-%d"),
-        "--to", date.strftime("%Y-%m-%d"),
-        "--out", str(out),
-        "--db", base_db_dir,
-        "--raw", str(raw_dir),
-    ])
+
+    rc = logdb_cli.main(
+        [
+            "bundle",
+            "create",
+            "--since",
+            date.strftime("%Y-%m-%d"),
+            "--to",
+            date.strftime("%Y-%m-%d"),
+            "--out",
+            str(out),
+            "--db",
+            base_db_dir,
+            "--raw",
+            str(raw_dir),
+        ]
+    )
     assert rc == 0
     # Verify only in-range raw included
     import tarfile
+
     with tarfile.open(out, "r:gz") as tar:
         names = [m.name for m in tar.getmembers() if m.isfile()]
         raw_names = [n for n in names if n.startswith("raw/")]
@@ -211,7 +232,7 @@ def test_bundle_metadata_files_count_matches_tar(tmp_path):
     with tarfile.open(bundle_path, "r:gz") as tar:
         meta = json.loads(tar.extractfile("metadata.json").read().decode("utf-8"))  # type: ignore[arg-type]
         files_meta = [x for x in meta.get("files", []) if isinstance(x, dict)]
-        db_members = [m for m in tar.getmembers() if m.isfile() and m.name.startswith("db/")]
+        db_members = [
+            m for m in tar.getmembers() if m.isfile() and m.name.startswith("db/")
+        ]
     assert len(files_meta) == len(db_members)
-
-

@@ -1,8 +1,7 @@
 import datetime as dt
 import hashlib
 import os
-import sqlite3
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from .partitioning import compute_partition_path
 from .schema import open_connection_with_pragmas
@@ -35,7 +34,12 @@ def _parse_window_to_seconds(window: str) -> int:
         return 1800
 
 
-def _stable_dialog_id(api_key_hash: Optional[str], endpoint: Optional[str], model_mapped: Optional[str], first_ts: int) -> str:
+def _stable_dialog_id(
+    api_key_hash: Optional[str],
+    endpoint: Optional[str],
+    model_mapped: Optional[str],
+    first_ts: int,
+) -> str:
     key = f"{api_key_hash or ''}|{endpoint or ''}|{model_mapped or ''}|{first_ts}"
     h = hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
     return f"dlg-{h}"
@@ -59,7 +63,17 @@ def assign_partition_dialogs(db_path: str, window_seconds: int) -> int:
             ORDER BY COALESCE(api_key_hash, ''), COALESCE(endpoint, ''), COALESCE(model_mapped, ''), ts, request_id
             """
         )
-        rows: List[Tuple[str, int, str, Optional[str], Optional[str], Optional[str], Optional[str]]] = list(cur.fetchall())
+        rows: List[
+            Tuple[
+                str,
+                int,
+                str,
+                Optional[str],
+                Optional[str],
+                Optional[str],
+                Optional[str],
+            ]
+        ] = list(cur.fetchall())
 
         updated: List[Tuple[str, str]] = []  # (dialog_id, request_id)
 
@@ -67,7 +81,15 @@ def assign_partition_dialogs(db_path: str, window_seconds: int) -> int:
         current_dialog_by_group: Dict[Tuple[str, str, str], str] = {}
         first_ts_of_current_by_group: Dict[Tuple[str, str, str], int] = {}
 
-        for request_id, ts, endpoint, model_mapped, model_original, api_key_hash, existing_dialog in rows:
+        for (
+            request_id,
+            ts,
+            endpoint,
+            model_mapped,
+            model_original,
+            api_key_hash,
+            existing_dialog,
+        ) in rows:
             key = (
                 (api_key_hash or ""),
                 (endpoint or ""),
@@ -178,11 +200,10 @@ def clear_dialogs_for_range(
             conn = open_connection_with_pragmas(path)
             try:
                 with conn:
-                    cur = conn.execute("UPDATE requests SET dialog_id=NULL WHERE dialog_id IS NOT NULL")
+                    cur = conn.execute(
+                        "UPDATE requests SET dialog_id=NULL WHERE dialog_id IS NOT NULL"
+                    )
                 out.append((path, cur.rowcount if cur is not None else 0))
             finally:
                 conn.close()
     return out
-
-
-

@@ -13,13 +13,9 @@ def pytest_configure(config):
     """Configure pytest for functional tests."""
     # Add custom markers
     config.addinivalue_line(
-        "markers",
-        "functional: marks tests as functional (require real API keys)"
+        "markers", "functional: marks tests as functional (require real API keys)"
     )
-    config.addinivalue_line(
-        "markers", 
-        "slow: marks tests as slow running"
-    )
+    config.addinivalue_line("markers", "slow: marks tests as slow running")
 
 
 def pytest_collection_modifyitems(config, items):
@@ -60,7 +56,9 @@ def api_keys_check():
     #     missing_keys.append("GEMINI_API_KEY or OPENROUTER_API_KEY")
 
     if missing_keys:
-        pytest.skip(f"Missing required environment variables: {', '.join(missing_keys)}")
+        pytest.skip(
+            f"Missing required environment variables: {', '.join(missing_keys)}"
+        )
 
 
 @pytest.fixture(scope="session")
@@ -68,9 +66,9 @@ def service_availability_check():
     """Check that the AI proxy service is running and accessible."""
     import httpx
     import asyncio
-    
+
     base_url = os.getenv("FUNCTIONAL_TEST_BASE_URL", "http://localhost:8123")
-    
+
     async def check_service():
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
@@ -78,7 +76,7 @@ def service_availability_check():
                 return response.status_code == 200
         except Exception:
             return False
-    
+
     if not asyncio.run(check_service()):
         pytest.skip(
             f"AI proxy service not available at {base_url}. "
@@ -87,7 +85,9 @@ def service_availability_check():
 
 
 @pytest.fixture(scope="session", autouse=True)
-def setup_functional_tests(docker_container_check, api_keys_check, service_availability_check):
+def setup_functional_tests(
+    docker_container_check, api_keys_check, service_availability_check
+):
     """Set up functional tests environment."""
     # This fixture runs all the checks automatically
-    pass 
+    pass

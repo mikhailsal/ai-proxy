@@ -142,6 +142,7 @@ def test_import_bundle_raises_on_checksum_mismatch(tmp_path):
     work = tmp_path / "wrk"
     os.makedirs(work, exist_ok=True)
     import tarfile
+
     with tarfile.open(bundle_path, "r:gz") as tar:
         tar.extractall(work)
     # Find a db file and modify
@@ -164,6 +165,7 @@ def test_import_bundle_raises_on_checksum_mismatch(tmp_path):
 
     dest_dir = tmp_path / "dest" / "db"
     from pytest import raises
+
     with raises(ValueError):
         import_bundle(str(bad), str(dest_dir))
 
@@ -203,10 +205,10 @@ def test_cross_db_attach_query_single_connection(tmp_path):
         # Attach two source DBs
         conn.execute("ATTACH DATABASE ? AS db1", (db_files[0],))
         conn.execute("ATTACH DATABASE ? AS db2", (db_files[1],))
-        cur = conn.execute("SELECT (SELECT COUNT(*) FROM db1.requests) + (SELECT COUNT(*) FROM db2.requests)")
+        cur = conn.execute(
+            "SELECT (SELECT COUNT(*) FROM db1.requests) + (SELECT COUNT(*) FROM db2.requests)"
+        )
         total = int(cur.fetchone()[0])
         assert total == 5  # 2 + 3 rows as created above
     finally:
         conn.close()
-
-

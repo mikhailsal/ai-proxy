@@ -7,7 +7,7 @@ import socket
 import sqlite3
 import uuid
 from dataclasses import dataclass
-from typing import Dict, Iterable, Iterator, List, Optional, Tuple
+from typing import Dict, Iterator, List, Optional, Tuple
 
 from .partitioning import ensure_partition_database, ensure_control_database
 from .schema import open_connection_with_pragmas
@@ -237,7 +237,13 @@ def _compute_request_id(server_id: str, norm: Dict) -> str:
     return hashlib.sha256(key.encode("utf-8")).hexdigest()
 
 
-def _upsert_ingest_checkpoint(conn: sqlite3.Connection, source_path: str, sha256_hex: str, bytes_ingested: int, mtime: int) -> None:
+def _upsert_ingest_checkpoint(
+    conn: sqlite3.Connection,
+    source_path: str,
+    sha256_hex: str,
+    bytes_ingested: int,
+    mtime: int,
+) -> None:
     now = int(dt.datetime.utcnow().timestamp())
     with conn:
         conn.execute(
@@ -254,7 +260,9 @@ def _upsert_ingest_checkpoint(conn: sqlite3.Connection, source_path: str, sha256
         )
 
 
-def _read_checkpoint(conn: sqlite3.Connection, source_path: str) -> Tuple[int, int, Optional[str]]:
+def _read_checkpoint(
+    conn: sqlite3.Connection, source_path: str
+) -> Tuple[int, int, Optional[str]]:
     cur = conn.execute(
         "SELECT bytes_ingested, mtime FROM ingest_sources WHERE source_path= ?",
         (source_path,),
@@ -344,7 +352,24 @@ def _scan_log_file(
             last_good_pos = f.tell()
             # Prepare per-partition batch buffers and connections
             conns: Dict[str, sqlite3.Connection] = {}
-            batches: Dict[str, List[Tuple[str, str, int, str, Optional[str], Optional[str], Optional[int], Optional[float], Optional[str], str, str]]] = {}
+            batches: Dict[
+                str,
+                List[
+                    Tuple[
+                        str,
+                        str,
+                        int,
+                        str,
+                        Optional[str],
+                        Optional[str],
+                        Optional[int],
+                        Optional[float],
+                        Optional[str],
+                        str,
+                        str,
+                    ]
+                ],
+            ] = {}
 
             # Stage I: resource caps
             max_rows_per_batch = max(1, _env_int("LOGDB_BATCH_ROWS", 500))
@@ -401,7 +426,9 @@ def _scan_log_file(
                     continue
 
                 # Open partition DB for this record's date
-                db_path = ensure_partition_database(base_db_dir, norm["date"])  # creates schema if needed
+                db_path = ensure_partition_database(
+                    base_db_dir, norm["date"]
+                )  # creates schema if needed
                 if db_path not in conns:
                     conns[db_path] = open_connection_with_pragmas(db_path)
                     _ensure_servers_row(conns[db_path], server_id)
@@ -428,10 +455,16 @@ def _scan_log_file(
                     _flush(db_path)
                 else:
                     # Flush if bytes threshold exceeded
-                    if max_batch_bytes > 0 and _estimate_batch_bytes(batches[db_path]) >= max_batch_bytes:
+                    if (
+                        max_batch_bytes > 0
+                        and _estimate_batch_bytes(batches[db_path]) >= max_batch_bytes
+                    ):
                         _flush(db_path)
                 # Global memory pressure: flush all if over cap
-                if max_memory_bytes > 0 and _current_memory_pressure() >= max_memory_bytes:
+                if (
+                    max_memory_bytes > 0
+                    and _current_memory_pressure() >= max_memory_bytes
+                ):
                     for pth in list(batches.keys()):
                         _flush(pth)
 
@@ -446,7 +479,9 @@ def _scan_log_file(
             # Update checkpoint at last complete block boundary with prefix sha
             # Compute sha of file prefix up to last_good_pos for robust resume
             file_prefix_sha = _file_prefix_sha256(source_path, last_good_pos)
-            _upsert_ingest_checkpoint(conn, source_path, file_prefix_sha, last_good_pos, int(stat.st_mtime))
+            _upsert_ingest_checkpoint(
+                conn, source_path, file_prefix_sha, last_good_pos, int(stat.st_mtime)
+            )
 
     finally:
         conn.close()
@@ -487,6 +522,7 @@ def ingest_logs(
         max_workers = 2
 
     import time
+
     t_start = time.perf_counter()
 
     if ThreadPoolExecutor and max_workers > 1:
@@ -494,14 +530,20 @@ def ingest_logs(
             futures = {}
             for path in sorted(files):
                 files_scanned += 1
-                futures[executor.submit(_scan_log_file, path, base_db_dir, since, to, server_id)] = path
+                futures[
+                    executor.submit(
+                        _scan_log_file, path, base_db_dir, since, to, server_id
+                    )
+                ] = path
             for fut in as_completed(futures):
                 try:
                     inserted, skipped = fut.result()
                 except sqlite3.OperationalError:
                     # In case of lock contention, fall back to single-thread for this file
                     p = futures[fut]
-                    inserted, skipped = _scan_log_file(p, base_db_dir, since, to, server_id)
+                    inserted, skipped = _scan_log_file(
+                        p, base_db_dir, since, to, server_id
+                    )
                 if inserted or skipped:
                     files_ingested += 1
                 total_inserted += inserted
@@ -518,7 +560,9 @@ def ingest_logs(
     elapsed_s = max(0.000001, time.perf_counter() - t_start)
     rows_per_sec = float(total_inserted) / elapsed_s
     # Emit concise performance line for operators (stdout). Kept simple for tests.
-    print(f"ingest_elapsed_s={elapsed_s:.3f} rows_inserted={total_inserted} rps={rows_per_sec:.1f}")
+    print(
+        f"ingest_elapsed_s={elapsed_s:.3f} rows_inserted={total_inserted} rps={rows_per_sec:.1f}"
+    )
 
     return IngestStats(
         files_scanned=files_scanned,
@@ -529,10 +573,26 @@ def ingest_logs(
 
 
 def add_cli(subparsers) -> None:
-    p = subparsers.add_parser("ingest", help="Ingest structured logs into SQLite partitions")
-    p.add_argument("--from", dest="source", required=False, default="logs/", help="Source logs directory")
-    p.add_argument("--out", dest="out", required=False, default="logs/db", help="Base directory for DB partitions")
-    p.add_argument("--since", dest="since", required=False, help="Start date YYYY-MM-DD")
+    p = subparsers.add_parser(
+        "ingest", help="Ingest structured logs into SQLite partitions"
+    )
+    p.add_argument(
+        "--from",
+        dest="source",
+        required=False,
+        default="logs/",
+        help="Source logs directory",
+    )
+    p.add_argument(
+        "--out",
+        dest="out",
+        required=False,
+        default="logs/db",
+        help="Base directory for DB partitions",
+    )
+    p.add_argument(
+        "--since", dest="since", required=False, help="Start date YYYY-MM-DD"
+    )
     p.add_argument("--to", dest="to", required=False, help="End date YYYY-MM-DD")
 
     def _cmd(args: argparse.Namespace) -> int:
@@ -540,17 +600,22 @@ def add_cli(subparsers) -> None:
         if os.getenv("LOGDB_ENABLED", "false").lower() != "true":
             print("Ingest disabled by LOGDB_ENABLED")
             return 2
-        since_date = dt.datetime.strptime(args.since, "%Y-%m-%d").date() if args.since else None
+        since_date = (
+            dt.datetime.strptime(args.since, "%Y-%m-%d").date() if args.since else None
+        )
         to_date = dt.datetime.strptime(args.to, "%Y-%m-%d").date() if args.to else None
         stats = ingest_logs(args.source, args.out, since_date, to_date)
-        print(json.dumps({
-            "files_scanned": stats.files_scanned,
-            "files_ingested": stats.files_ingested,
-            "rows_inserted": stats.rows_inserted,
-            "rows_skipped": stats.rows_skipped,
-        }, ensure_ascii=False))
+        print(
+            json.dumps(
+                {
+                    "files_scanned": stats.files_scanned,
+                    "files_ingested": stats.files_ingested,
+                    "rows_inserted": stats.rows_inserted,
+                    "rows_skipped": stats.rows_skipped,
+                },
+                ensure_ascii=False,
+            )
+        )
         return 0
 
     p.set_defaults(func=_cmd)
-
-

@@ -9,7 +9,6 @@ to the AI proxy service, which then routes to OpenRouter API.
 """
 
 import asyncio
-import json
 import os
 import pytest
 import pytest_asyncio
@@ -59,22 +58,22 @@ class TestOpenRouterFunctionality:
             "messages": [
                 {
                     "role": "user",
-                    "content": "Say 'Hello from OpenRouter' and nothing else."
+                    "content": "Say 'Hello from OpenRouter' and nothing else.",
                 }
             ],
             "max_tokens": 10,
-            "temperature": 0.1
+            "temperature": 0.1,
         }
 
         response = await client.post(
             "/v1/chat/completions",
             json=payload,
-            headers={"Authorization": f"Bearer {api_key}"}
+            headers={"Authorization": f"Bearer {api_key}"},
         )
 
         if response.status_code == 429:
             pytest.skip("Request rate limited - OpenRouter API quota exceeded")
-        
+
         assert response.status_code == 200
         data = response.json()
 
@@ -98,18 +97,18 @@ class TestOpenRouterFunctionality:
             "messages": [
                 {
                     "role": "user",
-                    "content": "Count from 1 to 3, each number on a new line."
+                    "content": "Count from 1 to 3, each number on a new line.",
                 }
             ],
             "stream": True,
             "max_tokens": 20,
-            "temperature": 0.1
+            "temperature": 0.1,
         }
 
         response = await client.post(
             "/v1/chat/completions",
             json=payload,
-            headers={"Authorization": f"Bearer {api_key}"}
+            headers={"Authorization": f"Bearer {api_key}"},
         )
 
         assert response.status_code in [200, 429]  # Allow rate limiting
@@ -153,11 +152,7 @@ class TestOpenRouterEdgeCases:
     async def test_openrouter_model_variations(self, client, api_key):
         """Test that different OpenRouter models work."""
         # Test different OpenRouter model variations
-        test_models = [
-            "mistral-small",
-            "mistral-medium",
-            "gpt-3.5-turbo"
-        ]
+        test_models = ["mistral-small", "mistral-medium", "gpt-3.5-turbo"]
 
         if not os.getenv("OPENROUTER_API_KEY"):
             pytest.skip("OPENROUTER_API_KEY not set")
@@ -166,20 +161,15 @@ class TestOpenRouterEdgeCases:
         for model in test_models:
             payload = {
                 "model": model,
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": "Say 'OK' and nothing else."
-                    }
-                ],
+                "messages": [{"role": "user", "content": "Say 'OK' and nothing else."}],
                 "max_tokens": 5,
-                "temperature": 0.1
+                "temperature": 0.1,
             }
 
             response = await client.post(
                 "/v1/chat/completions",
                 json=payload,
-                headers={"Authorization": f"Bearer {api_key}"}
+                headers={"Authorization": f"Bearer {api_key}"},
             )
 
             # Some models might not be available, so we allow 200, 400, or 429
@@ -231,17 +221,17 @@ class TestOpenRouterPerformanceAndReliability:
                 "messages": [
                     {
                         "role": "user",
-                        "content": f"Say 'Request {request_id}' and nothing else."
+                        "content": f"Say 'Request {request_id}' and nothing else.",
                     }
                 ],
                 "max_tokens": 10,
-                "temperature": 0.1
+                "temperature": 0.1,
             }
 
             response = await client.post(
                 "/v1/chat/completions",
                 json=payload,
-                headers={"Authorization": f"Bearer {api_key}"}
+                headers={"Authorization": f"Bearer {api_key}"},
             )
             return response
 
@@ -257,9 +247,13 @@ class TestOpenRouterPerformanceAndReliability:
 
         # If no requests succeeded due to rate limiting, skip the test
         if successful_responses == 0:
-            pytest.skip("All concurrent requests rate limited - OpenRouter API quota exceeded")
+            pytest.skip(
+                "All concurrent requests rate limited - OpenRouter API quota exceeded"
+            )
         else:
-            assert successful_responses >= 1, f"Only {successful_responses} out of 3 requests succeeded"
+            assert successful_responses >= 1, (
+                f"Only {successful_responses} out of 3 requests succeeded"
+            )
 
     async def test_openrouter_request_timeout_handling(self, client, api_key):
         """Test that OpenRouter requests don't hang indefinitely."""
@@ -269,20 +263,17 @@ class TestOpenRouterPerformanceAndReliability:
         payload = {
             "model": "mistral-small",
             "messages": [
-                {
-                    "role": "user",
-                    "content": "Write a short haiku about programming."
-                }
+                {"role": "user", "content": "Write a short haiku about programming."}
             ],
             "max_tokens": 50,
-            "temperature": 0.7
+            "temperature": 0.7,
         }
 
         # This should complete within reasonable time
         response = await client.post(
             "/v1/chat/completions",
             json=payload,
-            headers={"Authorization": f"Bearer {api_key}"}
+            headers={"Authorization": f"Bearer {api_key}"},
         )
 
         assert response.status_code in [200, 429]  # Allow rate limiting
@@ -298,19 +289,14 @@ class TestOpenRouterPerformanceAndReliability:
 
         payload = {
             "model": "mistral-small",
-            "messages": [
-                {
-                    "role": "user",
-                    "content": ""
-                }
-            ],
-            "max_tokens": 10
+            "messages": [{"role": "user", "content": ""}],
+            "max_tokens": 10,
         }
 
         response = await client.post(
             "/v1/chat/completions",
             json=payload,
-            headers={"Authorization": f"Bearer {api_key}"}
+            headers={"Authorization": f"Bearer {api_key}"},
         )
 
         # Should handle gracefully (either succeed or return meaningful error)
@@ -326,19 +312,14 @@ class TestOpenRouterPerformanceAndReliability:
 
         payload = {
             "model": "mistral-small",
-            "messages": [
-                {
-                    "role": "user",
-                    "content": long_content
-                }
-            ],
-            "max_tokens": 50
+            "messages": [{"role": "user", "content": long_content}],
+            "max_tokens": 50,
         }
 
         response = await client.post(
             "/v1/chat/completions",
             json=payload,
-            headers={"Authorization": f"Bearer {api_key}"}
+            headers={"Authorization": f"Bearer {api_key}"},
         )
 
         # Should handle gracefully (including rate limiting)
@@ -353,19 +334,14 @@ class TestOpenRouterPerformanceAndReliability:
 
         payload = {
             "model": "mistral-small",
-            "messages": [
-                {
-                    "role": "user",
-                    "content": special_content
-                }
-            ],
-            "max_tokens": 20
+            "messages": [{"role": "user", "content": special_content}],
+            "max_tokens": 20,
         }
 
         response = await client.post(
             "/v1/chat/completions",
             json=payload,
-            headers={"Authorization": f"Bearer {api_key}"}
+            headers={"Authorization": f"Bearer {api_key}"},
         )
 
         assert response.status_code in [200, 429]  # Allow rate limiting

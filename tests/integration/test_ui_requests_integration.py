@@ -55,8 +55,18 @@ def test_requests_cross_two_days_counts_and_pagination(tmp_path, monkeypatch):
     base_dir = tmp_path / "logs" / "db"
     day1 = dt.date(2025, 9, 9)
     day2 = dt.date(2025, 9, 10)
-    p1 = base_dir / f"{day1.year:04d}" / f"{day1.month:02d}" / f"ai_proxy_{day1.strftime('%Y%m%d')}.sqlite3"
-    p2 = base_dir / f"{day2.year:04d}" / f"{day2.month:02d}" / f"ai_proxy_{day2.strftime('%Y%m%d')}.sqlite3"
+    p1 = (
+        base_dir
+        / f"{day1.year:04d}"
+        / f"{day1.month:02d}"
+        / f"ai_proxy_{day1.strftime('%Y%m%d')}.sqlite3"
+    )
+    p2 = (
+        base_dir
+        / f"{day2.year:04d}"
+        / f"{day2.month:02d}"
+        / f"ai_proxy_{day2.strftime('%Y%m%d')}.sqlite3"
+    )
 
     base_ts1 = int(dt.datetime(day1.year, day1.month, day1.day, 12, 0).timestamp())
     base_ts2 = int(dt.datetime(day2.year, day2.month, day2.day, 12, 0).timestamp())
@@ -87,7 +97,11 @@ def test_requests_cross_two_days_counts_and_pagination(tmp_path, monkeypatch):
         }
         if next_cursor:
             params["cursor"] = next_cursor
-        r = client.get("/ui/v1/requests", params=params, headers={"Authorization": "Bearer user-int-key"})
+        r = client.get(
+            "/ui/v1/requests",
+            params=params,
+            headers={"Authorization": "Bearer user-int-key"},
+        )
         assert r.status_code == 200
         data = r.json()
         collected.extend(data["items"])
@@ -100,5 +114,3 @@ def test_requests_cross_two_days_counts_and_pagination(tmp_path, monkeypatch):
 
     # Verify total count across pages matches expected
     assert len(collected) == total_expected
-
-

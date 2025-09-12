@@ -33,6 +33,3 @@ __all__ = [
     "drop_fts_table",
     "build_partition_fts",
 ]
-
-
-

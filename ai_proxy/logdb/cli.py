@@ -10,7 +10,11 @@ from .fts import build_fts_for_range, drop_fts_table
 from .bundle import create_bundle, verify_bundle, import_bundle
 from .transport import copy_with_resume
 from .merge import merge_partitions
-from .dialogs import assign_dialogs_for_range, _parse_window_to_seconds, clear_dialogs_for_range
+from .dialogs import (
+    assign_dialogs_for_range,
+    _parse_window_to_seconds,
+    clear_dialogs_for_range,
+)
 
 
 def cmd_init(args: argparse.Namespace) -> int:
@@ -39,7 +43,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_init = sub.add_parser("init", help="Initialize schema for a partition date")
     p_init.add_argument("--date", help="Partition date YYYY-MM-DD", required=False)
-    p_init.add_argument("--out", help="Base directory for DB partitions", required=False, default="logs/db")
+    p_init.add_argument(
+        "--out",
+        help="Base directory for DB partitions",
+        required=False,
+        default="logs/db",
+    )
     p_init.set_defaults(func=cmd_init)
 
     # Ingest subcommand
@@ -50,15 +59,22 @@ def build_parser() -> argparse.ArgumentParser:
     sub_fts = p_fts.add_subparsers(dest="fts_command", required=True)
 
     p_fts_build = sub_fts.add_parser("build", help="Build FTS5 index for a date range")
-    p_fts_build.add_argument("--out", help="Base directory for DB partitions", required=False, default="logs/db")
+    p_fts_build.add_argument(
+        "--out",
+        help="Base directory for DB partitions",
+        required=False,
+        default="logs/db",
+    )
     p_fts_build.add_argument("--since", help="Start date YYYY-MM-DD", required=False)
     p_fts_build.add_argument("--to", help="End date YYYY-MM-DD", required=False)
 
     def _cmd_fts_build(args: argparse.Namespace) -> int:
-        since_date = _dt.datetime.strptime(args.since, "%Y-%m-%d").date() if args.since else None
+        since_date = (
+            _dt.datetime.strptime(args.since, "%Y-%m-%d").date() if args.since else None
+        )
         to_date = _dt.datetime.strptime(args.to, "%Y-%m-%d").date() if args.to else None
 
-        flag_enabled = (os.getenv("LOGDB_FTS_ENABLED", "false").lower() == "true")
+        flag_enabled = os.getenv("LOGDB_FTS_ENABLED", "false").lower() == "true"
         if not flag_enabled:
             print("FTS disabled by LOGDB_FTS_ENABLED")
             return 2
@@ -71,13 +87,23 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_fts_build.set_defaults(func=_cmd_fts_build)
 
-    p_fts_drop = sub_fts.add_parser("drop", help="Drop FTS5 index table for a date range (non-destructive to base tables)")
-    p_fts_drop.add_argument("--out", help="Base directory for DB partitions", required=False, default="logs/db")
+    p_fts_drop = sub_fts.add_parser(
+        "drop",
+        help="Drop FTS5 index table for a date range (non-destructive to base tables)",
+    )
+    p_fts_drop.add_argument(
+        "--out",
+        help="Base directory for DB partitions",
+        required=False,
+        default="logs/db",
+    )
     p_fts_drop.add_argument("--since", help="Start date YYYY-MM-DD", required=False)
     p_fts_drop.add_argument("--to", help="End date YYYY-MM-DD", required=False)
 
     def _cmd_fts_drop(args: argparse.Namespace) -> int:
-        since_date = _dt.datetime.strptime(args.since, "%Y-%m-%d").date() if args.since else None
+        since_date = (
+            _dt.datetime.strptime(args.since, "%Y-%m-%d").date() if args.since else None
+        )
         to_date = _dt.datetime.strptime(args.to, "%Y-%m-%d").date() if args.to else None
         base = os.path.abspath(args.out)
         if since_date is None and to_date is None:
@@ -89,7 +115,12 @@ def build_parser() -> argparse.ArgumentParser:
         cur = since_date
         rc = 0
         while cur <= to_date:
-            path = os.path.join(base, f"{cur.year:04d}", f"{cur.month:02d}", f"ai_proxy_{cur.strftime('%Y%m%d')}.sqlite3")
+            path = os.path.join(
+                base,
+                f"{cur.year:04d}",
+                f"{cur.month:02d}",
+                f"ai_proxy_{cur.strftime('%Y%m%d')}.sqlite3",
+            )
             if os.path.isfile(path):
                 try:
                     conn = open_connection_with_pragmas(path)
@@ -113,16 +144,34 @@ def build_parser() -> argparse.ArgumentParser:
     p_bundle_create = sub_bundle.add_parser("create", help="Create a log bundle tar.gz")
     p_bundle_create.add_argument("--since", required=True, help="Start date YYYY-MM-DD")
     p_bundle_create.add_argument("--to", required=True, help="End date YYYY-MM-DD")
-    p_bundle_create.add_argument("--out", required=True, help="Output bundle file path (.tgz)")
-    p_bundle_create.add_argument("--db", required=False, default="logs/db", help="Base directory for DB partitions")
-    p_bundle_create.add_argument("--include-raw", action="store_true", help="Include raw .log files in bundle (overrides env)")
-    p_bundle_create.add_argument("--raw", required=False, default="logs", help="Source logs directory for raw files")
+    p_bundle_create.add_argument(
+        "--out", required=True, help="Output bundle file path (.tgz)"
+    )
+    p_bundle_create.add_argument(
+        "--db",
+        required=False,
+        default="logs/db",
+        help="Base directory for DB partitions",
+    )
+    p_bundle_create.add_argument(
+        "--include-raw",
+        action="store_true",
+        help="Include raw .log files in bundle (overrides env)",
+    )
+    p_bundle_create.add_argument(
+        "--raw",
+        required=False,
+        default="logs",
+        help="Source logs directory for raw files",
+    )
 
     def _cmd_bundle_create(args: argparse.Namespace) -> int:
         since_date = _dt.datetime.strptime(args.since, "%Y-%m-%d").date()
         to_date = _dt.datetime.strptime(args.to, "%Y-%m-%d").date()
         # Env default for include_raw; CLI flag overrides when provided
-        env_include_raw = os.getenv("LOGDB_BUNDLE_INCLUDE_RAW", "false").lower() == "true"
+        env_include_raw = (
+            os.getenv("LOGDB_BUNDLE_INCLUDE_RAW", "false").lower() == "true"
+        )
         include_raw = bool(args.include_raw) or env_include_raw
         # Resolve server_id: prefer env LOGDB_SERVER_ID, then .server_id under db dir, else empty
         server_id = os.getenv("LOGDB_SERVER_ID", "").strip()
@@ -162,13 +211,17 @@ def build_parser() -> argparse.ArgumentParser:
     p_bundle_verify.set_defaults(func=_cmd_bundle_verify)
 
     # Bundle transfer (Stage H)
-    p_bundle_transfer = sub_bundle.add_parser("transfer", help="Transfer a bundle file with resume to destination path")
+    p_bundle_transfer = sub_bundle.add_parser(
+        "transfer", help="Transfer a bundle file with resume to destination path"
+    )
     p_bundle_transfer.add_argument("src", help="Source bundle path (.tgz)")
     p_bundle_transfer.add_argument("dest", help="Destination path")
 
     def _cmd_bundle_transfer(args: argparse.Namespace) -> int:
         # Perform resumable copy, then verify destination checksum equals source
-        size, sha = copy_with_resume(os.path.abspath(args.src), os.path.abspath(args.dest))
+        size, sha = copy_with_resume(
+            os.path.abspath(args.src), os.path.abspath(args.dest)
+        )
         # If file appears to be a bundle, optionally run verify to ensure integrity of contents
         try:
             if str(args.dest).endswith(".tgz"):
@@ -187,9 +240,18 @@ def build_parser() -> argparse.ArgumentParser:
     p_dialogs = sub.add_parser("dialogs", help="Dialog grouping utilities")
     sub_dialogs = p_dialogs.add_subparsers(dest="dialogs_command", required=True)
 
-    p_dialogs_assign = sub_dialogs.add_parser("assign", help="Assign dialog_id for a date range")
-    p_dialogs_assign.add_argument("--out", required=False, default="logs/db", help="Base directory for DB partitions")
-    p_dialogs_assign.add_argument("--since", required=False, help="Start date YYYY-MM-DD")
+    p_dialogs_assign = sub_dialogs.add_parser(
+        "assign", help="Assign dialog_id for a date range"
+    )
+    p_dialogs_assign.add_argument(
+        "--out",
+        required=False,
+        default="logs/db",
+        help="Base directory for DB partitions",
+    )
+    p_dialogs_assign.add_argument(
+        "--since", required=False, help="Start date YYYY-MM-DD"
+    )
     p_dialogs_assign.add_argument("--to", required=False, help="End date YYYY-MM-DD")
     p_dialogs_assign.add_argument(
         "--window",
@@ -202,28 +264,45 @@ def build_parser() -> argparse.ArgumentParser:
         if os.getenv("LOGDB_GROUPING_ENABLED", "false").lower() != "true":
             print("Dialogs disabled by LOGDB_GROUPING_ENABLED")
             return 2
-        since_date = _dt.datetime.strptime(args.since, "%Y-%m-%d").date() if args.since else None
+        since_date = (
+            _dt.datetime.strptime(args.since, "%Y-%m-%d").date() if args.since else None
+        )
         to_date = _dt.datetime.strptime(args.to, "%Y-%m-%d").date() if args.to else None
         window_seconds = _parse_window_to_seconds(args.window)
-        results = assign_dialogs_for_range(os.path.abspath(args.out), since_date, to_date, window_seconds)
+        results = assign_dialogs_for_range(
+            os.path.abspath(args.out), since_date, to_date, window_seconds
+        )
         for db_path, updated in results:
             print(f"{db_path} updated={updated}")
         return 0
 
     p_dialogs_assign.set_defaults(func=_cmd_dialogs_assign)
 
-    p_dialogs_clear = sub_dialogs.add_parser("clear", help="Clear dialog_id values for a date range")
-    p_dialogs_clear.add_argument("--out", required=False, default="logs/db", help="Base directory for DB partitions")
-    p_dialogs_clear.add_argument("--since", required=False, help="Start date YYYY-MM-DD")
+    p_dialogs_clear = sub_dialogs.add_parser(
+        "clear", help="Clear dialog_id values for a date range"
+    )
+    p_dialogs_clear.add_argument(
+        "--out",
+        required=False,
+        default="logs/db",
+        help="Base directory for DB partitions",
+    )
+    p_dialogs_clear.add_argument(
+        "--since", required=False, help="Start date YYYY-MM-DD"
+    )
     p_dialogs_clear.add_argument("--to", required=False, help="End date YYYY-MM-DD")
 
     def _cmd_dialogs_clear(args: argparse.Namespace) -> int:
         if os.getenv("LOGDB_GROUPING_ENABLED", "false").lower() != "true":
             print("Dialogs disabled by LOGDB_GROUPING_ENABLED")
             return 2
-        since_date = _dt.datetime.strptime(args.since, "%Y-%m-%d").date() if args.since else None
+        since_date = (
+            _dt.datetime.strptime(args.since, "%Y-%m-%d").date() if args.since else None
+        )
         to_date = _dt.datetime.strptime(args.to, "%Y-%m-%d").date() if args.to else None
-        results = clear_dialogs_for_range(os.path.abspath(args.out), since_date, to_date)
+        results = clear_dialogs_for_range(
+            os.path.abspath(args.out), since_date, to_date
+        )
         for db_path, updated in results:
             print(f"{db_path} cleared={updated}")
         return 0
@@ -231,24 +310,44 @@ def build_parser() -> argparse.ArgumentParser:
     p_dialogs_clear.set_defaults(func=_cmd_dialogs_clear)
 
     # Bundle import subcommand
-    p_bundle_import = sub_bundle.add_parser("import", help="Import a log bundle into destination dir")
+    p_bundle_import = sub_bundle.add_parser(
+        "import", help="Import a log bundle into destination dir"
+    )
     p_bundle_import.add_argument("bundle", help="Path to bundle .tgz")
-    p_bundle_import.add_argument("--dest", required=False, default="logs/db", help="Destination base directory for DB partitions")
+    p_bundle_import.add_argument(
+        "--dest",
+        required=False,
+        default="logs/db",
+        help="Destination base directory for DB partitions",
+    )
 
     def _cmd_bundle_import(args: argparse.Namespace) -> int:
-        imp, skip = import_bundle(os.path.abspath(args.bundle), os.path.abspath(args.dest))
+        imp, skip = import_bundle(
+            os.path.abspath(args.bundle), os.path.abspath(args.dest)
+        )
         print(f"imported={imp} skipped={skip}")
         return 0
 
     p_bundle_import.set_defaults(func=_cmd_bundle_import)
 
     # Merge utility
-    p_merge = sub.add_parser("merge", help="Merge partitions from a directory into a single SQLite file")
-    p_merge.add_argument("--from", dest="src", required=True, help="Source directory containing partitions")
-    p_merge.add_argument("--to", dest="dst", required=True, help="Destination SQLite file path")
+    p_merge = sub.add_parser(
+        "merge", help="Merge partitions from a directory into a single SQLite file"
+    )
+    p_merge.add_argument(
+        "--from",
+        dest="src",
+        required=True,
+        help="Source directory containing partitions",
+    )
+    p_merge.add_argument(
+        "--to", dest="dst", required=True, help="Destination SQLite file path"
+    )
 
     def _cmd_merge(args: argparse.Namespace) -> int:
-        nsrc, total, status = merge_partitions(os.path.abspath(args.src), os.path.abspath(args.dst))
+        nsrc, total, status = merge_partitions(
+            os.path.abspath(args.src), os.path.abspath(args.dst)
+        )
         print(f"sources={nsrc} total_requests={total} integrity={status}")
         return 0 if status == "ok" else 1
 
@@ -265,6 +364,3 @@ def main(argv: Optional[list[str]] = None) -> int:
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())
-
-
-

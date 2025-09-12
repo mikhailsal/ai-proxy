@@ -75,5 +75,3 @@ def test_copy_with_resume_idempotent_when_destination_exists(tmp_path):
     size1, sha1 = copy_with_resume(str(src), str(dest))
     size2, sha2 = copy_with_resume(str(src), str(dest))
     assert size1 == size2 and sha1 == sha2
-
-

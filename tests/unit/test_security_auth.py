@@ -13,10 +13,10 @@ class TestSecurityAuth:
         """Helper function to test get_api_key with a simple string."""
         # Create the dependency function
         get_api_key_func = get_api_key_dependency()
-        
+
         # Create mock request
         mock_request = Mock(spec=Request)
-        
+
         # Call the function with the auth header
         return await get_api_key_func(mock_request, auth_header)
 

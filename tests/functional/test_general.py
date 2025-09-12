@@ -42,18 +42,13 @@ class TestGeneralAuthentication:
         """Test that invalid API key returns 401."""
         payload = {
             "model": "gemini-pro",
-            "messages": [
-                {
-                    "role": "user",
-                    "content": "Hello"
-                }
-            ]
+            "messages": [{"role": "user", "content": "Hello"}],
         }
 
         response = await client.post(
             "/v1/chat/completions",
             json=payload,
-            headers={"Authorization": "Bearer invalid-key"}
+            headers={"Authorization": "Bearer invalid-key"},
         )
 
         assert response.status_code == 401
@@ -62,18 +57,10 @@ class TestGeneralAuthentication:
         """Test that missing API key returns 401."""
         payload = {
             "model": "gemini-pro",
-            "messages": [
-                {
-                    "role": "user",
-                    "content": "Hello"
-                }
-            ]
+            "messages": [{"role": "user", "content": "Hello"}],
         }
 
-        response = await client.post(
-            "/v1/chat/completions",
-            json=payload
-        )
+        response = await client.post("/v1/chat/completions", json=payload)
 
         assert response.status_code == 401
 
@@ -113,18 +100,13 @@ class TestGeneralEdgeCases:
         """Test that invalid model returns appropriate error."""
         payload = {
             "model": "nonexistent-model",
-            "messages": [
-                {
-                    "role": "user",
-                    "content": "Hello"
-                }
-            ]
+            "messages": [{"role": "user", "content": "Hello"}],
         }
 
         response = await client.post(
             "/v1/chat/completions",
             json=payload,
-            headers={"Authorization": f"Bearer {api_key}"}
+            headers={"Authorization": f"Bearer {api_key}"},
         )
 
         # Should return an error (400 or 500 depending on implementation)
@@ -140,7 +122,7 @@ class TestGeneralEdgeCases:
         response = await client.post(
             "/v1/chat/completions",
             json=payload,
-            headers={"Authorization": f"Bearer {api_key}"}
+            headers={"Authorization": f"Bearer {api_key}"},
         )
 
         assert response.status_code == 400
@@ -204,17 +186,17 @@ class TestModelsEndpoint:
         """Test that models endpoint works without authentication."""
         response = await client.get("/v1/models")
         assert response.status_code == 200
-        
+
         data = response.json()
         assert "object" in data
         assert data["object"] == "list"
         assert "data" in data
         assert isinstance(data["data"], list)
-        
+
         # Should have models configured
         models = data["data"]
         assert len(models) > 0
-        
+
         # Check model structure
         for model in models:
             assert "id" in model
@@ -225,7 +207,7 @@ class TestModelsEndpoint:
             assert "permission" in model
             assert "root" in model
             assert "parent" in model
-            
+
             # Check that model ID doesn't contain wildcards
             assert "*" not in model["id"]
 
@@ -239,35 +221,37 @@ class TestModelsEndpoint:
         """Test that specific models are present in the response."""
         response = await client.get("/v1/models")
         assert response.status_code == 200
-        
+
         data = response.json()
         models = data["data"]
         model_ids = [model["id"] for model in models]
-        
+
         # Check that some expected models are present
         expected_models = [
             "gemini-pro",
             "gpt-4",
-            "claude-3-opus", 
+            "claude-3-opus",
             "mistral-small",
             "deepseek-r1",
-            "llama-3.1-8b"
+            "llama-3.1-8b",
         ]
-        
+
         for expected_model in expected_models:
-            assert expected_model in model_ids, f"Expected model {expected_model} not found in models list"
+            assert expected_model in model_ids, (
+                f"Expected model {expected_model} not found in models list"
+            )
 
     async def test_models_endpoint_provider_mapping(self, client):
         """Test that models are correctly mapped to providers."""
         response = await client.get("/v1/models")
         assert response.status_code == 200
-        
+
         data = response.json()
         models = data["data"]
-        
+
         # Create mapping by model ID
         model_by_id = {model["id"]: model for model in models}
-        
+
         # Test specific provider mappings
         provider_tests = [
             ("gemini-pro", "gemini"),
@@ -275,32 +259,41 @@ class TestModelsEndpoint:
             ("claude-3-opus", "openrouter"),
             ("mistral-small", "openrouter"),
             ("deepseek-r1", "openrouter"),
-            ("llama-3.1-8b", "openrouter")
+            ("llama-3.1-8b", "openrouter"),
         ]
-        
+
         for model_id, expected_provider in provider_tests:
             if model_id in model_by_id:
-                assert model_by_id[model_id]["owned_by"] == expected_provider, \
+                assert model_by_id[model_id]["owned_by"] == expected_provider, (
                     f"Model {model_id} should be owned by {expected_provider}"
+                )
 
     async def test_models_endpoint_openai_compatibility(self, client):
         """Test that models endpoint response is OpenAI API compatible."""
         response = await client.get("/v1/models")
         assert response.status_code == 200
-        
+
         data = response.json()
-        
+
         # Check top-level structure matches OpenAI API
         assert "object" in data
         assert data["object"] == "list"
         assert "data" in data
-        
+
         # Check each model has required OpenAI fields
         for model in data["data"]:
-            required_fields = ["id", "object", "created", "owned_by", "permission", "root", "parent"]
+            required_fields = [
+                "id",
+                "object",
+                "created",
+                "owned_by",
+                "permission",
+                "root",
+                "parent",
+            ]
             for field in required_fields:
                 assert field in model, f"Required field '{field}' missing from model"
-            
+
             # Check field types
             assert isinstance(model["id"], str)
             assert model["object"] == "model"
@@ -313,16 +306,18 @@ class TestModelsEndpoint:
     async def test_models_endpoint_performance(self, client):
         """Test that models endpoint responds quickly."""
         import time
-        
+
         start_time = time.time()
         response = await client.get("/v1/models")
         end_time = time.time()
-        
+
         assert response.status_code == 200
-        
+
         # Should respond within reasonable time (less than 2 seconds)
         response_time = end_time - start_time
-        assert response_time < 2.0, f"Models endpoint took {response_time:.2f}s to respond"
+        assert response_time < 2.0, (
+            f"Models endpoint took {response_time:.2f}s to respond"
+        )
 
 
 # Content format tests are covered by unit tests in test_api_models.py

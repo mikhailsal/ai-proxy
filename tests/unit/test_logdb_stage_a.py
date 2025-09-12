@@ -2,8 +2,6 @@ import datetime as dt
 import os
 import sqlite3
 
-import pytest
-
 from ai_proxy.logdb import (
     compute_partition_path,
     ensure_partition_database,
@@ -45,11 +43,21 @@ def test_ensure_partition_database_creates_schema(tmp_path):
         assert mode == "wal"
 
         # Check required tables
-        tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()}
+        tables = {
+            r[0]
+            for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table';"
+            ).fetchall()
+        }
         assert {"servers", "requests", "ingest_sources"}.issubset(tables)
 
         # Check required indexes exist
-        indexes = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='index';").fetchall()}
+        indexes = {
+            r[0]
+            for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='index';"
+            ).fetchall()
+        }
         expected_indexes = {
             "idx_requests_ts",
             "idx_requests_endpoint",
@@ -92,6 +100,3 @@ def test_create_two_partitions_today_and_yesterday(tmp_path):
             assert run_integrity_check(conn) == "ok"
         finally:
             conn.close()
-
-
-

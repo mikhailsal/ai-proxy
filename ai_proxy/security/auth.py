@@ -1,4 +1,4 @@
-from fastapi import HTTPException, Security, Request, Depends
+from fastapi import HTTPException, Security, Request
 from fastapi.security import APIKeyHeader
 from starlette import status
 import secrets
@@ -10,7 +10,10 @@ API_KEY_HEADER = APIKeyHeader(name="Authorization", auto_error=False)
 
 def get_api_key_dependency():
     """Factory function to create the API key dependency."""
-    async def get_api_key(request: Request, api_key_header: str = Security(API_KEY_HEADER)):
+
+    async def get_api_key(
+        request: Request, api_key_header: str = Security(API_KEY_HEADER)
+    ):
         """
         Dependency to validate the API key.
         The key is expected to be passed as 'Bearer <key>'.

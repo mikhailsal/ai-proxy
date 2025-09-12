@@ -2,7 +2,7 @@ import datetime as dt
 import json
 import os
 import sqlite3
-from typing import Iterable, List, Optional, Sequence, Tuple
+from typing import Iterable, List, Optional, Tuple
 
 from .partitioning import compute_partition_path
 from .schema import open_connection_with_pragmas
@@ -18,7 +18,9 @@ def _sqlite_supports_fts5(conn: sqlite3.Connection) -> bool:
             return True
         # Fallback attempt: try creating a temp fts5 table
         try:
-            conn.execute("CREATE VIRTUAL TABLE IF NOT EXISTS temp.__fts5_probe USING fts5(x);")
+            conn.execute(
+                "CREATE VIRTUAL TABLE IF NOT EXISTS temp.__fts5_probe USING fts5(x);"
+            )
             conn.execute("DROP TABLE IF EXISTS temp.__fts5_probe;")
             return True
         except sqlite3.OperationalError:
@@ -111,7 +113,11 @@ def _iter_text_from_response(resp: object) -> Iterable[Tuple[str, str]]:
             # Gemini-like: candidates[0].content.parts[].text
             candidates = resp.get("candidates")
             if isinstance(candidates, list) and candidates:
-                parts = candidates[0].get("content", {}).get("parts") if isinstance(candidates[0], dict) else None
+                parts = (
+                    candidates[0].get("content", {}).get("parts")
+                    if isinstance(candidates[0], dict)
+                    else None
+                )
                 if isinstance(parts, list):
                     texts: List[str] = []
                     for p in parts:
@@ -126,7 +132,9 @@ def _iter_text_from_response(resp: object) -> Iterable[Tuple[str, str]]:
     return []
 
 
-def _extract_text_fragments(request_json: str, response_json: str) -> List[Tuple[str, str]]:
+def _extract_text_fragments(
+    request_json: str, response_json: str
+) -> List[Tuple[str, str]]:
     frags: List[Tuple[str, str]] = []
     try:
         req_obj = json.loads(request_json)
@@ -200,7 +208,14 @@ def build_partition_fts(db_path: str) -> Tuple[int, int]:
             "SELECT request_id, endpoint, model_original, model_mapped, request_json, response_json FROM requests"
         )
         batch: List[Tuple[str, str, str, str, str, str]] = []
-        for request_id, endpoint, model_original, model_mapped, req_json, resp_json in cur:
+        for (
+            request_id,
+            endpoint,
+            model_original,
+            model_mapped,
+            req_json,
+            resp_json,
+        ) in cur:
             fragments = _extract_text_fragments(req_json or "", resp_json or "")
             if not fragments:
                 rows_skipped += 1
@@ -240,14 +255,18 @@ def build_partition_fts(db_path: str) -> Tuple[int, int]:
 
         # Optional: optimize
         with conn:
-            conn.execute("INSERT INTO request_text_index(request_text_index) VALUES('optimize');")
+            conn.execute(
+                "INSERT INTO request_text_index(request_text_index) VALUES('optimize');"
+            )
 
         return rows_indexed, rows_skipped
     finally:
         conn.close()
 
 
-def build_fts_for_range(base_db_dir: str, since: Optional[dt.date], to: Optional[dt.date]) -> List[Tuple[str, int, int]]:
+def build_fts_for_range(
+    base_db_dir: str, since: Optional[dt.date], to: Optional[dt.date]
+) -> List[Tuple[str, int, int]]:
     """Build FTS for each partition between dates inclusive. Returns list of tuples
     (db_path, rows_indexed, rows_skipped) for partitions that existed and were processed.
     """
@@ -283,5 +302,3 @@ __all__ = [
     "build_partition_fts",
     "build_fts_for_range",
 ]
-
-

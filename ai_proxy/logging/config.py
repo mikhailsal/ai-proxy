@@ -101,7 +101,7 @@ def setup_logging(log_level: str = "INFO", enable_file_logging: bool = True):
     # Console handler with pretty JSON
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(log_level_obj)
-    
+
     # Reduce verbosity for higher log levels (WARNING, ERROR)
     if log_level_obj >= logging.WARNING:
         # Disable some noisy loggers for tests

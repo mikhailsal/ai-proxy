@@ -50,7 +50,7 @@ class Router:
         if not settings.is_valid_model(original_model):
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid model: {original_model}. Model not supported."
+                detail=f"Invalid model: {original_model}. Model not supported.",
             )
 
         # Validate provider API key

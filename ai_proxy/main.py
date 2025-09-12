@@ -29,7 +29,8 @@ from ai_proxy.api.v1.models import ChatCompletionRequest
 DEPLOYMENT_TIMESTAMP_FILE = "/app/deployment-timestamp.txt"
 
 # Initialize logging with file support
-import os
+import os  # noqa: E402
+
 log_level = os.getenv("LOG_LEVEL", "INFO")
 enable_file_logging = os.getenv("ENABLE_FILE_LOGGING", "true").lower() == "true"
 setup_logging(log_level=log_level, enable_file_logging=enable_file_logging)
@@ -83,16 +84,16 @@ async def health_check():
 async def list_models():
     """List available models (OpenAI-compatible endpoint)."""
     models = []
-    
+
     # Get all configured models from settings
     for model_name, mapping in settings.model_mappings.items():
         # Skip wildcard patterns
         if "*" in model_name:
             continue
-            
+
         # Parse provider and model info
         provider, mapped_model = settings._parse_provider_model(mapping)
-        
+
         # Create model object in OpenAI format
         model_obj = {
             "id": model_name,
@@ -104,11 +105,8 @@ async def list_models():
             "parent": None,
         }
         models.append(model_obj)
-    
-    return {
-        "object": "list",
-        "data": models
-    }
+
+    return {"object": "list", "data": models}
 
 
 @app.options("/v1/chat/completions", tags=["API"])
@@ -142,14 +140,24 @@ async def chat_completions(request: Request, api_key: str = Depends(get_api_key)
     except ValueError as e:
         logger.error(f"Invalid request data: {e}")
         return JSONResponse(
-            content={"error": {"message": f"Invalid request: {str(e)}", "type": "invalid_request_error"}},
-            status_code=400
+            content={
+                "error": {
+                    "message": f"Invalid request: {str(e)}",
+                    "type": "invalid_request_error",
+                }
+            },
+            status_code=400,
         )
     except Exception as e:
         logger.error(f"Failed to parse request: {e}")
         return JSONResponse(
-            content={"error": {"message": "Malformed JSON in request body", "type": "invalid_request_error"}},
-            status_code=400
+            content={
+                "error": {
+                    "message": "Malformed JSON in request body",
+                    "type": "invalid_request_error",
+                }
+            },
+            status_code=400,
         )
 
     # Extract model information for logging

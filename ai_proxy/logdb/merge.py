@@ -54,5 +54,3 @@ def merge_partitions(source_dir: str, dest_path: str) -> Tuple[int, int, str]:
         return len(files), total_requests, status
     finally:
         conn.close()
-
-

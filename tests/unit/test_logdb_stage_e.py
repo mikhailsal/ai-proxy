@@ -1,13 +1,23 @@
 import datetime as dt
-import os
 import sqlite3
 
-from ai_proxy.logdb.partitioning import ensure_partition_database, compute_partition_path
+from ai_proxy.logdb.partitioning import ensure_partition_database
 from ai_proxy.logdb.schema import open_connection_with_pragmas
-from ai_proxy.logdb.dialogs import assign_partition_dialogs, assign_dialogs_for_range, _parse_window_to_seconds
+from ai_proxy.logdb.dialogs import (
+    assign_partition_dialogs,
+    assign_dialogs_for_range,
+    _parse_window_to_seconds,
+)
 
 
-def _insert_request(conn: sqlite3.Connection, request_id: str, ts: int, endpoint: str, model_mapped: str, api_key_hash: str) -> None:
+def _insert_request(
+    conn: sqlite3.Connection,
+    request_id: str,
+    ts: int,
+    endpoint: str,
+    model_mapped: str,
+    api_key_hash: str,
+) -> None:
     with conn:
         conn.execute(
             """
@@ -116,12 +126,36 @@ def test_cli_gating_env_flag_for_dialogs(monkeypatch, tmp_path):
 
     # Disabled case
     monkeypatch.setenv("LOGDB_GROUPING_ENABLED", "false")
-    rc = logdb_cli.main(["dialogs", "assign", "--out", str(base), "--since", "2025-09-12", "--to", "2025-09-12"]) 
+    rc = logdb_cli.main(
+        [
+            "dialogs",
+            "assign",
+            "--out",
+            str(base),
+            "--since",
+            "2025-09-12",
+            "--to",
+            "2025-09-12",
+        ]
+    )
     assert rc == 2
 
     # Enabled case
     monkeypatch.setenv("LOGDB_GROUPING_ENABLED", "true")
-    rc2 = logdb_cli.main(["dialogs", "assign", "--out", str(base), "--since", "2025-09-12", "--to", "2025-09-12", "--window", "30m"]) 
+    rc2 = logdb_cli.main(
+        [
+            "dialogs",
+            "assign",
+            "--out",
+            str(base),
+            "--since",
+            "2025-09-12",
+            "--to",
+            "2025-09-12",
+            "--window",
+            "30m",
+        ]
+    )
     assert rc2 == 0
 
 
@@ -139,7 +173,9 @@ def test_gap_equal_window_no_split(tmp_path):
 
         updated = assign_partition_dialogs(db_path, window_seconds=1800)
         assert updated == 2
-        rows = conn.execute("SELECT request_id, dialog_id FROM requests ORDER BY ts").fetchall()
+        rows = conn.execute(
+            "SELECT request_id, dialog_id FROM requests ORDER BY ts"
+        ).fetchall()
         assert rows[0][1] == rows[1][1]
     finally:
         conn.close()
@@ -178,12 +214,26 @@ def test_assign_dialogs_for_range_two_days(tmp_path):
 
     c1 = open_connection_with_pragmas(p1)
     try:
-        _insert_request(c1, "rday1", int(dt.datetime(2025, 9, 15, 10, 0).timestamp()), "/v1/chat", "m1", "k1")
+        _insert_request(
+            c1,
+            "rday1",
+            int(dt.datetime(2025, 9, 15, 10, 0).timestamp()),
+            "/v1/chat",
+            "m1",
+            "k1",
+        )
     finally:
         c1.close()
     c2 = open_connection_with_pragmas(p2)
     try:
-        _insert_request(c2, "rday2", int(dt.datetime(2025, 9, 16, 10, 0).timestamp()), "/v1/chat", "m1", "k1")
+        _insert_request(
+            c2,
+            "rday2",
+            int(dt.datetime(2025, 9, 16, 10, 0).timestamp()),
+            "/v1/chat",
+            "m1",
+            "k1",
+        )
     finally:
         c2.close()
 
@@ -209,7 +259,9 @@ def test_dialogs_clear_function_and_cli(monkeypatch, tmp_path):
         _insert_request(conn, "z1", t0, "/v1/chat", "m1", "k1")
         _insert_request(conn, "z2", t0 + 60, "/v1/chat", "m1", "k1")
         assign_partition_dialogs(db_path, 1800)
-        pre = conn.execute("SELECT COUNT(*) FROM requests WHERE dialog_id IS NOT NULL").fetchone()[0]
+        pre = conn.execute(
+            "SELECT COUNT(*) FROM requests WHERE dialog_id IS NOT NULL"
+        ).fetchone()[0]
         assert pre == 2
     finally:
         conn.close()
@@ -220,14 +272,34 @@ def test_dialogs_clear_function_and_cli(monkeypatch, tmp_path):
 
     # CLI gating disabled
     monkeypatch.setenv("LOGDB_GROUPING_ENABLED", "false")
-    rc = logdb_cli.main(["dialogs", "clear", "--out", str(base), "--since", "2025-09-17", "--to", "2025-09-17"])
+    rc = logdb_cli.main(
+        [
+            "dialogs",
+            "clear",
+            "--out",
+            str(base),
+            "--since",
+            "2025-09-17",
+            "--to",
+            "2025-09-17",
+        ]
+    )
     assert rc == 2
 
     # CLI enabled path executes and reports cleared
     # Re-assign and then clear via CLI
     assign_dialogs_for_range(str(base), date, date, 1800)
     monkeypatch.setenv("LOGDB_GROUPING_ENABLED", "true")
-    rc2 = logdb_cli.main(["dialogs", "clear", "--out", str(base), "--since", "2025-09-17", "--to", "2025-09-17"])
+    rc2 = logdb_cli.main(
+        [
+            "dialogs",
+            "clear",
+            "--out",
+            str(base),
+            "--since",
+            "2025-09-17",
+            "--to",
+            "2025-09-17",
+        ]
+    )
     assert rc2 == 0
-
-

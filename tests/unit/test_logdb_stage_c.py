@@ -1,5 +1,4 @@
 import datetime as dt
-import os
 import sqlite3
 
 from ai_proxy.logdb.ingest import ingest_logs
@@ -8,18 +7,18 @@ from ai_proxy.logdb.partitioning import compute_partition_path
 
 SAMPLE_ENTRY = (
     "2025-09-10 12:00:00 - INFO - {\n"
-    "  \"timestamp\": \"2025-09-10T12:00:00Z\",\n"
-    "  \"endpoint\": \"/v1/chat/completions\",\n"
-    "  \"status_code\": 200,\n"
-    "  \"latency_ms\": 123.45,\n"
-    "  \"request\": {\n"
-    "    \"model\": \"gpt-4\",\n"
-    "    \"messages\": [{\"role\": \"user\", \"content\": \"Hi\"}]\n"
+    '  "timestamp": "2025-09-10T12:00:00Z",\n'
+    '  "endpoint": "/v1/chat/completions",\n'
+    '  "status_code": 200,\n'
+    '  "latency_ms": 123.45,\n'
+    '  "request": {\n'
+    '    "model": "gpt-4",\n'
+    '    "messages": [{"role": "user", "content": "Hi"}]\n'
     "  },\n"
-    "  \"response\": {\n"
-    "    \"id\": \"chatcmpl-1\",\n"
-    "    \"model\": \"openrouter/openai/gpt-4\",\n"
-    "    \"choices\": [{\"index\": 0, \"message\": {\"role\": \"assistant\", \"content\": \"Hello\"}}]\n"
+    '  "response": {\n'
+    '    "id": "chatcmpl-1",\n'
+    '    "model": "openrouter/openai/gpt-4",\n'
+    '    "choices": [{"index": 0, "message": {"role": "assistant", "content": "Hello"}}]\n'
     "  }\n"
     "}\n"
 )
@@ -71,7 +70,9 @@ def test_env_override_server_id_takes_priority(tmp_path, monkeypatch):
 
     # Create a conflicting persisted id first
     (db_base).mkdir(parents=True, exist_ok=True)
-    (db_base / ".server_id").write_text("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", encoding="utf-8")
+    (db_base / ".server_id").write_text(
+        "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", encoding="utf-8"
+    )
 
     # Override via env and ingest
     override_id = "11111111-2222-3333-4444-555555555555"
@@ -114,5 +115,3 @@ def test_dedup_with_same_server_id_across_runs(tmp_path, monkeypatch):
         assert count == 1
     finally:
         conn.close()
-
-

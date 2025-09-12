@@ -2,9 +2,15 @@ import datetime as dt
 import os
 import sqlite3
 import pytest
+import json
 
-from ai_proxy.logdb.partitioning import compute_partition_path
-from ai_proxy.logdb.fts import build_partition_fts
+from ai_proxy.logdb.partitioning import (
+    ensure_partition_database,
+    compute_partition_path,
+)
+from ai_proxy.logdb.fts import build_partition_fts, _extract_text_fragments
+from ai_proxy.logdb.schema import open_connection_with_pragmas
+from ai_proxy.logdb import cli as logdb_cli
 
 
 def _prepare_db_with_rows(tmp_path):
@@ -40,7 +46,9 @@ def _prepare_db_with_rows(tmp_path):
             """
         )
         req_json = '{"messages": [{"role": "user", "content": "Hello"}]}'
-        resp_json = '{"choices": [{"message": {"role": "assistant", "content": "Hi there"}}]}'
+        resp_json = (
+            '{"choices": [{"message": {"role": "assistant", "content": "Hi there"}}]}'
+        )
         conn.execute(
             "INSERT OR REPLACE INTO requests (request_id, server_id, ts, endpoint, model_original, model_mapped, status_code, latency_ms, api_key_hash, request_json, response_json, dialog_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,NULL)",
             (
@@ -68,7 +76,9 @@ def test_build_partition_fts_indexes_text(tmp_path):
     try:
         c = sqlite3.connect(":memory:")
         try:
-            c.execute("CREATE VIRTUAL TABLE IF NOT EXISTS temp.__fts5_probe USING fts5(x);")
+            c.execute(
+                "CREATE VIRTUAL TABLE IF NOT EXISTS temp.__fts5_probe USING fts5(x);"
+            )
             c.execute("DROP TABLE IF EXISTS temp.__fts5_probe;")
         finally:
             c.close()
@@ -79,38 +89,27 @@ def test_build_partition_fts_indexes_text(tmp_path):
     assert indexed > 0
     assert skipped == 0
 
-import datetime as dt
-import json
-import os
-import sqlite3
-
-from ai_proxy.logdb.fts import _extract_text_fragments, build_partition_fts
-from ai_proxy.logdb.partitioning import ensure_partition_database
-from ai_proxy.logdb.schema import open_connection_with_pragmas
-from ai_proxy.logdb import cli as logdb_cli
-
 
 def test_extract_text_fragments_various_shapes():
     req = {
         "messages": [
             {"role": "user", "content": "Hello"},
-            {"role": "assistant", "content": [{"type": "text", "text": "How can I help?"}]},
+            {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "How can I help?"}],
+            },
         ],
         "prompt": "Extra prompt",
-        "contents": [
-            {"parts": [{"text": "Gemini style user text"}]}
-        ],
+        "contents": [{"parts": [{"text": "Gemini style user text"}]}],
     }
 
     resp = {
         "choices": [
             {"message": {"content": "Sure, here is info."}},
-            {"message": {"content": [{"text": "Part A"}, {"text": "Part B"}]}}
+            {"message": {"content": [{"text": "Part A"}, {"text": "Part B"}]}},
         ],
-        "candidates": [
-            {"content": {"parts": [{"text": "Gemini answer"}]}}
-        ],
-        "content": "Top-level content"
+        "candidates": [{"content": {"parts": [{"text": "Gemini answer"}]}}],
+        "content": "Top-level content",
     }
 
     frags = _extract_text_fragments(json.dumps(req), json.dumps(resp))
@@ -121,8 +120,13 @@ def test_extract_text_fragments_various_shapes():
     assert ("user", "Extra prompt") in texts
     assert ("user", "Gemini style user text") in texts
     # Extractor may merge assistant fragments; accept either separate or combined
-    has_sure = any(role == "assistant" and "Sure, here is info." in text for role, text in texts)
-    has_parts = any(role == "assistant" and "Part A" in text and "Part B" in text for role, text in texts)
+    has_sure = any(
+        role == "assistant" and "Sure, here is info." in text for role, text in texts
+    )
+    has_parts = any(
+        role == "assistant" and "Part A" in text and "Part B" in text
+        for role, text in texts
+    )
     assert has_sure and has_parts
     assert ("assistant", "Gemini answer") in texts
     assert ("assistant", "Top-level content") in texts
@@ -135,15 +139,9 @@ def test_build_partition_fts_and_query(tmp_path):
 
     conn = open_connection_with_pragmas(db_path)
     try:
-        req1 = {
-            "messages": [
-                {"role": "user", "content": "Please retry after timeout"}
-            ]
-        }
+        req1 = {"messages": [{"role": "user", "content": "Please retry after timeout"}]}
         resp1 = {
-            "choices": [
-                {"message": {"content": "Acknowledged, performing retry"}}
-            ]
+            "choices": [{"message": {"content": "Acknowledged, performing retry"}}]
         }
 
         req2 = {"prompt": "Model parameters info"}
@@ -158,8 +156,17 @@ def test_build_partition_fts_and_query(tmp_path):
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
                 """,
                 (
-                    "r1", "s1", int(dt.datetime(2025,1,2,12,0,0).timestamp()), "/v1/chat", "mA", "mB",
-                    200, 12.5, None, json.dumps(req1), json.dumps(resp1)
+                    "r1",
+                    "s1",
+                    int(dt.datetime(2025, 1, 2, 12, 0, 0).timestamp()),
+                    "/v1/chat",
+                    "mA",
+                    "mB",
+                    200,
+                    12.5,
+                    None,
+                    json.dumps(req1),
+                    json.dumps(resp1),
                 ),
             )
             conn.execute(
@@ -170,8 +177,17 @@ def test_build_partition_fts_and_query(tmp_path):
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
                 """,
                 (
-                    "r2", "s1", int(dt.datetime(2025,1,2,12,1,0).timestamp()), "/v1/chat", None, None,
-                    200, 8.0, None, json.dumps(req2), json.dumps(resp2)
+                    "r2",
+                    "s1",
+                    int(dt.datetime(2025, 1, 2, 12, 1, 0).timestamp()),
+                    "/v1/chat",
+                    None,
+                    None,
+                    200,
+                    8.0,
+                    None,
+                    json.dumps(req2),
+                    json.dumps(resp2),
                 ),
             )
 
@@ -229,9 +245,22 @@ def test_build_fts_for_range_multiple_partitions_and_drop(tmp_path):
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
                     """,
                     (
-                        f"r-{date}", "s1", int(dt.datetime(date.year, date.month, date.day, 12, 0, 0).timestamp()),
-                        "/v1/chat", None, None, 200, 5.0, None,
-                        json.dumps({"messages": [{"role": "user", "content": "search me"}]}),
+                        f"r-{date}",
+                        "s1",
+                        int(
+                            dt.datetime(
+                                date.year, date.month, date.day, 12, 0, 0
+                            ).timestamp()
+                        ),
+                        "/v1/chat",
+                        None,
+                        None,
+                        200,
+                        5.0,
+                        None,
+                        json.dumps(
+                            {"messages": [{"role": "user", "content": "search me"}]}
+                        ),
                         json.dumps({"choices": [{"message": {"content": "answer"}}]}),
                     ),
                 )
@@ -240,6 +269,7 @@ def test_build_fts_for_range_multiple_partitions_and_drop(tmp_path):
 
     # Build FTS for the range
     from ai_proxy.logdb.fts import build_fts_for_range, drop_fts_table
+
     results = build_fts_for_range(str(base), d1, d2)
     # Expect entries for both dates
     assert len(results) == 2
@@ -247,7 +277,12 @@ def test_build_fts_for_range_multiple_partitions_and_drop(tmp_path):
     assert sum(idx for _path, idx, _skip in results) >= 2
 
     # Drop FTS in one partition and verify the table is gone
-    db1 = os.path.join(str(base), f"{d1.year:04d}", f"{d1.month:02d}", f"ai_proxy_{d1.strftime('%Y%m%d')}.sqlite3")
+    db1 = os.path.join(
+        str(base),
+        f"{d1.year:04d}",
+        f"{d1.month:02d}",
+        f"ai_proxy_{d1.strftime('%Y%m%d')}.sqlite3",
+    )
     conn = open_connection_with_pragmas(db1)
     try:
         drop_fts_table(conn)
@@ -294,14 +329,25 @@ def test_build_fts_for_range_weekly_dedup(tmp_path, monkeypatch):
                 conn.execute(
                     "INSERT OR REPLACE INTO requests (request_id, server_id, ts, endpoint, request_json, response_json) VALUES (?,?,?,?,?,?)",
                     (
-                        f"r-{date}", "s1", int(dt.datetime(date.year, date.month, date.day, 12, 0, 0).timestamp()),
-                        "/v1/chat", json.dumps({"messages": [{"role": "user", "content": "search me"}]}), json.dumps({"choices": [{"message": {"content": "answer"}}]}),
+                        f"r-{date}",
+                        "s1",
+                        int(
+                            dt.datetime(
+                                date.year, date.month, date.day, 12, 0, 0
+                            ).timestamp()
+                        ),
+                        "/v1/chat",
+                        json.dumps(
+                            {"messages": [{"role": "user", "content": "search me"}]}
+                        ),
+                        json.dumps({"choices": [{"message": {"content": "answer"}}]}),
                     ),
                 )
         finally:
             conn.close()
 
     from ai_proxy.logdb.fts import build_fts_for_range
+
     results = build_fts_for_range(str(base), d1, d2)
     # Should return exactly one result (same weekly DB)
     assert len(results) == 1
@@ -314,12 +360,32 @@ def test_cli_gating_env_flag_for_fts(monkeypatch, tmp_path):
     ensure_partition_database(str(base), date)
 
     monkeypatch.setenv("LOGDB_FTS_ENABLED", "false")
-    rc = logdb_cli.main(["fts", "build", "--out", str(base), "--since", "2025-01-02", "--to", "2025-01-02"])
+    rc = logdb_cli.main(
+        [
+            "fts",
+            "build",
+            "--out",
+            str(base),
+            "--since",
+            "2025-01-02",
+            "--to",
+            "2025-01-02",
+        ]
+    )
     assert rc == 2
 
     # Enabled case
     monkeypatch.setenv("LOGDB_FTS_ENABLED", "true")
-    rc2 = logdb_cli.main(["fts", "build", "--out", str(base), "--since", "2025-01-02", "--to", "2025-01-02"])
+    rc2 = logdb_cli.main(
+        [
+            "fts",
+            "build",
+            "--out",
+            str(base),
+            "--since",
+            "2025-01-02",
+            "--to",
+            "2025-01-02",
+        ]
+    )
     assert rc2 == 0
-
-

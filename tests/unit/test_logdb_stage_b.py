@@ -8,18 +8,18 @@ from ai_proxy.logdb.partitioning import compute_partition_path, control_database
 
 SAMPLE_ENTRY_1 = (
     "2025-09-10 12:00:00 - INFO - {\n"
-    "  \"timestamp\": \"2025-09-10T12:00:00Z\",\n"
-    "  \"endpoint\": \"/v1/chat/completions\",\n"
-    "  \"status_code\": 200,\n"
-    "  \"latency_ms\": 123.45,\n"
-    "  \"request\": {\n"
-    "    \"model\": \"gpt-4\",\n"
-    "    \"messages\": [{\"role\": \"user\", \"content\": \"Hi\"}]\n"
+    '  "timestamp": "2025-09-10T12:00:00Z",\n'
+    '  "endpoint": "/v1/chat/completions",\n'
+    '  "status_code": 200,\n'
+    '  "latency_ms": 123.45,\n'
+    '  "request": {\n'
+    '    "model": "gpt-4",\n'
+    '    "messages": [{"role": "user", "content": "Hi"}]\n'
     "  },\n"
-    "  \"response\": {\n"
-    "    \"id\": \"chatcmpl-1\",\n"
-    "    \"model\": \"openrouter/openai/gpt-4\",\n"
-    "    \"choices\": [{\"index\": 0, \"message\": {\"role\": \"assistant\", \"content\": \"Hello\"}}]\n"
+    '  "response": {\n'
+    '    "id": "chatcmpl-1",\n'
+    '    "model": "openrouter/openai/gpt-4",\n'
+    '    "choices": [{"index": 0, "message": {"role": "assistant", "content": "Hello"}}]\n'
     "  }\n"
     "}\n"
 )
@@ -27,18 +27,18 @@ SAMPLE_ENTRY_1 = (
 
 SAMPLE_ENTRY_2 = (
     "2025-09-10 12:05:00 - INFO - {\n"
-    "  \"timestamp\": \"2025-09-10T12:05:00Z\",\n"
-    "  \"endpoint\": \"/v1/chat/completions\",\n"
-    "  \"status_code\": 200,\n"
-    "  \"latency_ms\": 98.7,\n"
-    "  \"request\": {\n"
-    "    \"model\": \"gemini-pro\",\n"
-    "    \"messages\": [{\"role\": \"user\", \"content\": \"Count 1-3\"}]\n"
+    '  "timestamp": "2025-09-10T12:05:00Z",\n'
+    '  "endpoint": "/v1/chat/completions",\n'
+    '  "status_code": 200,\n'
+    '  "latency_ms": 98.7,\n'
+    '  "request": {\n'
+    '    "model": "gemini-pro",\n'
+    '    "messages": [{"role": "user", "content": "Count 1-3"}]\n'
     "  },\n"
-    "  \"response\": {\n"
-    "    \"id\": \"chatcmpl-2\",\n"
-    "    \"model\": \"gemini:gemini-2.0-flash-001\",\n"
-    "    \"choices\": [{\"index\": 0, \"message\": {\"role\": \"assistant\", \"content\": \"1,2,3\"}}]\n"
+    '  "response": {\n'
+    '    "id": "chatcmpl-2",\n'
+    '    "model": "gemini:gemini-2.0-flash-001",\n'
+    '    "choices": [{"index": 0, "message": {"role": "assistant", "content": "1,2,3"}}]\n'
     "  }\n"
     "}\n"
 )
@@ -75,7 +75,14 @@ def test_ingest_basic_and_idempotent(tmp_path):
         # Spot-check columns present
         cur = conn.execute("PRAGMA table_info(requests);")
         cols = {row[1] for row in cur.fetchall()}
-        assert {"request_id", "server_id", "ts", "endpoint", "request_json", "response_json"}.issubset(cols)
+        assert {
+            "request_id",
+            "server_id",
+            "ts",
+            "endpoint",
+            "request_json",
+            "response_json",
+        }.issubset(cols)
     finally:
         conn.close()
 
@@ -84,7 +91,9 @@ def test_ingest_basic_and_idempotent(tmp_path):
     assert os.path.isfile(control_db)
     conn = sqlite3.connect(control_db)
     try:
-        cur = conn.execute("SELECT source_path, bytes_ingested, mtime FROM ingest_sources LIMIT 1;")
+        cur = conn.execute(
+            "SELECT source_path, bytes_ingested, mtime FROM ingest_sources LIMIT 1;"
+        )
         row = cur.fetchone()
         assert row is not None
         assert row[0].endswith("v1_chat_completions.log")
@@ -92,6 +101,8 @@ def test_ingest_basic_and_idempotent(tmp_path):
         assert int(row[2]) > 0
     finally:
         conn.close()
+
+
 def test_ingest_resume_with_prefix_sha_validation(tmp_path):
     logs_dir = tmp_path / "logs"
     db_base = tmp_path / "logs" / "db"
@@ -101,7 +112,9 @@ def test_ingest_resume_with_prefix_sha_validation(tmp_path):
     # First entry
     log_path.write_text(SAMPLE_ENTRY_1, encoding="utf-8")
     stats1 = ingest_logs(str(logs_dir), str(db_base))
-    assert stats1.rows_inserted == 2 or stats1.rows_inserted == 1  # depending on date range
+    assert (
+        stats1.rows_inserted == 2 or stats1.rows_inserted == 1
+    )  # depending on date range
 
     # Append second entry and corrupt the first byte without changing size by toggling a space
     with open(log_path, "a", encoding="utf-8") as f:
@@ -113,7 +126,7 @@ def test_ingest_resume_with_prefix_sha_validation(tmp_path):
         mutated = (" " if p[0] != " " else "\t") + p[1:]
         log_path.write_text(mutated, encoding="utf-8")
 
-    stats2 = ingest_logs(str(logs_dir), str(db_base))
+    ingest_logs(str(logs_dir), str(db_base))
     # Should not double-insert earlier lines; idempotent overall
     date = dt.date(2025, 9, 10)
     db_path = compute_partition_path(str(db_base), date)
@@ -208,18 +221,21 @@ def test_ingest_rotated_log_files(tmp_path):
 def test_cli_gating_env_flags_for_ingest(monkeypatch, tmp_path):
     # Ensure gating: when LOGDB_ENABLED != true, CLI should return code 2
     from ai_proxy.logdb import cli as logdb_cli
+
     logs_dir = tmp_path / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
     (logs_dir / "v1_chat_completions.log").write_text(SAMPLE_ENTRY_1, encoding="utf-8")
 
     # Disabled case
     monkeypatch.setenv("LOGDB_ENABLED", "false")
-    rc = logdb_cli.main(["ingest", "--from", str(logs_dir), "--out", str(tmp_path / "logs" / "db")])
+    rc = logdb_cli.main(
+        ["ingest", "--from", str(logs_dir), "--out", str(tmp_path / "logs" / "db")]
+    )
     assert rc == 2
 
     # Enabled case
     monkeypatch.setenv("LOGDB_ENABLED", "true")
-    rc2 = logdb_cli.main(["ingest", "--from", str(logs_dir), "--out", str(tmp_path / "logs" / "db")])
+    rc2 = logdb_cli.main(
+        ["ingest", "--from", str(logs_dir), "--out", str(tmp_path / "logs" / "db")]
+    )
     assert rc2 == 0
-
-
