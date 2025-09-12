@@ -1,7 +1,17 @@
 # AI Proxy Service Makefile
-# This Makefile provides common development and deployment tasks
+# This Makefile provides common development and deployment tasks for AI Proxy and Logs UI
 
-.PHONY: help install test test-unit test-integration lint lint-fix type-check clean build run dev docker-build docker-run docker-clean deploy setup-https test-https coverage pre-commit ui-test ui-e2e
+.PHONY: help install install-poetry test test-unit test-integration lint lint-fix type-check clean build run dev docker-up docker-down docker-build docker-logs docker-logs-live docker-ps docker-up-ai-proxy docker-up-logs-ui docker-up-traefik docker-restart docker-restart-ai-proxy docker-restart-logs-ui up down logs logs-live ps deploy setup-https test-https coverage pre-commit test-ui test-ui-e2e dev-compose docker-clean test-all
+
+# Check if Poetry is installed
+define check_poetry
+	@if ! command -v poetry >/dev/null 2>&1; then \
+		echo "❌ Poetry is not installed!"; \
+		echo "Please run: make install-poetry"; \
+		echo "Or install manually: curl -sSL https://install.python-poetry.org | python3 -"; \
+		exit 1; \
+	fi
+endef
 
 # Default target
 help: ## Show this help message
@@ -10,24 +20,35 @@ help: ## Show this help message
 # Development setup
 install: ## Install dependencies with Poetry
 	@echo "Installing dependencies..."
+	$(call check_poetry)
 	@poetry install
 	@echo "Dependencies installed successfully!"
 
+install-poetry: ## Install Poetry using the official installer
+	@echo "Installing Poetry using official installer..."
+	@curl -sSL https://install.python-poetry.org | python3 -
+	@echo "Poetry installed successfully!"
+	@echo "Please restart your terminal or run: export PATH=\"$$HOME/.local/bin:$$PATH\""
+	@echo "Then run: make install"
+
 install-dev: ## Install development dependencies
 	@echo "Installing development dependencies..."
+	$(call check_poetry)
 	@poetry install --with dev
 	@echo "Development dependencies installed successfully!"
 
 # Testing (Docker-only)
-test: test-unit test-integration ## Run all tests (unit and integration) in Docker
+test: test-unit test-integration test-ui ## Run all tests (unit, integration, ui-unit) in Docker
+
+test-all: test-unit test-integration test-ui test-ui-e2e test-functional ## Run all tests (unit and integration) in Docker
 
 test-unit: ## Run unit tests in Docker
 	@echo "Running unit tests in Docker..."
-	@docker run --rm -e DOCKER_CONTAINER=true -v $(PWD):/app ai-proxy poetry run pytest tests/unit -q --tb=line
+	@docker compose run --rm -e DOCKER_CONTAINER=true ai-proxy poetry run pytest tests/unit -q --tb=line
 
 test-integration: ## Run integration tests in Docker
 	@echo "Running integration tests in Docker..."
-	@docker run --rm -e DOCKER_CONTAINER=true -v $(PWD):/app ai-proxy sh -c "if [ -n \"\$$(find tests/integration -name 'test_*.py' -type f 2>/dev/null)\" ]; then poetry run pytest tests/integration -q --tb=line; else echo 'No integration tests found, skipping...'; fi"
+	@docker compose run --rm -e DOCKER_CONTAINER=true ai-proxy sh -c "if [ -n \"\$$(find tests/integration -name 'test_*.py' -type f 2>/dev/null)\" ]; then poetry run pytest tests/integration -q --tb=line; else echo 'No integration tests found, skipping...'; fi"
 
 test-functional: ## Run all functional tests with real API keys (disabled by default)
 	@echo "⚠️  WARNING: Functional tests use real API keys and may incur costs!"
@@ -62,11 +83,25 @@ test-functional-general: ## Run only general functional tests (no external API c
 
 test-watch: ## Run tests in watch mode in Docker
 	@echo "Running tests in watch mode in Docker..."
-	@docker run --rm -e DOCKER_CONTAINER=true -v $(PWD):/app ai-proxy poetry run pytest tests/ -q --tb=line -f
+	@docker compose run --rm -e DOCKER_CONTAINER=true ai-proxy poetry run pytest tests/ -q --tb=line -f
+
+# UI testing
+test-ui: ## Run UI unit tests (Dockerized Node)
+	@echo "Running UI unit tests in Docker (Node 20)..."
+	@docker run --rm -v $(PWD)/ui:/app -w /app node:20 bash -lc "npm ci --no-audit --fund=false --loglevel=error && npm run test --silent"
+
+test-ui-e2e: ## Run UI E2E tests with Playwright (Dockerized Node)
+	@echo "Running UI E2E tests in Docker (Node 20 + Playwright)..."
+	@docker run --rm \
+		-v $(PWD)/ui:/app \
+		-w /app \
+		-p 5173:5173 \
+		--ipc=host \
+		mcr.microsoft.com/playwright:v1.55.0-jammy bash -lc "npm ci --no-audit --fund=false --loglevel=error && UI_NO_WEBSERVER= npx playwright test --reporter=list"
 
 coverage: ## Run tests with coverage report in Docker
 	@echo "Running tests with coverage in Docker..."
-	@docker run --rm -e DOCKER_CONTAINER=true -v $(PWD):/app ai-proxy poetry run pytest tests/ --tb=line --cov=ai_proxy --cov-report=html || echo "Coverage reporting requires pytest-cov"
+	@docker compose run --rm -e DOCKER_CONTAINER=true ai-proxy poetry run pytest tests/ --tb=line --cov=ai_proxy --cov-report=html || { echo "Coverage reporting requires pytest-cov"; exit 1; }
 
 test-specific: ## Run specific test file or function in Docker (usage: make test-specific TEST=path/to/test.py)
 	@echo "Running specific test in Docker..."
@@ -75,56 +110,98 @@ test-specific: ## Run specific test file or function in Docker (usage: make test
 		echo "       make test-specific TEST=path/to/test.py::test_function"; \
 		exit 1; \
 	fi
-	@docker run --rm -e DOCKER_CONTAINER=true -v $(PWD):/app ai-proxy poetry run pytest $(TEST) -q --tb=line
+	@docker compose run --rm -e DOCKER_CONTAINER=true ai-proxy poetry run pytest $(TEST) -q --tb=line
 
 # Code quality
 lint: ## Run linting checks
 	@echo "Running linting checks..."
+	$(call check_poetry)
 	@poetry run ruff check ai_proxy/ tests/
 	@poetry run ruff format --check ai_proxy/ tests/
 
 lint-fix: ## Format code and fix linting errors with ruff
 	@echo "Formatting and fixing code..."
+	$(call check_poetry)
 	@poetry run ruff format ai_proxy/ tests/
 	@poetry run ruff check --fix ai_proxy/ tests/
 
 type-check: ## Run type checking with mypy
 	@echo "Running type checks..."
+	$(call check_poetry)
 	@poetry run mypy ai_proxy/ || echo "Type checking failed - consider fixing type issues or adding type stubs"
 
 pre-commit: ## Run pre-commit hooks
 	@echo "Running pre-commit hooks..."
+	$(call check_poetry)
 	@poetry run pre-commit run --all-files
 
 # Development server
 dev: ## Run development server with auto-reload
 	@echo "Starting development server..."
+	$(call check_poetry)
 	@poetry run uvicorn ai_proxy.main:app --reload --host 0.0.0.0 --port 8123
 
 run: ## Run production server
 	@echo "Starting production server..."
+	$(call check_poetry)
 	@poetry run uvicorn ai_proxy.main:app --host 0.0.0.0 --port 8123
 
 # Docker operations
-docker-build: ## Build Docker image
-	@echo "Building Docker image..."
-	@docker build -t ai-proxy:latest .
+docker-up: ## Start all services with Docker Compose
+	@echo "Starting all services with Docker Compose..."
+	@docker compose up -d
 
-docker-run: ## Run Docker container
-	@echo "Running Docker container..."
-	@docker run -d --name ai-proxy-container --env-file .env -p 8123:8123 ai-proxy:latest
+docker-down: ## Stop all services with Docker Compose
+	@echo "Stopping all services with Docker Compose..."
+	@docker compose down
 
-docker-stop: ## Stop Docker container
-	@echo "Stopping Docker container..."
-	@docker stop ai-proxy-container || true
-	@docker rm ai-proxy-container || true
+docker-build: ## Build all services with Docker Compose
+	@echo "Building all services with Docker Compose..."
+	@docker compose build
 
-docker-clean: ## Clean Docker images and containers
-	@echo "Cleaning Docker images and containers..."
-	@docker stop ai-proxy-container || true
-	@docker rm ai-proxy-container || true
-	@docker rmi ai-proxy:latest || true
-	@docker image prune -f
+docker-logs: ## View logs from all services (non-interactive)
+	@echo "Viewing logs from all services..."
+	@docker compose logs
+
+docker-logs-live: ## View logs from all services (interactive/live mode)
+	@echo "Viewing logs from all services (live mode)..."
+	@docker compose logs -f
+
+docker-ps: ## List all running services
+	@echo "Listing all running services..."
+	@docker compose ps
+
+# Individual Docker service management
+docker-up-ai-proxy: ## Start only the AI Proxy service
+	@echo "Starting AI Proxy service..."
+	@docker compose up -d ai-proxy
+
+docker-up-logs-ui: ## Start only the Logs UI services (API and Web)
+	@echo "Starting Logs UI services..."
+	@docker compose up -d logs-ui-api logs-ui-web
+
+docker-up-traefik: ## Start only the Traefik reverse proxy
+	@echo "Starting Traefik reverse proxy..."
+	@docker compose up -d traefik
+
+docker-restart: ## Full restart of all services (down and up)
+	@echo "Restarting all services..."
+	@docker compose down
+	@docker compose up -d
+
+docker-restart-ai-proxy: ## Restart only the AI Proxy service
+	@echo "Restarting AI Proxy service..."
+	@docker compose restart ai-proxy
+
+docker-restart-logs-ui: ## Restart only the Logs UI services
+	@echo "Restarting Logs UI services..."
+	@docker compose restart logs-ui-api logs-ui-web
+
+# Docker cleanup
+docker-clean: ## Clean Docker resources and system
+	@echo "Cleaning Docker resources..."
+	@docker compose down -v --rmi all 2>/dev/null || true
+	@docker system prune -f
 
 # Production deployment
 deploy: ## Deploy to production (use DEPLOY_HOST=hostname make deploy)
@@ -136,14 +213,6 @@ deploy: ## Deploy to production (use DEPLOY_HOST=hostname make deploy)
 		echo "Deploying to production using deployment script..."; \
 		DEPLOY_HOST=$(DEPLOY_HOST) ./scripts/deploy-production.sh; \
 	fi
-
-deploy-stop: ## Stop production deployment
-	@echo "Stopping production deployment..."
-	@docker compose down
-
-deploy-logs: ## View production logs
-	@echo "Viewing production logs..."
-	@docker compose logs -f
 
 # HTTPS setup
 setup-https: ## Set up HTTPS with Let's Encrypt
@@ -157,27 +226,23 @@ test-https: ## Test HTTPS setup
 # Utility commands
 clean: ## Clean temporary files and caches
 	@echo "Cleaning temporary files..."
-	@find . -type f -name "*.pyc" -delete
-	@find . -type d -name "__pycache__" -delete
-	@find . -type d -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
-	@rm -rf .pytest_cache/
-	@rm -rf .coverage
-	@rm -rf htmlcov/
-	@rm -rf dist/
-	@rm -rf build/
+	@find . \( -path "./.venv" -o -path "./venv" \) -prune -o -type f -name "*.pyc" -exec rm -v -f {} +
+	@find . \( -path "./.venv" -o -path "./venv" \) -prune -o -type d -name "__pycache__" -exec rm -v -rf {} +
+	@find . \( -path "./.venv" -o -path "./venv" \) -prune -o -type d -name "*.egg-info" -exec rm -v -rf {} +
+	@rm -rfv ./.pytest_cache/
+	@rm -rfv ./.coverage
+	@rm -rfv ./htmlcov/
+	@rm -rfv ./dist/
+	@rm -rfv ./build/
 
-logs: ## View application logs
-	@echo "Viewing application logs..."
-	@tail -f logs/*.log 2>/dev/null || echo "No log files found in logs/ directory"
-
-health: ## Check application health (works with both local and Docker)
-	@echo "Checking application health..."
-	@curl -s http://localhost:8123/health 2>/dev/null || \
-	 docker exec ai-proxy-container curl -s http://localhost:8123/health 2>/dev/null || \
-	 echo "Application not running or health endpoint not available"
+health: ## Check all services health (AI Proxy, Logs UI API, Traefik)
+	@echo "Checking all services health..."
+	@echo "AI Proxy: $$(curl -s --max-time 5 http://localhost:8123/health 2>/dev/null | jq -r '.status // "unavailable"' 2>/dev/null || echo "unavailable")"
+	@echo "Logs UI API: $$(curl -s --max-time 5 http://localhost:8124/ui/health 2>/dev/null | jq -r '.status // "unavailable"' 2>/dev/null || echo "unavailable")"
+	@echo "Traefik: $$(curl -s -o /dev/null -w "%{http_code}" --max-time 3 http://localhost:8080/ | grep -q "^[0-9][0-9][0-9]$$" && echo "ok" || echo "unavailable")"
 
 # Environment setup
-env-example: ## Copy .env.example to .env (only if .env doesn't exist)
+copy-env-example: ## Copy .env.example to .env (only if .env doesn't exist)
 	@if [ ! -f .env ]; then \
 		echo "Copying .env.example to .env..."; \
 		cp .env.example .env; \
@@ -185,47 +250,38 @@ env-example: ## Copy .env.example to .env (only if .env doesn't exist)
 	else \
 		echo ".env already exists, skipping copy"; \
 	fi
-
 # Git hooks
 setup-hooks: ## Install git hooks
 	@echo "Installing git hooks..."
+	$(call check_poetry)
 	@poetry run pre-commit install
 
-# Security
-security-check: ## Run security checks
-	@echo "Running security checks..."
-	@poetry run pip-audit || echo "pip-audit not available, skipping security check"
-
-# Documentation
-docs: ## Generate documentation (placeholder)
-	@echo "Documentation generation not implemented yet"
-
 # All-in-one commands
-setup: install setup-hooks env-example ## Complete development setup
+setup: install setup-hooks copy-env-example ## Complete development setup
 	@echo "Development setup complete!"
 	@echo "Please edit .env with your configuration before running the application"
+
+# Development workflow with Docker Compose
+dev-compose: docker-build docker-up docker-logs ## Build, start all services and follow logs
+	@echo "Development environment with Docker Compose is ready!"
+
+# Quick service management
+up: docker-up ## Alias for docker-up
+down: docker-down ## Alias for docker-down
+build: docker-build ## Alias for docker-build
+logs: docker-logs ## Alias for docker-logs
+logs-live: docker-logs-live ## Alias for docker-logs-live (interactive mode)
+ps: docker-ps ## Alias for docker-ps
 
 ci: lint test coverage ## Run all CI checks (excluding type-check due to missing stubs) in Docker
 	@echo "All CI checks completed!"
 
-# UI testing
-ui-test: ## Run UI unit tests (Dockerized Node)
-	@echo "Running UI unit tests in Docker (Node 20)..."
-	@docker run --rm -v $(PWD)/ui:/app -w /app node:20 bash -lc "npm ci --no-audit --fund=false --loglevel=error && npm run test --silent"
 
-ui-e2e: ## Run UI E2E tests with Playwright (Dockerized Node)
-	@echo "Running UI E2E tests in Docker (Node 20 + Playwright)..."
-	@docker run --rm \
-		-v $(PWD)/ui:/app \
-		-w /app \
-		-p 5173:5173 \
-		--ipc=host \
-		mcr.microsoft.com/playwright:v1.55.0-jammy bash -lc "npm ci --no-audit --fund=false --loglevel=error && UI_NO_WEBSERVER= npx playwright test --reporter=list"
 
 # Quick development workflow
 quick-test: lint-fix test-unit ## Quick test cycle for development in Docker
 	@echo "Quick test cycle completed!"
 
 # Production readiness check
-prod-check: lint type-check test coverage security-check ## Check if ready for production in Docker
+prod-check: lint type-check test coverage ## Check if ready for production in Docker
 	@echo "Production readiness check completed!" 
