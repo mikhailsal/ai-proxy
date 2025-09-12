@@ -88,7 +88,7 @@ function Node({ k, v, level, collapseThreshold }: NodeProps) {
   }
 
   const isArray = Array.isArray(v)
-  const entries = isArray ? (v as unknown[]).map((item, idx) => [String(idx), item]) : Object.entries(v as Record<string, unknown>)
+  const entries:[string, unknown][] = isArray ? (v as unknown[]).map((item, idx) => [String(idx), item]) : Object.entries(v as Record<string, unknown>)
   const typeLabel = isArray ? `Array(${entries.length})` : 'Object'
 
   return (
