@@ -98,9 +98,29 @@ test-ui-e2e: ## Run UI E2E tests with Playwright (Dockerized Node)
 		--ipc=host \
 		mcr.microsoft.com/playwright:v1.55.0-jammy bash -lc "npm ci --no-audit --fund=false --loglevel=error && UI_NO_WEBSERVER= npx playwright test --reporter=list"
 
+# AI Proxy UI (Python API) testing
+test-ui-unit: ## Run unit tests for AI Proxy UI (Python API)
+	@echo "Running AI Proxy UI unit tests..."
+	@if [ -d "tests/unit" ] && [ -n "$$(find tests/unit -name '*ui*' -o -name '*logs_ui*' -type f 2>/dev/null)" ]; then \
+		docker compose run --rm -e DOCKER_CONTAINER=true ai-proxy poetry run pytest tests/unit -k "ui or logs_ui" -q --tb=line; \
+	else \
+		echo "No AI Proxy UI unit tests found, skipping..."; \
+	fi
+
+test-ui-integration: ## Run integration tests for AI Proxy UI (Python API)
+	@echo "Running AI Proxy UI integration tests..."
+	@if [ -d "tests/integration" ] && [ -n "$$(find tests/integration -name '*ui*' -o -name '*logs_ui*' -type f 2>/dev/null)" ]; then \
+		docker compose run --rm -e DOCKER_CONTAINER=true ai-proxy poetry run pytest tests/integration -k "ui or logs_ui" -q --tb=line; \
+	else \
+		echo "No AI Proxy UI integration tests found, skipping..."; \
+	fi
+
+test-ui-all: test-ui-unit test-ui-integration ## Run all AI Proxy UI tests
+	@echo "All AI Proxy UI tests completed!"
+
 coverage: ## Run tests with coverage report in Docker
 	@echo "Running tests with coverage in Docker..."
-	@docker compose run --rm -e DOCKER_CONTAINER=true ai-proxy poetry run pytest tests/ --tb=line --cov=ai_proxy --cov-report=html || { echo "Coverage reporting requires pytest-cov"; exit 1; }
+	@docker compose run --rm -e DOCKER_CONTAINER=true ai-proxy poetry run pytest tests/ --tb=line --cov=ai_proxy --cov=ai_proxy_ui --cov-report=html || { echo "Coverage reporting requires pytest-cov"; exit 1; }
 
 test-specific: ## Run specific test file or function in Docker (usage: make test-specific TEST=path/to/test.py)
 	@echo "Running specific test in Docker..."
@@ -115,19 +135,19 @@ test-specific: ## Run specific test file or function in Docker (usage: make test
 lint: ## Run linting checks
 	@echo "Running linting checks..."
 	$(call check_poetry)
-	@poetry run ruff check ai_proxy/ tests/
-	@poetry run ruff format --check ai_proxy/ tests/
+	@poetry run ruff check ai_proxy/ ai_proxy_ui/ tests/
+	@poetry run ruff format --check ai_proxy/ ai_proxy_ui/ tests/
 
 lint-fix: ## Format code and fix linting errors with ruff
 	@echo "Formatting and fixing code..."
 	$(call check_poetry)
-	@poetry run ruff format ai_proxy/ tests/
-	@poetry run ruff check --fix ai_proxy/ tests/
+	@poetry run ruff format ai_proxy/ ai_proxy_ui/ tests/
+	@poetry run ruff check --fix ai_proxy/ ai_proxy_ui/ tests/
 
 type-check: ## Run type checking with mypy
 	@echo "Running type checks..."
 	$(call check_poetry)
-	@poetry run mypy ai_proxy/ || echo "Type checking failed - consider fixing type issues or adding type stubs"
+	@poetry run mypy ai_proxy/ ai_proxy_ui/ || echo "Type checking failed - consider fixing type issues or adding type stubs"
 
 pre-commit: ## Run pre-commit hooks
 	@echo "Running pre-commit hooks..."
@@ -144,6 +164,40 @@ run: ## Run production server
 	@echo "Starting production server..."
 	$(call check_poetry)
 	@poetry run uvicorn ai_proxy.main:app --host 0.0.0.0 --port 8123
+
+# AI Proxy UI development servers
+dev-ui: ## Run AI Proxy UI development server with auto-reload
+	@echo "Starting AI Proxy UI development server..."
+	$(call check_poetry)
+	@poetry run uvicorn ai_proxy_ui.main:app --reload --host 0.0.0.0 --port 8124
+
+run-ui: ## Run AI Proxy UI production server
+	@echo "Starting AI Proxy UI production server..."
+	$(call check_poetry)
+	@poetry run uvicorn ai_proxy_ui.main:app --host 0.0.0.0 --port 8124
+
+# Combined development servers
+dev-both: ## Run both AI Proxy and AI Proxy UI development servers
+	@echo "Starting both development servers..."
+	@echo "AI Proxy will run on http://localhost:8123"
+	@echo "AI Proxy UI will run on http://localhost:8124"
+	$(call check_poetry)
+	@poetry run uvicorn ai_proxy.main:app --reload --host 0.0.0.0 --port 8123 &
+	@sleep 2
+	@poetry run uvicorn ai_proxy_ui.main:app --reload --host 0.0.0.0 --port 8124 &
+	@echo "Both servers started. Press Ctrl+C to stop all servers."
+	@wait
+
+run-both: ## Run both AI Proxy and AI Proxy UI production servers
+	@echo "Starting both production servers..."
+	@echo "AI Proxy will run on http://localhost:8123"
+	@echo "AI Proxy UI will run on http://localhost:8124"
+	$(call check_poetry)
+	@poetry run uvicorn ai_proxy.main:app --host 0.0.0.0 --port 8123 &
+	@sleep 2
+	@poetry run uvicorn ai_proxy_ui.main:app --host 0.0.0.0 --port 8124 &
+	@echo "Both servers started. Press Ctrl+C to stop all servers."
+	@wait
 
 # Docker operations
 docker-up: ## Start all services with Docker Compose
@@ -233,6 +287,9 @@ clean: ## Clean temporary files and caches
 	@rm -rfv ./htmlcov/
 	@rm -rfv ./dist/
 	@rm -rfv ./build/
+	@echo "Cleaning ai_proxy_ui temporary files..."
+	@find ./ai_proxy_ui \( -type f -name "*.pyc" -o -name "*.pyo" \) -exec rm -v -f {} + 2>/dev/null || true
+	@find ./ai_proxy_ui -type d -name "__pycache__" -exec rm -v -rf {} + 2>/dev/null || true
 
 health: ## Check all services health (AI Proxy, Logs UI API, Traefik)
 	@echo "Checking all services health..."
@@ -272,7 +329,7 @@ logs: docker-logs ## Alias for docker-logs
 logs-live: docker-logs-live ## Alias for docker-logs-live (interactive mode)
 ps: docker-ps ## Alias for docker-ps
 
-ci: lint test coverage ## Run all CI checks (excluding type-check due to missing stubs) in Docker
+ci: lint test test-ui-all coverage ## Run all CI checks (excluding type-check due to missing stubs) in Docker
 	@echo "All CI checks completed!"
 
 
@@ -282,5 +339,5 @@ quick-test: lint-fix test-unit ## Quick test cycle for development in Docker
 	@echo "Quick test cycle completed!"
 
 # Production readiness check
-prod-check: lint type-check test coverage ## Check if ready for production in Docker
+prod-check: lint type-check test test-ui-all coverage ## Check if ready for production in Docker
 	@echo "Production readiness check completed!" 
