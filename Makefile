@@ -44,7 +44,7 @@ test-all: test-unit test-integration test-ui test-ui-e2e test-functional ## Run 
 
 test-unit: ## Run unit tests in Docker
 	@echo "Running unit tests in Docker..."
-	@docker compose run --rm -e DOCKER_CONTAINER=true ai-proxy poetry run pytest tests/unit -q --tb=line
+	@docker compose run --rm -e DOCKER_CONTAINER=true ai-proxy poetry run pytest tests/unit -q --tb=line -n auto
 
 test-integration: ## Run integration tests in Docker
 	@echo "Running integration tests in Docker..."
