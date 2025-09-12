@@ -19,14 +19,6 @@ async function checkHealth(baseUrl: string, apiKey: string): Promise<'ok'> {
   throw new Error('Bad response')
 }
 
-async function getConfig(baseUrl: string, apiKey: string): Promise<{ admin_enabled: boolean }> {
-  const res = await fetch(`${baseUrl.replace(/\/$/, '')}/ui/v1/config`, {
-    headers: { Authorization: `Bearer ${apiKey}` },
-  })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  const data = await res.json()
-  return { admin_enabled: !!data?.features?.admin_enabled }
-}
 
 async function getWhoAmI(baseUrl: string, apiKey: string): Promise<'user'|'admin'> {
   const res = await fetch(`${baseUrl.replace(/\/$/, '')}/ui/v1/whoami`, {
@@ -41,9 +33,25 @@ export default function App() {
   const [baseUrl, setBaseUrl] = React.useState<string>(() => localStorage.getItem('aiProxyLogs.baseUrl') || '')
   const [apiKey, setApiKey] = React.useState<string>(() => localStorage.getItem('aiProxyLogs.apiKey') || '')
   const [state, setState] = React.useState<ConnectionState>({ status: 'disconnected' })
-  const [requests, setRequests] = React.useState<any[] | null>(null)
+  const [requests, setRequests] = React.useState<Array<{
+    request_id: string
+    ts: number
+    endpoint: string
+    model: string
+    status_code: number
+    latency_ms: number
+  }> | null>(null)
   const [nextCursor, setNextCursor] = React.useState<string | null>(null)
-  const [selected, setSelected] = React.useState<any | null>(null)
+  const [selected, setSelected] = React.useState<{
+    request_id: string
+    endpoint: string
+    model_mapped?: string
+    model_original?: string
+    status_code: number
+    latency_ms: number
+    request_json: unknown
+    response_json: unknown
+  } | null>(null)
   const [dateRange, setDateRange] = React.useState<{ since: string; to: string }>(() => {
     const today = new Date()
     const ymd = today.toISOString().slice(0, 10)
@@ -69,8 +77,8 @@ export default function App() {
       localStorage.setItem('aiProxyLogs.baseUrl', baseUrl)
       localStorage.setItem('aiProxyLogs.apiKey', apiKey)
       setState({ status: 'connected', baseUrl, role })
-    } catch (err: any) {
-      const msg = err?.message || 'Failed to connect'
+    } catch (err: unknown) {
+      const msg = (err instanceof Error ? err.message : 'Failed to connect')
       setState({ status: 'error', message: msg })
     }
   }
@@ -91,7 +99,17 @@ export default function App() {
       headers: { Authorization: `Bearer ${localStorage.getItem('aiProxyLogs.apiKey') || apiKey}` },
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const data = await res.json()
+    const data = await res.json() as {
+      items: Array<{
+        request_id: string
+        ts: number
+        endpoint: string
+        model: string
+        status_code: number
+        latency_ms: number
+      }>
+      nextCursor: string | null
+    }
     setRequests((prev) => (reset || !prev ? data.items : [...prev, ...data.items]))
     setNextCursor(data.nextCursor || null)
   }

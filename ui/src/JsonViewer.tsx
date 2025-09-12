@@ -1,23 +1,23 @@
 import React from 'react'
 
 type JsonViewerProps = {
-  value: any
+  value: unknown
   label?: string
   collapseThreshold?: number // collapse strings/arrays/objects whose serialized length exceeds this
 }
 
 type NodeProps = {
   k: string | null
-  v: any
+  v: unknown
   level: number
   collapseThreshold: number
 }
 
-function isPrimitive(x: any) {
-  return x === null || typeof x !== 'object'
+function isPrimitive(x: unknown): x is string | number | boolean | null | undefined {
+  return x === null || x === undefined || typeof x !== 'object'
 }
 
-function stringifyPreview(v: any): string {
+function stringifyPreview(v: unknown): string {
   try {
     const j = JSON.stringify(v)
     return typeof j === 'string' ? j : String(v)
@@ -46,11 +46,11 @@ function NullVal() {
   return <span style={{ color: '#859900' }}>null</span>
 }
 
-function CopyButton({ data }: { data: any }) {
+function CopyButton({ data }: { data: unknown }) {
   const handleCopy = async () => {
     const text = typeof data === 'string' ? data : JSON.stringify(data, null, 2)
     try {
-      await (navigator as any).clipboard?.writeText?.(text)
+      await (navigator as { clipboard?: { writeText?: (text: string) => Promise<void> } }).clipboard?.writeText?.(text)
     } catch {
       // noop
     }
@@ -88,7 +88,7 @@ function Node({ k, v, level, collapseThreshold }: NodeProps) {
   }
 
   const isArray = Array.isArray(v)
-  const entries = isArray ? (v as any[]).map((item, idx) => [String(idx), item]) : Object.entries(v)
+  const entries = isArray ? (v as unknown[]).map((item, idx) => [String(idx), item]) : Object.entries(v as Record<string, unknown>)
   const typeLabel = isArray ? `Array(${entries.length})` : 'Object'
 
   return (

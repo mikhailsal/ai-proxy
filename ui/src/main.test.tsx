@@ -1,7 +1,8 @@
+import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import App from './App'
 
-function mockFetchImpl(handlers: Record<string, (init?: RequestInit) => { status: number; body: any }>) {
+function mockFetchImpl(handlers: Record<string, (init?: RequestInit) => { status: number; body: unknown }>) {
   vi.spyOn(global, 'fetch').mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input)
     // Prefer the longest matching prefix to avoid '/requests' overshadowing '/requests/ID'
@@ -11,7 +12,7 @@ function mockFetchImpl(handlers: Record<string, (init?: RequestInit) => { status
     const handler = handlers[match || '']
     if (!handler) throw new Error(`No mock for ${url}`)
     const { status, body } = handler(init)
-    return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } }) as any
+    return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
   })
 }
 
@@ -68,12 +69,10 @@ it('loads requests and paginates', async () => {
   mockFetchImpl({
     'https://api.example/ui/v1/health': () => ({ status: 200, body: { status: 'ok' } }),
     'https://api.example/ui/v1/whoami': () => ({ status: 200, body: { role: 'user' } }),
-    'https://api.example/ui/v1/requests': (init?: RequestInit) => {
-      const url = new URL('https://api.example/ui/v1/requests')
-      const req = (init as any) // not used
+    'https://api.example/ui/v1/requests': () => {
       // Simulate two sequential calls by toggling internal state
-      ;(global as any).__calls = ((global as any).__calls || 0) + 1
-      return { status: 200, body: ((global as any).__calls === 1 ? firstPage : secondPage) }
+      (global as { __calls?: number }).__calls = ((global as { __calls?: number }).__calls || 0) + 1
+      return { status: 200, body: ((global as { __calls?: number }).__calls === 1 ? firstPage : secondPage) }
     },
   })
 
