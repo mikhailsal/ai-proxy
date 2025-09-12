@@ -1,7 +1,7 @@
 import datetime as dt
 import hashlib
 import os
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, cast
 
 from .partitioning import compute_partition_path
 from .schema import open_connection_with_pragmas
@@ -139,12 +139,9 @@ def assign_dialogs_for_range(
 
     Returns list of (db_path, rows_updated) for processed partitions.
     """
-    if since is None and to is None:
-        since = to = dt.date.today()
-    if since is None:
-        since = to
-    if to is None:
-        to = since
+    assert since is not None and to is not None
+    since = cast(dt.date, since)
+    to = cast(dt.date, to)
 
     out: List[Tuple[str, int]] = []
     # De-duplicate DB paths to support weekly granularity
@@ -154,6 +151,8 @@ def assign_dialogs_for_range(
         db_path = compute_partition_path(base_db_dir, cur_date)
         if db_path not in paths:
             paths.append(db_path)
+        if to is None:
+            break
         cur_date = cur_date + dt.timedelta(days=1)
 
     for path in paths:
@@ -179,12 +178,9 @@ def clear_dialogs_for_range(
 
     Returns list of (db_path, rows_updated) for processed partitions.
     """
-    if since is None and to is None:
-        since = to = dt.date.today()
-    if since is None:
-        since = to
-    if to is None:
-        to = since
+    assert since is not None and to is not None
+    since = cast(dt.date, since)
+    to = cast(dt.date, to)
 
     out: List[Tuple[str, int]] = []
     paths: List[str] = []
@@ -193,6 +189,8 @@ def clear_dialogs_for_range(
         db_path = compute_partition_path(base_db_dir, cur_date)
         if db_path not in paths:
             paths.append(db_path)
+        if to is None:
+            break
         cur_date = cur_date + dt.timedelta(days=1)
 
     for path in paths:

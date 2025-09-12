@@ -113,23 +113,24 @@ def _iter_text_from_response(resp: object) -> Iterable[Tuple[str, str]]:
             # Gemini-like: candidates[0].content.parts[].text
             candidates = resp.get("candidates")
             if isinstance(candidates, list) and candidates:
-                parts = (
+                parts_candidate = (
                     candidates[0].get("content", {}).get("parts")
                     if isinstance(candidates[0], dict)
                     else None
                 )
-                if isinstance(parts, list):
-                    texts: List[str] = []
-                    for p in parts:
-                        if isinstance(p, dict):
-                            t = p.get("text")
-                            if isinstance(t, str) and t.strip():
-                                texts.append(t.strip())
-                    if texts:
-                        yield ("assistant", "\n".join(texts))
+                if not isinstance(parts_candidate, list):
+                    return
+                texts_candidate: List[str] = []
+                for p in parts_candidate:
+                    if isinstance(p, dict):
+                        t = p.get("text")
+                        if isinstance(t, str) and t.strip():
+                            texts_candidate.append(t.strip())
+                if texts_candidate:
+                    yield ("assistant", "\n".join(texts_candidate))
     except Exception:
-        return []
-    return []
+        # If anything goes wrong, yield nothing
+        return
 
 
 def _extract_text_fragments(

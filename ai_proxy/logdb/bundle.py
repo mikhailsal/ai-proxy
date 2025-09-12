@@ -138,8 +138,10 @@ def verify_bundle(bundle_path: str) -> bool:
     # Verify checksums of all files listed in metadata.json
     with tarfile.open(bundle_path, mode="r:gz") as tar:
         meta_member = tar.getmember("metadata.json")
-        with tar.extractfile(meta_member) as f:
-            assert f is not None
+        f = tar.extractfile(meta_member)
+        if f is None:
+            raise ValueError("Failed to extract metadata")
+        with f:
             meta = json.loads(f.read().decode("utf-8"))
 
         files = meta.get("files", [])
@@ -150,17 +152,19 @@ def verify_bundle(bundle_path: str) -> bool:
                 return False
             try:
                 member = tar.getmember(path)
+                f = tar.extractfile(member)
+                if f is None:
+                    return False
+                with f:
+                    h = hashlib.sha256()
+                    for chunk in iter(lambda: f.read(65536), b""):
+                        if not chunk:
+                            break
+                        h.update(chunk)
+                    if h.hexdigest() != expected:
+                        return False
             except KeyError:
                 return False
-            with tar.extractfile(member) as f:
-                assert f is not None
-                h = hashlib.sha256()
-                for chunk in iter(lambda: f.read(65536), b""):
-                    if not chunk:
-                        break
-                    h.update(chunk)
-                if h.hexdigest() != expected:
-                    return False
     return True
 
 
@@ -199,8 +203,10 @@ def import_bundle(bundle_path: str, dest_dir: str) -> Tuple[int, int]:
             meta_member = tar.getmember("metadata.json")
         except KeyError:
             raise ValueError("Bundle missing metadata.json")
-        with tar.extractfile(meta_member) as f:
-            assert f is not None
+        f = tar.extractfile(meta_member)
+        if f is None:
+            raise ValueError("Failed to extract metadata")
+        with f:
             meta = json.loads(f.read().decode("utf-8"))
         files_meta = {
             item["path"]: (item.get("sha256"), int(item.get("bytes", 0)))
@@ -232,8 +238,10 @@ def import_bundle(bundle_path: str, dest_dir: str) -> Tuple[int, int]:
 
             os.makedirs(os.path.dirname(dest_real), exist_ok=True)
             # Stream copy while hashing
-            with tar.extractfile(member) as src:  # type: ignore[assignment]
-                assert src is not None
+            src = tar.extractfile(member)
+            if src is None:
+                raise ValueError("Failed to extract")
+            with src:
                 h = hashlib.sha256()
                 tmp_path = dest_real + ".part"
                 with open(tmp_path, "wb") as dst:

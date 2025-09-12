@@ -1,7 +1,7 @@
 import argparse
 import datetime as _dt
 import os
-from typing import Optional
+from typing import Optional, cast
 
 from .partitioning import ensure_partition_database
 from .ingest import add_cli as add_ingest_cli
@@ -72,7 +72,8 @@ def build_parser() -> argparse.ArgumentParser:
         since_date = (
             _dt.datetime.strptime(args.since, "%Y-%m-%d").date() if args.since else None
         )
-        to_date = _dt.datetime.strptime(args.to, "%Y-%m-%d").date() if args.to else None
+        to_date = _dt.datetime.strptime(args.to, "%Y-%m-%d").date() if args.to else _dt.date.today()
+        to_date = cast(_dt.date, to_date)
 
         flag_enabled = os.getenv("LOGDB_FTS_ENABLED", "false").lower() == "true"
         if not flag_enabled:
@@ -112,7 +113,8 @@ def build_parser() -> argparse.ArgumentParser:
             since_date = to_date
         if to_date is None:
             to_date = since_date
-        cur = since_date
+        to_date = cast(_dt.date, to_date)
+        cur = cast(_dt.date, since_date)  # since_date cannot be None at this point
         rc = 0
         while cur <= to_date:
             path = os.path.join(
@@ -132,7 +134,7 @@ def build_parser() -> argparse.ArgumentParser:
                 except Exception as e:
                     print(f"{path} drop_error={e}")
                     rc = 1
-            cur = cur + _dt.timedelta(days=1)
+            cur = cur + _dt.timedelta(days=1) if cur else _dt.date.today()
         return rc
 
     p_fts_drop.set_defaults(func=_cmd_fts_drop)

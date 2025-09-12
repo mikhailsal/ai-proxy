@@ -2,8 +2,8 @@ from typing import Dict, Any, Union, AsyncGenerator
 import httpx
 import json
 import time
-from google import genai
-from google.genai import types
+from google import genai  # type: ignore[import-untyped]
+from google.genai import types  # type: ignore[import-untyped]
 
 from ai_proxy.adapters.base import BaseAdapter
 from ai_proxy.core.config import settings

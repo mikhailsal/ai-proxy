@@ -171,6 +171,9 @@ def _parse_log_entry(json_text: str) -> Optional[Dict]:
 
 def _normalize_entry(entry: Dict) -> Optional[Dict]:
     ts_iso = entry.get("timestamp")
+    if ts_iso is None:
+        return None
+    ts_iso = str(ts_iso)
     dt_obj = _safe_iso_to_datetime(ts_iso)
     if dt_obj is None:
         return None
@@ -512,8 +515,9 @@ def ingest_logs(
     # Parallel ingestion
     try:
         from concurrent.futures import ThreadPoolExecutor, as_completed
+        has_parallel = True
     except Exception:
-        ThreadPoolExecutor = None  # type: ignore
+        has_parallel = False
 
     max_workers_env = os.getenv("LOGDB_IMPORT_PARALLELISM", "2").strip()
     try:
@@ -525,7 +529,7 @@ def ingest_logs(
 
     t_start = time.perf_counter()
 
-    if ThreadPoolExecutor and max_workers > 1:
+    if has_parallel and max_workers > 1:
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {}
             for path in sorted(files):

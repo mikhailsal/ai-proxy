@@ -2,7 +2,7 @@ import logging
 import sys
 import json
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional, Callable, List
 import structlog
 from datetime import datetime
 
@@ -128,7 +128,7 @@ def setup_logging(log_level: str = "INFO", enable_file_logging: bool = True):
         )
 
     # Configure structlog
-    processors = [
+    processors: List[Callable[..., Any]] = [
         structlog.stdlib.add_log_level,
         structlog.stdlib.add_logger_name,
         structlog.processors.TimeStamper(fmt="iso"),
@@ -207,7 +207,7 @@ def log_request_response(
     response_data: Dict[str, Any],
     status_code: int,
     latency_ms: float,
-    api_key_hash: str = None,
+    api_key_hash: Optional[str] = None,
 ):
     """
     Log request and response data to endpoint-specific log file.
@@ -244,7 +244,7 @@ def log_model_usage(
     response_data: Dict[str, Any],
     status_code: int,
     latency_ms: float,
-    api_key_hash: str = None,
+    api_key_hash: Optional[str] = None,
 ):
     """
     Log model usage data to model-specific log files.

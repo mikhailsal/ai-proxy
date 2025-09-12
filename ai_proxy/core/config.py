@@ -36,14 +36,14 @@ class Settings:
             return value[1:-1]
         return value
 
-    def load_config(self):
+    def load_config(self) -> None:
         if self.config_path.exists():
             with open(self.config_path, "r") as f:
                 config_data = yaml.safe_load(f)
                 if config_data and "model_mappings" in config_data:
                     self.model_mappings = config_data["model_mappings"]
 
-    def reload(self):
+    def reload(self) -> None:
         """Reloads the configuration from the config file."""
         self.load_config()
 

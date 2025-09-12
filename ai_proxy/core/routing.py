@@ -43,6 +43,8 @@ class Router:
         Returns either an httpx.Response for non-streaming or AsyncGenerator for streaming.
         """
         original_model = request_data.get("model")
+        if original_model is None:
+            original_model = "default-model"  # or raise
         provider, mapped_model = settings.get_mapped_model(original_model)
         is_streaming = request_data.get("stream", False)
 
