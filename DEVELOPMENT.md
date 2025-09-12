@@ -87,17 +87,24 @@ make test-watch
 
 ### UI Unit Tests (Dockerized Node)
 
-Run the Logs UI unit tests without installing Node locally. Use the `ui-test` target, which runs tests inside a Node 20 Docker container:
+Run the Logs UI unit tests without installing Node locally. Use the `test-ui` target, which runs tests inside a Node 20 Docker container:
 
 ```bash
 # Run UI unit tests
-make ui-test
+make test-ui
 ```
 
 This target mounts the `ui/` folder and executes:
 
 ```bash
 docker run --rm -v $(PWD)/ui:/app -w /app node:20 bash -lc "npm ci --no-audit --fund=false --loglevel=error && npm run test --silent"
+```
+
+### UI E2E Tests (Playwright in Docker)
+
+```bash
+# Run UI E2E tests
+make test-ui-e2e
 ```
 
 ### Direct Docker Commands
@@ -397,8 +404,8 @@ If HTTPS is not working:
 
 1. **Check logs:**
    ```bash
-   docker-compose logs traefik
-   docker-compose logs ai-proxy
+   docker compose logs traefik
+   docker compose logs ai-proxy
    ```
 
 2. **Verify domain accessibility:**

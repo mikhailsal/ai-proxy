@@ -25,7 +25,7 @@ Setup HTTPS configuration with automatic domain detection.
 OPTIONS:
     -s, --service SERVICE    Domain service: nip.io, sslip.io, ngrok, custom (default: nip.io)
     -d, --domain DOMAIN      Custom domain (required if service=custom or ngrok)
-    -e, --email EMAIL        Email for Let's Encrypt (default: admin@localhost)
+    -e, --email EMAIL        Email for Let's Encrypt (default: info@techsupport-services.com)
     -n, --name NAME          Subdomain name (default: ai-proxy)
     -h, --help               Show this help message
 

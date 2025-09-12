@@ -4,8 +4,6 @@ This service acts as a drop-in replacement for the OpenAI API, providing a unifi
 
 It is built with Python and FastAPI and is designed to be lightweight, fast, and easy to deploy with **HTTPS support** and automatic SSL certificate management.
 
-**🚀 Current Implementation Status**: The advanced log storage system (Stages A-H) is fully implemented and production-ready, providing SQLite-based log storage with full-text search, dialog grouping, and portable bundles for backup and transfer.
-
 ## Features
 
 *   **OpenAI API Compatibility**: `POST /v1/chat/completions` endpoint.
@@ -60,7 +58,7 @@ This guide will walk you through setting up the AI Proxy service with HTTPS.
 
 4.  **Deploy with HTTPS:**
     ```bash
-    docker-compose up -d
+    docker compose up -d
     ```
 
 5.  **Test the setup:**
@@ -228,7 +226,7 @@ For more details on deployment, local development, and testing, see the [Develop
 - 🛡️ **HTTPS Encryption**: All traffic encrypted in transit
 - 🔒 **Security Headers**: HSTS, secure redirects
 - 📊 **Request Logging**: Comprehensive audit trail
-- 🚫 **Rate Limiting**: Built-in protection (via Traefik)
+- 🚫 **Rate Limiting**: Optional Traefik middleware (disabled by default)
 
 ## Monitoring
 
@@ -243,6 +241,7 @@ For more details on deployment, local development, and testing, see the [Develop
 The repository includes a separate Logs UI API and a static web UI scaffold.
 
 - Logs UI API (FastAPI): served by the `logs-ui-api` service, health endpoints at `/ui/health` and `/ui/v1/health`.
+  - Note: `/ui/v1/*` endpoints require a Bearer token from `LOGUI_API_KEYS` or `LOGUI_ADMIN_API_KEYS`. The legacy `/ui/health` endpoint is public.
 - Logs UI Web (Nginx): served by the `logs-ui-web` service, static page with a Connect message.
 
 Environment variables (add to `.env` as needed):
@@ -253,6 +252,12 @@ LOGUI_API_KEYS=logs-ui-user-key-1
 LOGUI_ADMIN_API_KEYS=logs-ui-admin-key-1
 # Allowed origins for CORS
 LOGUI_ALLOWED_ORIGINS=https://logs.your-domain.com,http://localhost:5173
+# Logs UI configuration
+LOGUI_RATE_LIMIT_RPS=10
+LOGUI_DB_ROOT=./logs/db
+# Optional
+LOGUI_ENABLE_TEXT_LOGS=false
+LOGUI_SSE_HEARTBEAT_MS=15000
 ```
 
 Both services are routed via Traefik:
