@@ -124,3 +124,4 @@ bundles/
 *.tar.gz
 
 **/*/node_modules/
+**/*/coverage

@@ -90,6 +90,23 @@ test-ui: ## Run UI unit tests (Dockerized Node)
 	@echo "Running UI unit tests in Docker (Node 20)..."
 	@docker run --rm -v $(PWD)/ui:/app -w /app node:20 bash -lc "npm ci --no-audit --fund=false --loglevel=error && npm run test --silent"
 
+# New frontend quality targets
+lint-ui: ## Run frontend linting (Dockerized)
+	@echo "Running frontend linting in Docker (Node 20)..."
+	@docker run --rm -v $(PWD)/ui:/app -w /app node:20 bash -lc "npm ci --no-audit --fund=false --loglevel=error && npm run lint"
+
+lint-fix-ui: ## Fix frontend linting issues (Dockerized)
+	@echo "Fixing frontend linting in Docker (Node 20)..."
+	@docker run --rm -v $(PWD)/ui:/app -w /app node:20 bash -lc "npm ci --no-audit --fund=false --loglevel=error && npm run lint:fix"
+
+type-check-ui: ## Run frontend type checking (Dockerized)
+	@echo "Running frontend type checking in Docker (Node 20)..."
+	@docker run --rm -v $(PWD)/ui:/app -w /app node:20 bash -lc "npm ci --no-audit --fund=false --loglevel=error && npm run typecheck"
+
+coverage-ui: ## Run frontend tests with coverage (Dockerized)
+	@echo "Running frontend coverage in Docker (Node 20)..."
+	@docker run --rm -v $(PWD)/ui:/app -w /app node:20 bash -lc "npm ci --no-audit --fund=false --loglevel=error && npm run coverage"
+
 test-ui-e2e: ## Run UI E2E tests with Playwright (Dockerized Node)
 	@echo "Running UI E2E tests in Docker (Node 20 + Playwright)..."
 	@docker run --rm \
@@ -329,7 +346,7 @@ logs: docker-logs ## Alias for docker-logs
 logs-live: docker-logs-live ## Alias for docker-logs-live (interactive mode)
 ps: docker-ps ## Alias for docker-ps
 
-ci: lint test test-ui-all coverage ## Run all CI checks (excluding type-check due to missing stubs) in Docker
+ci: lint test test-ui-all coverage lint-ui type-check-ui coverage-ui ## Run all CI checks including frontend
 	@echo "All CI checks completed!"
 
 

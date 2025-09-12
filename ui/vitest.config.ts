@@ -11,6 +11,16 @@ export default defineConfig({
       'build/**',
       'tests-e2e/**',
     ],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'clover'],
+      exclude: [
+        'node_modules/**',
+        'dist/**',
+        'build/**',
+        'tests-e2e/**',
+      ],
+    },
   },
 })
 
