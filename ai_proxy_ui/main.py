@@ -112,9 +112,13 @@ def _require_auth(role: Literal["user", "admin"] | None = None):
     admin_keys = _get_csv_env("LOGUI_ADMIN_API_KEYS")
 
     async def dependency(request: Request):
-        auth_header = request.headers.get("authorization") or request.headers.get("Authorization")
+        auth_header = request.headers.get("authorization") or request.headers.get(
+            "Authorization"
+        )
         if not auth_header or not auth_header.startswith("Bearer "):
-            raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+            raise HTTPException(
+                status_code=401, detail="Missing or invalid Authorization header"
+            )
 
         token = auth_header.split(" ", 1)[1].strip()
         if not token:
@@ -196,6 +200,7 @@ This ensures endpoints added later (e.g., /ui/v1/requests) are registered.
 
 # In production, expose Swagger UI only to admins
 if ENVIRONMENT == "production":
+
     @app.get("/ui/v1/docs", dependencies=[Depends(_require_auth("admin"))])
     async def _swagger_ui_admin_only():
         return get_swagger_ui_html(
@@ -206,7 +211,10 @@ if ENVIRONMENT == "production":
 
 # ---- Requests listing (Stage U3) ----
 
-def _parse_date_param(value: Optional[str], default: Optional[_dt.date] = None) -> _dt.date:
+
+def _parse_date_param(
+    value: Optional[str], default: Optional[_dt.date] = None
+) -> _dt.date:
     if not value:
         if default is None:
             raise HTTPException(status_code=400, detail="Missing date parameter")
@@ -268,7 +276,9 @@ async def list_requests(
     start_date = _parse_date_param(since, default=today)
     end_date = _parse_date_param(to, default=today)
     if end_date < start_date:
-        raise HTTPException(status_code=400, detail="'to' date must be on/after 'since'")
+        raise HTTPException(
+            status_code=400, detail="'to' date must be on/after 'since'"
+        )
 
     # Resolve partitions
     db_files = _iter_partition_paths(base_dir, start_date, end_date)
@@ -308,7 +318,7 @@ async def list_requests(
         for i, path in enumerate(db_files):
             alias = f"db{i}"
             uri_path = f"file:{os.path.abspath(path)}?mode=ro&immutable=1"
-            conn.execute("ATTACH DATABASE ? AS "+alias, (uri_path,))
+            conn.execute("ATTACH DATABASE ? AS " + alias, (uri_path,))
 
         cur = conn.execute(sql, params)
         rows = cur.fetchall()
@@ -334,6 +344,7 @@ async def list_requests(
 
 
 # ---- Request details (Stage U4) ----
+
 
 def _iter_all_partitions(base_dir: str) -> List[str]:
     paths: List[str] = []
@@ -366,7 +377,9 @@ async def get_request_details(request_id: str):
     union_sql_parts: List[str] = []
     for i in range(len(db_files)):
         alias = f"db{i}"
-        union_sql_parts.append(f"SELECT {select_cols} FROM {alias}.requests WHERE request_id = ?")
+        union_sql_parts.append(
+            f"SELECT {select_cols} FROM {alias}.requests WHERE request_id = ?"
+        )
     union_sql = " UNION ALL ".join(union_sql_parts)
     sql = f"SELECT {select_cols} FROM (" + union_sql + ") LIMIT 1"
 
@@ -376,7 +389,7 @@ async def get_request_details(request_id: str):
         for i, path in enumerate(db_files):
             alias = f"db{i}"
             uri_path = f"file:{os.path.abspath(path)}?mode=ro&immutable=1"
-            conn.execute("ATTACH DATABASE ? AS "+alias, (uri_path,))
+            conn.execute("ATTACH DATABASE ? AS " + alias, (uri_path,))
 
         # Prepare params repeated for each union branch
         params: List[object] = [request_id] * len(db_files)
@@ -415,4 +428,3 @@ async def get_request_details(request_id: str):
 # Include routers after all route declarations
 app.include_router(v1)
 app.include_router(admin)
-

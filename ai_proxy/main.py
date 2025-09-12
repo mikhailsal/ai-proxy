@@ -13,7 +13,6 @@ from contextlib import asynccontextmanager
 import time
 from typing import AsyncGenerator, Dict, Any
 import json
-import httpx
 
 from ai_proxy.logging.config import (
     setup_logging,
@@ -213,8 +212,10 @@ async def chat_completions(request: Request, api_key: str = Depends(get_api_key)
 
                 try:
                     # Type check to ensure we can iterate over the response
-                    if not hasattr(provider_response, '__aiter__'):
-                        raise ValueError("Expected async generator for streaming response")
+                    if not hasattr(provider_response, "__aiter__"):
+                        raise ValueError(
+                            "Expected async generator for streaming response"
+                        )
                     async for chunk in provider_response:
                         yield chunk
 
@@ -226,7 +227,9 @@ async def chat_completions(request: Request, api_key: str = Depends(get_api_key)
                                     chunk_data = chunk[6:].strip()
                                     if chunk_data and chunk_data != "[DONE]":
                                         parsed_chunk = json.loads(chunk_data)
-                                        assert isinstance(parsed_chunk, dict), "Expected dict from JSON parse"
+                                        assert isinstance(parsed_chunk, dict), (
+                                            "Expected dict from JSON parse"
+                                        )
 
                                         # Check for error in chunk
                                         if "error" in parsed_chunk:
@@ -255,7 +258,9 @@ async def chat_completions(request: Request, api_key: str = Depends(get_api_key)
                                             and parsed_chunk["choices"]
                                         ):
                                             choice = parsed_chunk["choices"][0]
-                                            assert isinstance(choice, dict), "Expected dict for choice"
+                                            assert isinstance(choice, dict), (
+                                                "Expected dict for choice"
+                                            )
                                             if (
                                                 "delta" in choice
                                                 and "content" in choice["delta"]
@@ -371,14 +376,24 @@ async def chat_completions(request: Request, api_key: str = Depends(get_api_key)
             )
         else:
             # Handle non-streaming response
-            if not hasattr(provider_response, 'status_code') or not hasattr(provider_response, 'content'):
-                raise ValueError("Expected httpx.Response-like object for non-streaming")
+            if not hasattr(provider_response, "status_code") or not hasattr(
+                provider_response, "content"
+            ):
+                raise ValueError(
+                    "Expected httpx.Response-like object for non-streaming"
+                )
             try:
                 # At this point we know provider_response has the required attributes
-                assert hasattr(provider_response, 'json'), "Response object should have json method"
+                assert hasattr(provider_response, "json"), (
+                    "Response object should have json method"
+                )
                 if not provider_response.content:
                     logger.warning("Empty response from provider")
-                response_body = provider_response.json() if provider_response.content else {"error": "Empty response from provider"}
+                response_body = (
+                    provider_response.json()
+                    if provider_response.content
+                    else {"error": "Empty response from provider"}
+                )
             except ValueError as json_error:
                 logger.error(f"Invalid JSON response from provider: {json_error}")
                 logger.debug(f"Response content: {provider_response.content!r}")

@@ -72,7 +72,11 @@ def build_parser() -> argparse.ArgumentParser:
         since_date = (
             _dt.datetime.strptime(args.since, "%Y-%m-%d").date() if args.since else None
         )
-        to_date = _dt.datetime.strptime(args.to, "%Y-%m-%d").date() if args.to else _dt.date.today()
+        to_date = (
+            _dt.datetime.strptime(args.to, "%Y-%m-%d").date()
+            if args.to
+            else _dt.date.today()
+        )
         to_date = cast(_dt.date, to_date)
 
         flag_enabled = os.getenv("LOGDB_FTS_ENABLED", "false").lower() == "true"

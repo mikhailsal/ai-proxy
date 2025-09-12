@@ -515,6 +515,7 @@ def ingest_logs(
     # Parallel ingestion
     try:
         from concurrent.futures import ThreadPoolExecutor, as_completed
+
         has_parallel = True
     except Exception:
         has_parallel = False
