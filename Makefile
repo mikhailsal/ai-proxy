@@ -137,7 +137,8 @@ test-ui-all: test-ui-unit test-ui-integration ## Run all AI Proxy UI tests
 
 coverage: ## Run tests with coverage report in Docker
 	@echo "Running tests with coverage in Docker..."
-	@docker compose run --rm -e DOCKER_CONTAINER=true ai-proxy poetry run pytest tests/ --tb=line --cov=ai_proxy --cov=ai_proxy_ui --cov-report=html || { echo "Coverage reporting requires pytest-cov"; exit 1; }
+	@docker compose run --rm -e DOCKER_CONTAINER=true -e COVERAGE_FILE=/app/logs/.coverage ai-proxy \
+		poetry run pytest tests/ --tb=line --cov=ai_proxy --cov=ai_proxy_ui --cov-report=term-missing --cov-report=html:/app/logs/coverage-html || { echo "Coverage reporting requires pytest-cov"; exit 1; }
 
 test-specific: ## Run specific test file or function in Docker (usage: make test-specific TEST=path/to/test.py)
 	@echo "Running specific test in Docker..."
@@ -302,6 +303,8 @@ clean: ## Clean temporary files and caches
 	@rm -rfv ./.pytest_cache/
 	@rm -rfv ./.coverage
 	@rm -rfv ./htmlcov/
+	@rm -rfv ./logs/.coverage*
+	@rm -rfv ./logs/coverage-html/
 	@rm -rfv ./dist/
 	@rm -rfv ./build/
 	@echo "Cleaning ai_proxy_ui temporary files..."

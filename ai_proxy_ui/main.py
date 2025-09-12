@@ -108,10 +108,10 @@ def _check_rate_limit(token: str, path: str):
 
 
 def _require_auth(role: Literal["user", "admin"] | None = None):
-    user_keys = _get_csv_env("LOGUI_API_KEYS")
-    admin_keys = _get_csv_env("LOGUI_ADMIN_API_KEYS")
-
     async def dependency(request: Request):
+        # Fetch keys at call time to respect env changes that tests make before app import
+        user_keys = _get_csv_env("LOGUI_API_KEYS")
+        admin_keys = _get_csv_env("LOGUI_ADMIN_API_KEYS")
         auth_header = request.headers.get("authorization") or request.headers.get(
             "Authorization"
         )
