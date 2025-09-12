@@ -8,8 +8,6 @@ def _sha256_of_file(path: str) -> Tuple[str, int]:
     total = 0
     with open(path, "rb") as f:
         for chunk in iter(lambda: f.read(65536), b""):
-            if not chunk:
-                break
             h.update(chunk)
             total += len(chunk)
     return h.hexdigest(), total
@@ -60,8 +58,6 @@ def copy_with_resume(src_path: str, dst_path: str) -> Tuple[int, str]:
         if start_pos:
             src.seek(start_pos)
         for chunk in iter(lambda: src.read(65536), b""):
-            if not chunk:
-                break
             dst.write(chunk)
 
     # Verify checksum of temp file matches source, then finalize

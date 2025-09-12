@@ -96,3 +96,14 @@ class TestBaseAdapter:
         # This covers the pass statement in the abstract method
         assert hasattr(BaseAdapter, "chat_completions")
         assert BaseAdapter.chat_completions.__isabstractmethod__ is True
+
+
+@pytest.mark.asyncio
+async def test_cover_abstract_method_pass():
+    class CoverageAdapter(BaseAdapter):
+        async def chat_completions(self, request_data):
+            return await super().chat_completions(request_data)
+
+    adapter = CoverageAdapter("test_key")
+    result = await adapter.chat_completions({"test": "data"})
+    assert result is None  # Since base method just passes
