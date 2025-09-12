@@ -50,9 +50,14 @@ services:
       - PORT=8123
     command: ["bash", "scripts/ensure-deployment-timestamp.sh", "uvicorn", "ai_proxy.main:app", "--host", "0.0.0.0", "--port", "8123"]
     volumes:
-      - .:/app
+      - ./ai_proxy:/app/ai_proxy
+      - ./ai_proxy_ui:/app/ai_proxy_ui
+      - ./tests:/app/tests
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./poetry.lock:/app/poetry.lock
       - ./config.yml:/app/config.yml
       - ./logs:/app/logs
+      - ./scripts:/app/scripts
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.ai-proxy.rule=Host(`${DOMAIN:-localhost}`)"

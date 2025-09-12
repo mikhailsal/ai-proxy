@@ -35,6 +35,7 @@ pytest-asyncio = "^1.0.0"
 types-pyyaml = "^6.0.12.20250516"
 
 [tool.pytest.ini_options]
+cache_dir = "/tmp/pytest-cache"
 filterwarnings = [
     "ignore::RuntimeWarning:unittest.mock.*",
     "ignore::UserWarning:pydantic.*",
