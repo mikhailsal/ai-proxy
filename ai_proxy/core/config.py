@@ -97,7 +97,7 @@ class Settings:
 settings = Settings()
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     # Example usage
     # Create a dummy config.yml
     with open("config.yml", "w") as f:

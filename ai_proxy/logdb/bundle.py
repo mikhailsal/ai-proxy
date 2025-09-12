@@ -142,7 +142,10 @@ def verify_bundle(bundle_path: str) -> bool:
         if f is None:
             raise ValueError("Failed to extract metadata")
         with f:
-            meta = json.loads(f.read().decode("utf-8"))
+            try:
+                meta = json.loads(f.read().decode("utf-8"))
+            except json.JSONDecodeError:
+                return False
 
         files = meta.get("files", [])
         for item in files:
