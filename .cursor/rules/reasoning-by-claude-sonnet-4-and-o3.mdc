@@ -1,5 +1,4 @@
 ---
-globs: **
 alwaysApply: false
 ---
 <system_rules>

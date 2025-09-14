@@ -1,6 +1,5 @@
 ---
-description: 
-globs: *
+description: If the user skips your terminal execution
 alwaysApply: false
 ---
 <rules_block name="user skips terminal" short="skips terminal" prefix="E" type="auto attached">

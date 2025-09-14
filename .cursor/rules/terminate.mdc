@@ -1,6 +1,4 @@
 ---
-description: 
-globs: *
 alwaysApply: false
 ---
 <rules_block name="check before terminate" short="terminate" prefix="R">
