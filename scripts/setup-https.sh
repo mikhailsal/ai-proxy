@@ -201,7 +201,23 @@ EOF
         echo "ACME_EMAIL=$email" >> .env
     fi
     
-    echo -e "${GREEN}✅ Updated .env file with domain: $domain (preserved existing API keys)${NC}"
+    # Enforce production ports (80/443) for Let's Encrypt HTTP/ALPN challenges
+    if grep -q "^HTTP_PORT=" .env; then
+        grep -v "^HTTP_PORT=" .env > .env.tmp
+        echo "HTTP_PORT=80" >> .env.tmp
+        mv .env.tmp .env
+    else
+        echo "HTTP_PORT=80" >> .env
+    fi
+    if grep -q "^HTTPS_PORT=" .env; then
+        grep -v "^HTTPS_PORT=" .env > .env.tmp
+        echo "HTTPS_PORT=443" >> .env.tmp
+        mv .env.tmp .env
+    else
+        echo "HTTPS_PORT=443" >> .env
+    fi
+
+    echo -e "${GREEN}✅ Updated .env file with domain: $domain (preserved existing API keys) and enforced HTTP_PORT=80/HTTPS_PORT=443${NC}"
 }
 
 # Validate email format

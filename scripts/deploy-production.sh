@@ -197,11 +197,37 @@ EOF
 sync_files() {
     log "Syncing code files to production..."
     
-    # CRITICAL: Only sync specific code files, never entire directories
-    # This prevents accidentally deleting production configs, certs, logs, etc.
-    
-    # Sync main application code (quietly)
-    scp -r -q "$PROJECT_DIR/ai_proxy/" "$REMOTE_HOST:$REMOTE_PATH/" 2>"$LOG_DIR/sync-ai_proxy-$TIMESTAMP.log"
+    # Exclude heavy or irrelevant directories (node_modules, caches, VCS, build artifacts)
+    local RSYNC_EXCLUDES=(
+        "--exclude=.git"
+        "--exclude=node_modules"
+        "--exclude=.venv"
+        "--exclude=venv"
+        "--exclude=__pycache__"
+        "--exclude=.pytest_cache"
+        "--exclude=dist"
+        "--exclude=build"
+        "--exclude=.next"
+        "--exclude=.cache"
+        "--exclude=coverage"
+        "--exclude=playwright-report"
+    )
+
+    # Sync main application code (rsync with excludes)
+    rsync -az --delete "${RSYNC_EXCLUDES[@]}" "$PROJECT_DIR/ai_proxy/" "$REMOTE_HOST:$REMOTE_PATH/ai_proxy/" \
+        >"$LOG_DIR/sync-ai_proxy-$TIMESTAMP.log" 2>&1
+
+    # Sync AI Proxy UI (Python API)
+    if [[ -d "$PROJECT_DIR/ai_proxy_ui" ]]; then
+        rsync -az --delete "${RSYNC_EXCLUDES[@]}" "$PROJECT_DIR/ai_proxy_ui/" "$REMOTE_HOST:$REMOTE_PATH/ai_proxy_ui/" \
+            >"$LOG_DIR/sync-ai_proxy_ui-$TIMESTAMP.log" 2>&1
+    fi
+
+    # Sync Logs UI web (frontend)
+    if [[ -d "$PROJECT_DIR/ui" ]]; then
+        rsync -az --delete "${RSYNC_EXCLUDES[@]}" "$PROJECT_DIR/ui/" "$REMOTE_HOST:$REMOTE_PATH/ui/" \
+            >"$LOG_DIR/sync-ui-$TIMESTAMP.log" 2>&1
+    fi
     
     # Sync individual configuration files (not directories)
     local config_files=(
@@ -229,10 +255,12 @@ sync_files() {
         fi
     done
     
-    # Sync scripts and tests directories (quietly)
-    scp -r -q "$PROJECT_DIR/scripts/" "$REMOTE_HOST:$REMOTE_PATH/" 2>>"$LOG_DIR/sync-scripts-$TIMESTAMP.log"
+    # Sync scripts and tests directories (rsync with excludes)
+    rsync -az --delete "${RSYNC_EXCLUDES[@]}" "$PROJECT_DIR/scripts/" "$REMOTE_HOST:$REMOTE_PATH/scripts/" \
+        >"$LOG_DIR/sync-scripts-$TIMESTAMP.log" 2>&1
     if [[ -d "$PROJECT_DIR/tests" ]]; then
-        scp -r -q "$PROJECT_DIR/tests/" "$REMOTE_HOST:$REMOTE_PATH/" 2>>"$LOG_DIR/sync-tests-$TIMESTAMP.log"
+        rsync -az --delete "${RSYNC_EXCLUDES[@]}" "$PROJECT_DIR/tests/" "$REMOTE_HOST:$REMOTE_PATH/tests/" \
+            >"$LOG_DIR/sync-tests-$TIMESTAMP.log" 2>&1
     fi
     
     # NEVER sync these production-specific directories:
@@ -243,6 +271,79 @@ sync_files() {
     # - backups/ (backup files)
     
     success "Files synced successfully (production configs preserved)"
+}
+
+# Ensure .env has required production settings and set HOST_UID/GID automatically
+ensure_env_and_permissions() {
+    log "Ensuring .env contains required production settings and fixing permissions..."
+
+    ssh "$REMOTE_HOST" "
+        set -e
+        cd '$REMOTE_PATH'
+        touch .env || true
+
+        # Determine a non-root UID/GID to run containers with
+        # Prefer the first regular user (UID >= 1000); fallback to 1000:1000
+        DETECTED_UID=\$(awk -F: '\$3 >= 1000 && \$3 < 65534 {print \$3; exit}' /etc/passwd)
+        DETECTED_GID=\$(awk -F: -v uid=\"\$DETECTED_UID\" '\$3==uid {print \$4; exit}' /etc/passwd)
+        [ -z \"\$DETECTED_UID\" ] && DETECTED_UID=1000
+        [ -z \"\$DETECTED_GID\" ] && DETECTED_GID=1000
+
+        # Update or append HOST_UID and HOST_GID in .env
+        if grep -q '^HOST_UID=' .env 2>/dev/null; then
+            sed -i "s/^HOST_UID=.*/HOST_UID=\$DETECTED_UID/" .env
+        else
+            echo "HOST_UID=\$DETECTED_UID" >> .env
+        fi
+        if grep -q '^HOST_GID=' .env 2>/dev/null; then
+            sed -i "s/^HOST_GID=.*/HOST_GID=\$DETECTED_GID/" .env
+        else
+            echo "HOST_GID=\$DETECTED_GID" >> .env
+        fi
+
+        # Force standard HTTP/HTTPS ports for production
+        if grep -q '^HTTP_PORT=' .env 2>/dev/null; then
+            sed -i 's/^HTTP_PORT=.*/HTTP_PORT=80/' .env
+        else
+            echo 'HTTP_PORT=80' >> .env
+        fi
+        if grep -q '^HTTPS_PORT=' .env 2>/dev/null; then
+            sed -i 's/^HTTPS_PORT=.*/HTTPS_PORT=443/' .env
+        else
+            echo 'HTTPS_PORT=443' >> .env
+        fi
+
+        # Prepare and fix permissions on logs directory for the detected UID/GID
+        mkdir -p logs
+        chown -R \${HOST_UID:-\$DETECTED_UID}:\${HOST_GID:-\$DETECTED_GID} logs || true
+        chmod -R u+rwX logs || true
+
+        # Ensure deployment timestamp file exists and is owned by runtime user if present
+        if [ -f deployment-timestamp.txt ]; then
+            chown \${HOST_UID:-\$DETECTED_UID}:\${HOST_GID:-\$DETECTED_GID} deployment-timestamp.txt || true
+            chmod u+rw deployment-timestamp.txt || true
+        fi
+        
+        # Set BASE_DOMAIN for subdomain routing (extract from DOMAIN if it contains subdomain)
+        if grep -q '^DOMAIN=' .env 2>/dev/null; then
+            CURRENT_DOMAIN=\$(grep '^DOMAIN=' .env | cut -d= -f2)
+            # Extract base domain (remove first subdomain if present) - count dots
+            DOT_COUNT=\$(echo \"\$CURRENT_DOMAIN\" | tr -cd '.' | wc -c)
+            if [ \"\$DOT_COUNT\" -ge 4 ]; then
+                BASE_DOMAIN=\$(echo \"\$CURRENT_DOMAIN\" | sed 's/^[^.]*\.//')
+                if grep -q '^BASE_DOMAIN=' .env 2>/dev/null; then
+                    sed -i \"s/^BASE_DOMAIN=.*/BASE_DOMAIN=\$BASE_DOMAIN/\" .env
+                else
+                    echo \"BASE_DOMAIN=\$BASE_DOMAIN\" >> .env
+                fi
+            fi
+        fi
+        
+        # Fix script permissions
+        find scripts -name '*.sh' -type f -exec chmod +x {} \; 2>/dev/null || true
+    " > "$LOG_DIR/env-perms-$TIMESTAMP.log" 2>&1
+
+    success "Environment and permissions ensured"
 }
 
 # Check service health before deployment
@@ -282,16 +383,43 @@ check_service_health() {
 
 # Deploy the application
 deploy_application() {
-    log "Deploying application using docker compose..."
+    log "Deploying application using docker compose with ordered startup..."
+
+    # Stop existing containers
+    ssh "$REMOTE_HOST" "cd '$REMOTE_PATH' && $DOCKER_COMPOSE_CMD down 2>&1 || true" \
+        > "$LOG_DIR/deploy-stop-$TIMESTAMP.log" 2>&1
+
+    # Build images
+    ssh "$REMOTE_HOST" "cd '$REMOTE_PATH' && $DOCKER_COMPOSE_CMD build --no-cache ai-proxy logs-ui-api logs-ui-web 2>&1" \
+        > "$LOG_DIR/deploy-build-$TIMESTAMP.log" 2>&1
+
+    # Start app services first (without Traefik)
+    ssh "$REMOTE_HOST" "cd '$REMOTE_PATH' && $DOCKER_COMPOSE_CMD up -d ai-proxy logs-ui-api logs-ui-web 2>&1" \
+        > "$LOG_DIR/deploy-start-$TIMESTAMP.log" 2>&1
+
+    # Wait for containers to be ready
+    log "Waiting for ai-proxy to be ready..."
+    sleep 15
     
-    ssh "$REMOTE_HOST" "
-        cd '$REMOTE_PATH' &&
-        $DOCKER_COMPOSE_CMD down 2>&1 &&
-        $DOCKER_COMPOSE_CMD build --no-cache ai-proxy 2>&1 &&
-        $DOCKER_COMPOSE_CMD up -d 2>&1 &&
-        sleep 10
-    " > "$LOG_DIR/deploy-$TIMESTAMP.log" 2>&1
+    # Check health endpoint
+    local attempts=0
+    while [ $attempts -lt 30 ]; do
+        if ssh "$REMOTE_HOST" "docker exec ai-proxy-app curl -s --max-time 3 http://127.0.0.1:8123/health 2>/dev/null" | grep -q '"status":"ok"'; then
+            break
+        fi
+        attempts=$((attempts + 1))
+        sleep 2
+    done
     
+    if [ $attempts -ge 30 ]; then
+        error "ai-proxy did not become healthy in time"
+        return 1
+    fi
+
+    # Start Traefik last
+    ssh "$REMOTE_HOST" "cd '$REMOTE_PATH' && $DOCKER_COMPOSE_CMD up -d traefik 2>&1" \
+        > "$LOG_DIR/deploy-traefik-$TIMESTAMP.log" 2>&1
+
     success "Application deployed"
 }
 
@@ -320,7 +448,7 @@ verify_deployment() {
             fi
         " 2>>"$LOG_DIR/health-check-$TIMESTAMP.log")
         
-        if [[ "$health_status" == *'"status":"ok"'* ]]; then
+        if [[ "$health_status" == *'"status":"ok"'* ]] || [[ "$health_status" == *'"status": "ok"'* ]]; then
             success "Service is healthy after deployment"
             break
         fi
@@ -621,6 +749,7 @@ main() {
     
     create_backup
     sync_files
+    ensure_env_and_permissions
     
     # Check and setup HTTPS if needed (only for normal deployments, after files are synced)
     if [[ "$action" == "" ]]; then
@@ -636,8 +765,8 @@ main() {
     verify_deployment
     cleanup_backups
     
-    # Clean up local timestamp file
-    rm -f "$PROJECT_DIR/deployment-timestamp.txt"
+    # Note: Keep local timestamp file for potential future deployments
+    # It will be overwritten on next deployment anyway
 
     success "🎉 Deployment completed successfully!"
     log "Backup available at: $BACKUP_DIR/ai-proxy-backup-$TIMESTAMP.tar.gz"
@@ -651,11 +780,17 @@ main() {
         echo 'Containers:' &&
         docker ps | grep ai-proxy &&
         echo '' &&
-        echo 'Service endpoint:' &&
+        echo 'Service endpoints:' &&
         DOMAIN=\$(grep '^DOMAIN=' .env 2>/dev/null | cut -d= -f2) &&
+        BASE_DOMAIN=\$(grep '^BASE_DOMAIN=' .env 2>/dev/null | cut -d= -f2) &&
         HTTPS_PORT=\$(grep '^HTTPS_PORT=' .env 2>/dev/null | cut -d= -f2) &&
         if [ -n \"\$DOMAIN\" ]; then
-            echo \"https://\$DOMAIN\${HTTPS_PORT:+:\$HTTPS_PORT}\"
+            BASE_URL=\"https://\$DOMAIN\${HTTPS_PORT:+:\$HTTPS_PORT}\" &&
+            LOGS_DOMAIN=\${BASE_DOMAIN:-\$DOMAIN} &&
+            echo \"  🔗 AI Proxy API:      \$BASE_URL\" &&
+            echo \"  🔗 Logs UI (Web):     https://logs.\$LOGS_DOMAIN\${HTTPS_PORT:+:\$HTTPS_PORT}\" &&
+            echo \"  🔗 Logs UI (API):     https://logs-api.\$LOGS_DOMAIN\${HTTPS_PORT:+:\$HTTPS_PORT}\" &&
+            echo \"  🔗 Traefik Dashboard: https://traefik.\$DOMAIN\${HTTPS_PORT:+:\$HTTPS_PORT}\"
         else
             echo 'Domain not configured'
         fi
