@@ -13,6 +13,30 @@ define check_poetry
 	fi
 endef
 
+# Auto-detect and export user/group IDs for Docker
+define setup_docker_user
+	$(eval export HOST_UID := $(shell id -u))
+	$(eval export HOST_GID := $(shell id -g))
+	@echo "🔧 Using HOST_UID=$(HOST_UID) HOST_GID=$(HOST_GID) for Docker containers"
+endef
+
+# Update .env file with current user IDs
+define update_env_with_user
+	@echo "🔧 Updating .env file with current user information..."
+	@if [ ! -f .env ]; then cp .env.example .env; fi
+	@if grep -q "^HOST_UID=" .env; then \
+		sed -i "s/^HOST_UID=.*/HOST_UID=$(shell id -u)/" .env; \
+	else \
+		echo "HOST_UID=$(shell id -u)" >> .env; \
+	fi
+	@if grep -q "^HOST_GID=" .env; then \
+		sed -i "s/^HOST_GID=.*/HOST_GID=$(shell id -g)/" .env; \
+	else \
+		echo "HOST_GID=$(shell id -g)" >> .env; \
+	fi
+	@echo "✅ Updated .env with HOST_UID=$(shell id -u) HOST_GID=$(shell id -g)"
+endef
+
 # Default target
 help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -220,6 +244,8 @@ run-both: ## Run both AI Proxy and AI Proxy UI production servers
 # Docker operations
 docker-up: ## Start all services with Docker Compose
 	@echo "Starting all services with Docker Compose..."
+	$(call setup_docker_user)
+	$(call update_env_with_user)
 	@docker compose up -d
 
 docker-down: ## Stop all services with Docker Compose
@@ -228,6 +254,8 @@ docker-down: ## Stop all services with Docker Compose
 
 docker-build: ## Build all services with Docker Compose
 	@echo "Building all services with Docker Compose..."
+	$(call setup_docker_user)
+	$(call update_env_with_user)
 	@docker compose build
 
 docker-logs: ## View logs from all services (non-interactive)
@@ -257,6 +285,8 @@ docker-up-traefik: ## Start only the Traefik reverse proxy
 
 docker-restart: ## Full restart of all services (down and up)
 	@echo "Restarting all services..."
+	$(call setup_docker_user)
+	$(call update_env_with_user)
 	@docker compose down
 	@docker compose up -d
 

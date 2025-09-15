@@ -282,12 +282,53 @@ ensure_env_and_permissions() {
         cd '$REMOTE_PATH'
         touch .env || true
 
-        # Determine a non-root UID/GID to run containers with
-        # Prefer the first regular user (UID >= 1000); fallback to 1000:1000
-        DETECTED_UID=\$(awk -F: '\$3 >= 1000 && \$3 < 65534 {print \$3; exit}' /etc/passwd)
-        DETECTED_GID=\$(awk -F: -v uid=\"\$DETECTED_UID\" '\$3==uid {print \$4; exit}' /etc/passwd)
-        [ -z \"\$DETECTED_UID\" ] && DETECTED_UID=1000
-        [ -z \"\$DETECTED_GID\" ] && DETECTED_GID=1000
+        # Determine the appropriate user for Docker containers
+        # Priority: 1) Current user if not root, 2) Docker group user, 3) First regular user, 4) Use root if no alternatives
+        CURRENT_USER_UID=\$(id -u)
+        CURRENT_USER_GID=\$(id -g)
+        
+        if [ \"\$CURRENT_USER_UID\" != \"0\" ]; then
+            # Use current user if not root
+            DETECTED_UID=\$CURRENT_USER_UID
+            DETECTED_GID=\$CURRENT_USER_GID
+            echo \"Using current non-root user: UID=\$DETECTED_UID, GID=\$DETECTED_GID\"
+        else
+            # We're running as root, try to find a better user
+            echo \"Running as root, looking for appropriate container user...\"
+            
+            # Try to find docker group and its first user
+            DOCKER_GID=\$(getent group docker | cut -d: -f3 2>/dev/null || echo \"\")
+            if [ -n \"\$DOCKER_GID\" ]; then
+                DOCKER_USERS=\$(getent group docker | cut -d: -f4)
+                if [ -n \"\$DOCKER_USERS\" ]; then
+                    FIRST_DOCKER_USER=\$(echo \"\$DOCKER_USERS\" | cut -d, -f1)
+                    DOCKER_USER_UID=\$(id -u \"\$FIRST_DOCKER_USER\" 2>/dev/null || echo \"\")
+                    if [ -n \"\$DOCKER_USER_UID\" ]; then
+                        DETECTED_UID=\$DOCKER_USER_UID
+                        DETECTED_GID=\$DOCKER_GID
+                        echo \"Using Docker group user: \$FIRST_DOCKER_USER (UID=\$DETECTED_UID, GID=\$DETECTED_GID)\"
+                    fi
+                fi
+            fi
+            
+            # Fallback to first regular user
+            if [ -z \"\$DETECTED_UID\" ]; then
+                DETECTED_UID=\$(awk -F: '\$3 >= 1000 && \$3 < 65534 {print \$3; exit}' /etc/passwd)
+                if [ -n \"\$DETECTED_UID\" ]; then
+                    DETECTED_GID=\$(awk -F: -v uid=\"\$DETECTED_UID\" '\$3==uid {print \$4; exit}' /etc/passwd)
+                    DETECTED_USER=\$(awk -F: -v uid=\"\$DETECTED_UID\" '\$3==uid {print \$1; exit}' /etc/passwd)
+                    echo \"Using first regular user: \$DETECTED_USER (UID=\$DETECTED_UID, GID=\$DETECTED_GID)\"
+                fi
+            fi
+            
+            # Final decision: use root if no alternatives found
+            if [ -z \"\$DETECTED_UID\" ]; then
+                DETECTED_UID=0
+                DETECTED_GID=0
+                echo \"No alternative users found, using root (UID=0, GID=0) for containers\"
+                echo \"Note: Files will be owned by root, which is fine for root-only servers\"
+            fi
+        fi
 
         # Update or append HOST_UID and HOST_GID in .env
         if grep -q '^HOST_UID=' .env 2>/dev/null; then
@@ -313,10 +354,17 @@ ensure_env_and_permissions() {
             echo 'HTTPS_PORT=443' >> .env
         fi
 
-        # Prepare and fix permissions on logs directory for the detected UID/GID
-        mkdir -p logs
-        chown -R \${HOST_UID:-\$DETECTED_UID}:\${HOST_GID:-\$DETECTED_GID} logs || true
-        chmod -R u+rwX logs || true
+        # Prepare and fix permissions on key directories for the detected UID/GID
+        mkdir -p logs certs traefik bundles tmp
+        
+        # Fix ownership and permissions for all directories
+        for dir in logs certs traefik bundles tmp; do
+            if [ -d \"\$dir\" ]; then
+                chown -R \${HOST_UID:-\$DETECTED_UID}:\${HOST_GID:-\$DETECTED_GID} \"\$dir\" || true
+                chmod -R u+rwX \"\$dir\" || true
+                echo \"Fixed permissions for \$dir directory\"
+            fi
+        done
 
         # Ensure deployment timestamp file exists and is owned by runtime user if present
         if [ -f deployment-timestamp.txt ]; then
