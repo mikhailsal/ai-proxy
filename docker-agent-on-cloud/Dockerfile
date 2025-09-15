@@ -26,7 +26,7 @@ RUN apt-get update && apt-get install -y \
     openssh-client \
     python3 \
     python3-pip \
-    ry оpython3-venv \
+    python3-venv \
     python3-dev \
     nodejs \
     npm \
