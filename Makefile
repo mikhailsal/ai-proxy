@@ -196,6 +196,14 @@ pre-commit: ## Run pre-commit hooks
 	$(call check_poetry)
 	@poetry run pre-commit run --all-files
 
+analyze-code: ## Analyze code size and provide refactoring recommendations
+	@echo "Analyzing code size..."
+	@python scripts/analyze_code_size.py
+
+check-dependencies: ## Check module dependencies and detect circular imports
+	@echo "Checking module dependencies..."
+	@python scripts/check_module_dependencies.py
+
 # Development server
 dev: ## Run development server with auto-reload
 	@echo "Starting development server..."
