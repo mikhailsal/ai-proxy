@@ -61,8 +61,9 @@ install-dev: ## Install development dependencies
 	@poetry install --with dev
 	@echo "Development dependencies installed successfully!"
 
-# Testing (Docker-only)
+# Testing
 test: test-unit test-integration test-ui ## Run all tests (unit, integration, ui-unit) in Docker
+test-local: test-unit-local test-integration-local ## Run all tests locally without Docker (fallback)
 
 test-all: test-unit test-integration test-ui test-ui-e2e test-functional ## Run all tests (unit and integration) in Docker
 
@@ -73,6 +74,20 @@ test-unit: ## Run unit tests in Docker
 test-integration: ## Run integration tests in Docker
 	@echo "Running integration tests in Docker..."
 	@docker compose run --rm -e DOCKER_CONTAINER=true ai-proxy sh -c "if [ -n \"\$$(find tests/integration -name 'test_*.py' -type f 2>/dev/null)\" ]; then poetry run pytest tests/integration -q --tb=line; else echo 'No integration tests found, skipping...'; fi"
+
+test-unit-local: ## Run unit tests locally without Docker
+	@echo "Running unit tests locally..."
+	$(call check_poetry)
+	@poetry run pytest tests/unit -q --tb=line
+
+test-integration-local: ## Run integration tests locally without Docker
+	@echo "Running integration tests locally..."
+	$(call check_poetry)
+	@if [ -n "$$(find tests/integration -name 'test_*.py' -type f 2>/dev/null)" ]; then \
+		poetry run pytest tests/integration -q --tb=line; \
+	else \
+		echo 'No integration tests found, skipping...'; \
+	fi
 
 test-functional: ## Run all functional tests with real API keys (disabled by default)
 	@echo "⚠️  WARNING: Functional tests use real API keys and may incur costs!"
