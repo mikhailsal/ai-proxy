@@ -43,36 +43,3 @@ def _check_cgroup_docker() -> bool:
         return False
 
 
-def enforce_docker_only():
-    """
-    Enforce that tests only run in Docker environments.
-
-    Raises:
-        RuntimeError: If not running in Docker
-    """
-    if not is_running_in_docker():
-        error_msg = (
-            "\n" + "=" * 60 + "\n"
-            "ERROR: Tests must run only in Docker!\n"
-            "=" * 60 + "\n"
-            "This project requires all tests to be executed within Docker containers.\n"
-            "\n"
-            "To run tests properly, use one of these commands:\n"
-            "  make test          # Run all tests in Docker\n"
-            "  make test-unit     # Run unit tests in Docker\n"
-            "  make test-integration # Run integration tests in Docker\n"
-            "\n"
-            "Or use Docker directly:\n"
-            "  docker-compose run --rm ai-proxy pytest tests/\n"
-            "\n"
-            "Running tests outside Docker is not allowed to ensure:\n"
-            "- Consistent test environment\n"
-            "- Proper isolation\n"
-            "- Reproducible results\n"
-            "=" * 60 + "\n"
-        )
-        raise RuntimeError(error_msg)
-
-
-# Automatically enforce Docker-only testing when tests module is imported
-enforce_docker_only()
