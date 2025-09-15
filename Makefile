@@ -69,11 +69,15 @@ test-all: test-unit test-integration test-ui test-ui-e2e test-functional ## Run 
 
 test-unit: ## Run unit tests in Docker
 	@echo "Running unit tests in Docker..."
-	@docker compose run --rm -e DOCKER_CONTAINER=true ai-proxy poetry run pytest tests/unit -q --tb=line -n auto
+	@DOCKER_CONTAINER=true HOST_UID=$$(id -u) HOST_GID=$$(id -g) poetry run pytest tests/unit -q --tb=line -n auto
 
 test-integration: ## Run integration tests in Docker
 	@echo "Running integration tests in Docker..."
-	@docker compose run --rm -e DOCKER_CONTAINER=true ai-proxy sh -c "if [ -n \"\$$(find tests/integration -name 'test_*.py' -type f 2>/dev/null)\" ]; then poetry run pytest tests/integration -q --tb=line; else echo 'No integration tests found, skipping...'; fi"
+	@if [ -n "$$(find tests/integration -name 'test_*.py' -type f 2>/dev/null)" ]; then \
+		DOCKER_CONTAINER=true HOST_UID=$$(id -u) HOST_GID=$$(id -g) poetry run pytest tests/integration -q --tb=line; \
+	else \
+		echo 'No integration tests found, skipping...'; \
+	fi
 
 test-unit-local: ## Run unit tests locally without Docker
 	@echo "Running unit tests locally..."
@@ -92,37 +96,37 @@ test-integration-local: ## Run integration tests locally without Docker
 test-functional: ## Run all functional tests with real API keys (disabled by default)
 	@echo "⚠️  WARNING: Functional tests use real API keys and may incur costs!"
 	@echo "Running all functional tests with Docker Compose..."
-	@TEST_PATH=tests/functional docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --remove-orphans || \
-	(echo "❌ Functional tests FAILED!" && docker compose -f docker-compose.test.yml logs pytest && docker compose -f docker-compose.test.yml down -v && exit 1)
+	@TEST_PATH=tests/functional docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit --remove-orphans || \
+	(echo "❌ Functional tests FAILED!" && docker-compose -f docker-compose.test.yml logs pytest && docker-compose -f docker-compose.test.yml down -v && exit 1)
 	@echo "✅ Functional tests PASSED!"
-	@docker compose -f docker-compose.test.yml down -v > /dev/null 2>&1
+	@docker-compose -f docker-compose.test.yml down -v > /dev/null 2>&1
 
 test-functional-gemini: ## Run only Gemini functional tests
 	@echo "⚠️  WARNING: Gemini functional tests use real API keys and may incur costs!"
 	@echo "Running Gemini functional tests..."
-	@TEST_PATH=tests/functional/test_gemini.py docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --remove-orphans || \
-	(echo "❌ Gemini functional tests FAILED!" && docker compose -f docker-compose.test.yml logs pytest && docker compose -f docker-compose.test.yml down -v && exit 1)
+	@TEST_PATH=tests/functional/test_gemini.py docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit --remove-orphans || \
+	(echo "❌ Gemini functional tests FAILED!" && docker-compose -f docker-compose.test.yml logs pytest && docker-compose -f docker-compose.test.yml down -v && exit 1)
 	@echo "✅ Gemini functional tests PASSED!"
-	@docker compose -f docker-compose.test.yml down -v > /dev/null 2>&1
+	@docker-compose -f docker-compose.test.yml down -v > /dev/null 2>&1
 
 test-functional-openrouter: ## Run only OpenRouter functional tests
 	@echo "⚠️  WARNING: OpenRouter functional tests use real API keys and may incur costs!"
 	@echo "Running OpenRouter functional tests..."
-	@TEST_PATH=tests/functional/test_openrouter.py docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --remove-orphans || \
-	(echo "❌ OpenRouter functional tests FAILED!" && docker compose -f docker-compose.test.yml logs pytest && docker compose -f docker-compose.test.yml down -v && exit 1)
+	@TEST_PATH=tests/functional/test_openrouter.py docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit --remove-orphans || \
+	(echo "❌ OpenRouter functional tests FAILED!" && docker-compose -f docker-compose.test.yml logs pytest && docker-compose -f docker-compose.test.yml down -v && exit 1)
 	@echo "✅ OpenRouter functional tests PASSED!"
-	@docker compose -f docker-compose.test.yml down -v > /dev/null 2>&1
+	@docker-compose -f docker-compose.test.yml down -v > /dev/null 2>&1
 
 test-functional-general: ## Run only general functional tests (no external API costs)
 	@echo "Running general functional tests (no external API costs)..."
-	@TEST_PATH=tests/functional/test_general.py docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --remove-orphans || \
-	(echo "❌ General functional tests FAILED!" && docker compose -f docker-compose.test.yml logs pytest && docker compose -f docker-compose.test.yml down -v && exit 1)
+	@TEST_PATH=tests/functional/test_general.py docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit --remove-orphans || \
+	(echo "❌ General functional tests FAILED!" && docker-compose -f docker-compose.test.yml logs pytest && docker-compose -f docker-compose.test.yml down -v && exit 1)
 	@echo "✅ General functional tests PASSED!"
-	@docker compose -f docker-compose.test.yml down -v > /dev/null 2>&1
+	@docker-compose -f docker-compose.test.yml down -v > /dev/null 2>&1
 
 test-watch: ## Run tests in watch mode in Docker
 	@echo "Running tests in watch mode in Docker..."
-	@docker compose run --rm -e DOCKER_CONTAINER=true ai-proxy poetry run pytest tests/ -q --tb=line -f
+	@docker-compose run --rm -e DOCKER_CONTAINER=true ai-proxy poetry run pytest tests/ -q --tb=line -f
 
 # UI testing
 test-ui: ## Run UI unit tests (Dockerized Node)
@@ -158,7 +162,7 @@ test-ui-e2e: ## Run UI E2E tests with Playwright (Dockerized Node)
 test-ui-unit: ## Run unit tests for AI Proxy UI (Python API)
 	@echo "Running AI Proxy UI unit tests..."
 	@if [ -d "tests/unit" ] && [ -n "$$(find tests/unit -name '*ui*' -o -name '*logs_ui*' -type f 2>/dev/null)" ]; then \
-		docker compose run --rm -e DOCKER_CONTAINER=true ai-proxy poetry run pytest tests/unit -k "ui or logs_ui" -q --tb=line; \
+		docker-compose run --rm -e DOCKER_CONTAINER=true ai-proxy poetry run pytest tests/unit -k "ui or logs_ui" -q --tb=line; \
 	else \
 		echo "No AI Proxy UI unit tests found, skipping..."; \
 	fi
@@ -166,7 +170,7 @@ test-ui-unit: ## Run unit tests for AI Proxy UI (Python API)
 test-ui-integration: ## Run integration tests for AI Proxy UI (Python API)
 	@echo "Running AI Proxy UI integration tests..."
 	@if [ -d "tests/integration" ] && [ -n "$$(find tests/integration -name '*ui*' -o -name '*logs_ui*' -type f 2>/dev/null)" ]; then \
-		docker compose run --rm -e DOCKER_CONTAINER=true ai-proxy poetry run pytest tests/integration -k "ui or logs_ui" -q --tb=line; \
+		docker-compose run --rm -e DOCKER_CONTAINER=true ai-proxy poetry run pytest tests/integration -k "ui or logs_ui" -q --tb=line; \
 	else \
 		echo "No AI Proxy UI integration tests found, skipping..."; \
 	fi
@@ -176,7 +180,7 @@ test-ui-all: test-ui-unit test-ui-integration ## Run all AI Proxy UI tests
 
 coverage: ## Run tests with coverage report in Docker
 	@echo "Running tests with coverage in Docker..."
-	@docker compose run --rm -e DOCKER_CONTAINER=true -e COVERAGE_FILE=/app/logs/.coverage ai-proxy \
+	@docker-compose run --rm -e DOCKER_CONTAINER=true -e COVERAGE_FILE=/app/logs/.coverage ai-proxy \
 		poetry run pytest tests/ --tb=line --cov=ai_proxy --cov=ai_proxy_ui --cov-report=term-missing --cov-report=html:/app/logs/coverage-html || { echo "Coverage reporting requires pytest-cov"; exit 1; }
 
 test-specific: ## Run specific test file or function in Docker (usage: make test-specific TEST=path/to/test.py)
@@ -186,7 +190,7 @@ test-specific: ## Run specific test file or function in Docker (usage: make test
 		echo "       make test-specific TEST=path/to/test.py::test_function"; \
 		exit 1; \
 	fi
-	@docker compose run --rm -e DOCKER_CONTAINER=true ai-proxy poetry run pytest $(TEST) -q --tb=line
+	@docker-compose run --rm -e DOCKER_CONTAINER=true ai-proxy poetry run pytest $(TEST) -q --tb=line
 
 # Code quality
 lint: ## Run linting checks
@@ -269,62 +273,62 @@ docker-up: ## Start all services with Docker Compose
 	@echo "Starting all services with Docker Compose..."
 	$(call setup_docker_user)
 	$(call update_env_with_user)
-	@docker compose up -d
+	@docker-compose up -d
 
 docker-down: ## Stop all services with Docker Compose
 	@echo "Stopping all services with Docker Compose..."
-	@docker compose down
+	@docker-compose down
 
 docker-build: ## Build all services with Docker Compose
 	@echo "Building all services with Docker Compose..."
 	$(call setup_docker_user)
 	$(call update_env_with_user)
-	@docker compose build
+	@docker-compose build
 
 docker-logs: ## View logs from all services (non-interactive)
 	@echo "Viewing logs from all services..."
-	@docker compose logs
+	@docker-compose logs
 
 docker-logs-live: ## View logs from all services (interactive/live mode)
 	@echo "Viewing logs from all services (live mode)..."
-	@docker compose logs -f
+	@docker-compose logs -f
 
 docker-ps: ## List all running services
 	@echo "Listing all running services..."
-	@docker compose ps
+	@docker-compose ps
 
 # Individual Docker service management
 docker-up-ai-proxy: ## Start only the AI Proxy service
 	@echo "Starting AI Proxy service..."
-	@docker compose up -d ai-proxy
+	@docker-compose up -d ai-proxy
 
 docker-up-logs-ui: ## Start only the Logs UI services (API and Web)
 	@echo "Starting Logs UI services..."
-	@docker compose up -d logs-ui-api logs-ui-web
+	@docker-compose up -d logs-ui-api logs-ui-web
 
 docker-up-traefik: ## Start only the Traefik reverse proxy
 	@echo "Starting Traefik reverse proxy..."
-	@docker compose up -d traefik
+	@docker-compose up -d traefik
 
 docker-restart: ## Full restart of all services (down and up)
 	@echo "Restarting all services..."
 	$(call setup_docker_user)
 	$(call update_env_with_user)
-	@docker compose down
-	@docker compose up -d
+	@docker-compose down
+	@docker-compose up -d
 
 docker-restart-ai-proxy: ## Restart only the AI Proxy service
 	@echo "Restarting AI Proxy service..."
-	@docker compose restart ai-proxy
+	@docker-compose restart ai-proxy
 
 docker-restart-logs-ui: ## Restart only the Logs UI services
 	@echo "Restarting Logs UI services..."
-	@docker compose restart logs-ui-api logs-ui-web
+	@docker-compose restart logs-ui-api logs-ui-web
 
 # Docker cleanup
 docker-clean: ## Clean Docker resources and system
 	@echo "Cleaning Docker resources..."
-	@docker compose down -v --rmi all 2>/dev/null || true
+	@docker-compose down -v --rmi all 2>/dev/null || true
 	@docker system prune -f
 
 # Production deployment
