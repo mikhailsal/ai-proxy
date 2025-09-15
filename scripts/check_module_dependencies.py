@@ -157,7 +157,8 @@ class ModuleDependencyAnalyzer:
         key_modules = [
             'ai_proxy.main',
             'ai_proxy.logdb.ingest',
-            'tests.unit.test_logdb_stage_f',
+            'tests.unit.bundle.test_creation',
+            'tests.unit.bundle.test_verification',
             'tests.unit.test_logdb_stage_b'
         ]
 

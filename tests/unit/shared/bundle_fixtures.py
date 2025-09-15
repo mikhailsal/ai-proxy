@@ -1,33 +1,20 @@
-"""
-Shared fixtures for bundle-related tests.
-
-This module provides common test fixtures and utilities for testing
-bundle creation, verification, and import functionality.
-"""
-
 import datetime as dt
+import datetime
 import os
 import sqlite3
-import pytest
+import tarfile
 from pathlib import Path
 
 from ai_proxy.logdb.bundle import create_bundle, verify_bundle
 from ai_proxy.logdb.partitioning import compute_partition_path
 
 
-@pytest.fixture
-def sample_partition(tmp_path):
-    """
-    Create a sample database partition for bundle testing.
-
-    Returns:
-        tuple: (base_db_dir, date) where date is the partition date
-    """
+def create_sample_partition(tmp_path):
+    """Create a sample partition for bundle tests."""
     base = tmp_path / "logs" / "db"
     date = dt.date(2025, 9, 10)
     db_path = compute_partition_path(str(base), date)
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
-
     conn = sqlite3.connect(db_path)
     try:
         conn.executescript(
@@ -58,149 +45,103 @@ def sample_partition(tmp_path):
         conn.commit()
     finally:
         conn.close()
-
     return str(base), date
 
 
-@pytest.fixture
-def sample_bundle(tmp_path, sample_partition):
-    """
-    Create a sample bundle file for testing.
-
-    Returns:
-        str: Path to the created bundle file
-    """
-    base_db_dir, date = sample_partition
-    bundle_path = tmp_path / "test_bundle.tgz"
+def create_bundle_path(tmp_path, bundle_name="test_bundle.tgz"):
+    """Create a bundle path in bundles directory."""
+    bundle_path = tmp_path / "bundles" / bundle_name
     os.makedirs(bundle_path.parent, exist_ok=True)
-
-    return create_bundle(
-        base_db_dir=base_db_dir,
-        since=date,
-        to=date,
-        out_path=str(bundle_path),
-        include_raw=False,
-        server_id="test-server"
-    )
+    return bundle_path
 
 
-@pytest.fixture
-def corrupted_bundle(tmp_path, sample_bundle):
-    """
-    Create a corrupted bundle file for testing error handling.
+def create_test_bundle(tmp_path, **kwargs):
+    """Create a test bundle with default parameters."""
+    base_db_dir, date = create_sample_partition(tmp_path)
+    bundle_path = create_bundle_path(tmp_path)
 
-    Returns:
-        str: Path to the corrupted bundle file
-    """
-    import tarfile
-
-    corrupted_path = tmp_path / "corrupted_bundle.tgz"
-
-    # Copy original bundle
-    with open(sample_bundle, 'rb') as src, open(corrupted_path, 'wb') as dst:
-        data = src.read()
-        # Corrupt the file by modifying some bytes
-        if len(data) > 100:
-            data = data[:50] + b'\x00\x00\x00\x00' + data[54:]
-        dst.write(data)
-
-    return str(corrupted_path)
-
-
-@pytest.fixture
-def bundle_with_metadata(tmp_path, sample_partition):
-    """
-    Create a bundle with custom metadata for testing.
-
-    Returns:
-        tuple: (bundle_path, expected_metadata)
-    """
-    base_db_dir, date = sample_partition
-    bundle_path = tmp_path / "metadata_bundle.tgz"
-    os.makedirs(bundle_path.parent, exist_ok=True)
-
-    custom_server_id = "custom-test-server"
-    schema_version = "v2.0"
-
-    bundle_file = create_bundle(
-        base_db_dir=base_db_dir,
-        since=date,
-        to=date,
-        out_path=str(bundle_path),
-        include_raw=False,
-        server_id=custom_server_id,
-        schema_version=schema_version
-    )
-
-    return bundle_file, {
-        'server_id': custom_server_id,
-        'schema_version': schema_version,
-        'include_raw': False
+    defaults = {
+        'base_db_dir': base_db_dir,
+        'since': date,
+        'to': date,
+        'out_path': str(bundle_path),
+        'include_raw': False,
+        'server_id': "test-server",
     }
+    defaults.update(kwargs)
+
+    return create_bundle(**defaults), base_db_dir, date
 
 
-@pytest.fixture
-def bundle_factory(tmp_path):
-    """
-    Factory fixture for creating bundles with custom parameters.
+def create_raw_logs_structure(tmp_path, log_files=None):
+    """Create a raw logs directory structure for testing."""
+    raw_dir = tmp_path / "logs"
+    os.makedirs(raw_dir, exist_ok=True)
 
-    Returns:
-        callable: Function to create bundles with custom parameters
-    """
-    def _create_bundle(**kwargs):
-        defaults = {
-            'base_db_dir': None,
-            'since': dt.date(2025, 9, 10),
-            'to': dt.date(2025, 9, 10),
-            'out_path': str(tmp_path / f"bundle_{dt.datetime.now().timestamp()}.tgz"),
-            'include_raw': False,
-            'server_id': "factory-server",
-            'schema_version': "v1"
-        }
+    if log_files is None:
+        log_files = [
+            ("app.log", "hello\n"),
+            ("service.log.1", "world\n"),
+        ]
 
-        # Merge with provided kwargs
-        params = {**defaults, **kwargs}
+    created_files = []
+    target_ts = int(datetime.datetime.combine(dt.date(2025, 9, 10), datetime.time(12, 0)).timestamp())
 
-        # Create sample partition if not provided
-        if params['base_db_dir'] is None:
-            base = tmp_path / "logs" / "db"
-            date = params['since']
-            db_path = compute_partition_path(str(base), date)
-            os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    for filename, content in log_files:
+        file_path = raw_dir / filename
+        file_path.write_text(content)
+        os.utime(file_path, (target_ts, target_ts))
+        created_files.append(file_path)
 
-            conn = sqlite3.connect(db_path)
-            try:
-                conn.executescript(
-                    """
-                    PRAGMA journal_mode=WAL;
-                    CREATE TABLE IF NOT EXISTS servers (
-                      server_id TEXT PRIMARY KEY,
-                      hostname TEXT,
-                      env TEXT,
-                      first_seen_ts INTEGER
-                    );
-                    CREATE TABLE IF NOT EXISTS requests (
-                      request_id TEXT PRIMARY KEY,
-                      server_id TEXT NOT NULL,
-                      ts INTEGER NOT NULL,
-                      endpoint TEXT NOT NULL,
-                      model_original TEXT,
-                      model_mapped TEXT,
-                      status_code INTEGER,
-                      latency_ms REAL,
-                      api_key_hash TEXT,
-                      request_json TEXT NOT NULL,
-                      response_json TEXT NOT NULL,
-                      dialog_id TEXT
-                    );
-                    """
-                )
-                conn.commit()
-            finally:
-                conn.close()
+    return str(raw_dir), created_files
 
-            params['base_db_dir'] = str(base)
 
-        return create_bundle(**params)
+def create_test_database_file(tmp_path, filename="test.sqlite3", content=b"fake db content"):
+    """Create a test database file."""
+    db_file = tmp_path / filename
+    db_file.write_bytes(content)
+    return db_file
 
-    return _create_bundle
+
+def create_bundle_metadata(bundle_path, modifications=None):
+    """Extract, modify and repack bundle metadata."""
+    temp_dir = bundle_path.parent / "temp"
+    os.makedirs(temp_dir, exist_ok=True)
+
+    # Extract bundle
+    with tarfile.open(bundle_path, "r:gz") as tar:
+        tar.extractall(path=temp_dir)
+
+    # Read and modify metadata if needed
+    import json
+    meta_path = temp_dir / "metadata.json"
+    with open(meta_path) as f:
+        meta = json.load(f)
+
+    if modifications:
+        for key, value in modifications.items():
+            if callable(value):
+                meta[key] = value(meta.get(key))
+            else:
+                meta[key] = value
+
+    with open(meta_path, "w") as f:
+        json.dump(meta, f)
+
+    # Repack
+    new_bundle = bundle_path.parent / f"modified_{bundle_path.name}"
+    with tarfile.open(new_bundle, "w:gz") as tar:
+        for root, _, files in os.walk(temp_dir):
+            for file in files:
+                full_path = os.path.join(root, file)
+                rel_path = os.path.relpath(full_path, temp_dir)
+                tar.add(full_path, arcname=rel_path)
+
+    return new_bundle
+
+
+# Common constants
+TEST_DATE = dt.date(2025, 9, 10)
+TEST_SERVER_ID = "test-server"
+BUNDLE_ID = "test123"
+SCHEMA_VERSION = "v1"
