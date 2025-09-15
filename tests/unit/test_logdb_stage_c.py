@@ -6,7 +6,7 @@ from unittest import mock
 
 from ai_proxy.logdb.ingest import ingest_logs
 from ai_proxy.logdb.partitioning import compute_partition_path
-from ai_proxy.logdb.ingest import _derive_server_id
+from ai_proxy.logdb.utils.server_utils import derive_server_id
 
 
 SAMPLE_ENTRY = (
@@ -128,12 +128,12 @@ def test_derive_server_id_file_read_error(tmp_path, monkeypatch):
     server_file.write_text("test_id")
     monkeypatch.setattr("builtins.open", mock.mock_open(read_data="test_id"))
     with mock.patch("builtins.open", side_effect=Exception("read error")):
-        server_id = _derive_server_id(str(db_base))
+        server_id = derive_server_id(str(db_base))
         assert server_id  # Falls back
 
 def test_derive_server_id_file_write_error(tmp_path, monkeypatch):
     db_base = tmp_path / "logs" / "db"
     monkeypatch.setenv("LOGDB_SERVER_ID", "")  # Force generation
     with patch("builtins.open", side_effect=Exception("write error")):
-        server_id = _derive_server_id(str(db_base))
+        server_id = derive_server_id(str(db_base))
         assert server_id  # Generated despite write fail
