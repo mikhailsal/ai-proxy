@@ -159,7 +159,10 @@ class ModuleDependencyAnalyzer:
             'ai_proxy.logdb.ingest',
             'tests.unit.bundle.test_creation',
             'tests.unit.bundle.test_verification',
-            'tests.unit.test_logdb_stage_b'
+            'tests.unit.ingest.test_cli',
+            'tests.unit.ingest.test_core',
+            'tests.unit.ingest.test_utils',
+            'tests.unit.ingest.test_parallel'
         ]
 
         for module in key_modules:
