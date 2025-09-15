@@ -186,3 +186,6 @@ ENTRYPOINT ["/home/workspace/entrypoint.sh"]
 
 # Default command - start interactive shell
 CMD []
+
+
+#some extra line for fun
