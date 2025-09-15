@@ -1,0 +1,8 @@
+{
+  "build": {
+    "dockerfile": "../docker-agent-on-cloud/Dockerfile",
+    "context": "../docker-agent-on-cloud"
+  },
+  "terminals": []
+
+}
