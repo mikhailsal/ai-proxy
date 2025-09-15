@@ -2,20 +2,32 @@
 # Standalone Dockerfile for Docker-in-Docker support with Python, Poetry, and Node.js
 # Designed for cloud deployment with mounted workspace
 
-FROM docker:24-dind AS base
+FROM ubuntu:22.04 AS base
 
-# Install system dependencies
-RUN apk add --no-cache \
+# Install system dependencies and Docker
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    curl \
+    gnupg \
+    lsb-release \
+    wget \
+    && mkdir -p /etc/apt/keyrings \
+    && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list \
+    && apt-get update && apt-get install -y \
+    docker-ce \
+    docker-ce-cli \
+    containerd.io \
+    docker-compose-plugin \
     curl \
     git \
     bash \
     sudo \
     openssh-client \
-    ca-certificates \
-    gnupg \
-    lsb-release \
     python3 \
-    py3-pip \
+    python3-pip \
+    ry оpython3-venv \
+    python3-dev \
     nodejs \
     npm \
     jq \
@@ -33,14 +45,11 @@ RUN python3 -m venv $POETRY_VENV \
     && $POETRY_VENV/bin/pip install -U pip setuptools \
     && $POETRY_VENV/bin/pip install poetry==$POETRY_VERSION
 
-# Install Node.js LTS using apk (stable version)
-RUN apk add --no-cache nodejs npm
-
 # Create workspace user with Docker privileges
-RUN addgroup -g 1000 workspace \
-    && adduser -D -s /bin/bash -u 1000 -G workspace workspace \
+RUN groupadd -g 1000 workspace \
+    && useradd -m -s /bin/bash -u 1000 -g workspace workspace \
     && echo 'workspace ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers \
-    && addgroup workspace docker
+    && usermod -aG docker workspace
 
 # Configure Docker daemon for DinD
 ENV DOCKER_TLS_CERTDIR=/certs
@@ -49,10 +58,7 @@ RUN mkdir -p /certs /certs/client \
     && mkdir -p /var/run \
     && chmod 755 /var/run
 
-# Install Docker Compose
-RUN DOCKER_COMPOSE_VERSION=$(curl -s https://api.github.com/repos/docker/compose/releases/latest | jq -r .tag_name) \
-    && curl -L "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose \
-    && chmod +x /usr/local/bin/docker-compose
+# Docker Compose is already installed via docker-compose-plugin
 
 # Set up Python virtual environment and Poetry
 ENV PATH="$POETRY_VENV/bin:$PATH"
