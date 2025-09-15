@@ -485,9 +485,12 @@ def test_config_defaults_when_env_unset(monkeypatch):
 def test_rate_limit_invalid_rps_falls_back(monkeypatch):
     monkeypatch.setenv("LOGUI_API_KEYS", "user-key")
     monkeypatch.setenv("LOGUI_RATE_LIMIT_RPS", "invalid")
-    from ai_proxy_ui.main import app, _rate_limit_buckets
-    # Clear any existing rate limit buckets
+    from ai_proxy_ui.main import app, _rate_limit_buckets, _rate_limit_cached_rps
+    # Clear any existing rate limit state
     _rate_limit_buckets.clear()
+    # Reset cached RPS to force re-evaluation of environment variable
+    import ai_proxy_ui.main
+    ai_proxy_ui.main._rate_limit_cached_rps = None
     client = TestClient(app)
     # Make requests to trigger the fallback path
     for _ in range(11):  # Default is 10, so 11th should 429
