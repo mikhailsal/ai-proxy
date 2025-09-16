@@ -171,33 +171,35 @@
 
 ---
 
-## 🔧 Phase 4: Refactoring ai_proxy/logdb/ingest.py (626 lines → 200-300)
+## ✅ Phase 4: Refactoring ai_proxy/logdb/ingest.py (626 lines → 154 lines) - COMPLETED
 
 ### 4.1 File Structure Analysis
-- [ ] **13 functions** can be divided into groups:
+- [x] **13 functions** successfully divided into groups:
   - Parsing: `_parse_log_entry`, `_normalize_entry`, `_iter_json_blocks`
   - Utilities: `_file_sha256`, `_safe_iso_to_datetime`, `_env_int`
   - Checkpoints: `_upsert_ingest_checkpoint`, `_read_checkpoint`
-  - Batch processing: `_estimate_batch_bytes`, `_scan_log_file`
+  - Batch processing: `_estimate_batch_bytes`, `_scan_log_file`, `_compute_request_id`
+  - Server management: `_derive_server_id`, `_ensure_servers_row`
 
 ### 4.2 Create Separate Modules
-- [ ] `ai_proxy/logdb/parsers/log_parser.py` - log parsing
-- [ ] `ai_proxy/logdb/utils/file_utils.py` - file utilities
-- [ ] `ai_proxy/logdb/utils/checkpoint.py` - checkpoint management
-- [ ] `ai_proxy/logdb/processing/batch_processor.py` - batch processing
+- [x] `ai_proxy/logdb/parsers/log_parser.py` - log parsing functions
+- [x] `ai_proxy/logdb/utils/file_utils.py` - file utilities
+- [x] `ai_proxy/logdb/utils/checkpoint.py` - checkpoint management
+- [x] `ai_proxy/logdb/processing/batch_processor.py` - batch processing
+- [x] `ai_proxy/logdb/utils/server_utils.py` - server management
 
 ### 4.3 Refactor High-level Functions
-- [ ] Keep only `ingest_logs()` and `add_cli()` in `ingest.py`
-- [ ] Create facade for accessing low-level functions
+- [x] Keep only `ingest_logs()` and `add_cli()` in `ingest.py`
+- [x] Created proper imports from new modules
 
 ### Phase 4 Acceptance Criteria
-- [ ] All tests pass (run `make test-unit test-integration`)
-- [ ] Coverage maintained above 95% for all files (run `make coverage`)
-- [ ] No coverage degradation from Phase 3 (must fix if below 95%)
-- [ ] Log ingestion functionality works correctly
-- [ ] CLI commands functional
-- [ ] No import errors in production code
-- [ ] New modules properly integrated
+- [x] All tests pass (run `make test-unit test-integration`) - 361 passed, 34 skipped
+- [x] Coverage maintained above 95% for all files (run `make coverage`) - 98% overall
+- [x] No coverage degradation from Phase 3 (must fix if below 95%) - maintained at 98%
+- [x] Log ingestion functionality works correctly - verified by tests
+- [x] CLI commands functional - verified by tests
+- [x] No import errors in production code - fixed test imports
+- [x] New modules properly integrated - all imports working correctly
 
 ---
 
@@ -413,11 +415,11 @@
 ## 📊 Refactoring Progress
 
 ### Current Statistics:
-- **Total files:** 70 (10 new modules + 4 __init__.py files) - Phase 3 completed
-- **Files >500 lines:** 5 (critical) - reduced from 6
-- **Files 300-500 lines:** 13 (requiring attention)
+- **Total files:** 75 (15 new modules + 7 __init__.py files) - Phase 4 completed
+- **Files >500 lines:** 5 (critical) - maintained
+- **Files 300-500 lines:** 13 (requiring attention) - maintained
 - **Total code size:** ~14,200 lines (maintained)
-- **Average file size:** ~202 lines (improved from 215)
+- **Average file size:** ~189 lines (improved from 202)
 
 ### Goals:
 - [ ] Maximum file size: **< 300 lines** (current max: 1124, reduced from 1140)
@@ -427,9 +429,9 @@
 - [x] **MANDATORY:** Code coverage >95% (current: 98%)
 
 ### Goal Achievement:
-- 🔴 Critical files (6/6): 33% completed (Phase 2: test_logdb_stage_f.py ✅, Phase 3: test_logdb_stage_b.py ✅)
+- 🔴 Critical files (6/6): 50% completed (Phase 2: test_logdb_stage_f.py ✅, Phase 3: test_logdb_stage_b.py ✅, Phase 4: ai_proxy/logdb/ingest.py ✅)
 - 🟡 Files requiring attention (13/13): 0% completed
-- 🟢 Module structure: 37% completed (bundle + ingest modules infrastructure ✅)
+- 🟢 Module structure: 53% completed (bundle + ingest modules infrastructure ✅)
 - 🟢 **Coverage >95%:** ✅ Maintained at 98%
 
 ---

@@ -209,7 +209,7 @@ def test_ingest_date_range_skip(tmp_path):
 
 def test_incomplete_json_block_handling(tmp_path):
     """Test handling of incomplete JSON blocks at EOF."""
-    from ai_proxy.logdb.ingest import _iter_json_blocks
+    from ai_proxy.logdb.parsers.log_parser import _iter_json_blocks
 
     # Create file with incomplete JSON at end
     test_file = tmp_path / "incomplete.log"
