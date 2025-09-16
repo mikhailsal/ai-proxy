@@ -30,16 +30,10 @@ def _read_checkpoint(
     conn: sqlite3.Connection, source_path: str
 ) -> Tuple[int, int, Optional[str]]:
     cur = conn.execute(
-        "SELECT bytes_ingested, mtime FROM ingest_sources WHERE source_path= ?",
+        "SELECT bytes_ingested, mtime, sha256 FROM ingest_sources WHERE source_path = ?",
         (source_path,),
     )
     row = cur.fetchone()
     if not row:
         return 0, 0, None
-    # bytes_ingested, mtime, sha256
-    cur2 = conn.execute(
-        "SELECT sha256 FROM ingest_sources WHERE source_path= ?",
-        (source_path,),
-    )
-    row2 = cur2.fetchone()
-    return int(row[0] or 0), int(row[1] or 0), (row2[0] if row2 and row2[0] else None)
+    return int(row[0] or 0), int(row[1] or 0), (row[2] if row[2] else None)

@@ -2,6 +2,9 @@ import datetime as dt
 import json
 from typing import Dict, Iterator, Optional, Tuple
 
+# Reuse central datetime parser from utils to avoid duplication
+from ..utils.file_utils import _safe_iso_to_datetime
+
 
 def _iter_json_blocks(f) -> Iterator[Tuple[int, str]]:
     """Yield (block_end_pos, json_text) for each rendered JSON block in a log file.
@@ -122,13 +125,4 @@ def _normalize_entry(entry: Dict) -> Optional[Dict]:
     }
 
 
-def _safe_iso_to_datetime(ts: str) -> Optional[dt.datetime]:
-    if not ts:
-        return None
-    try:
-        # Accept timestamps like 2025-06-26T08:42:42.753538Z
-        if ts.endswith("Z"):
-            ts = ts[:-1] + "+00:00"
-        return dt.datetime.fromisoformat(ts)
-    except Exception:
-        return None
+# _safe_iso_to_datetime is provided by ai_proxy/logdb/utils/file_utils.py
