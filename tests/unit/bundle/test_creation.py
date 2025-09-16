@@ -149,7 +149,7 @@ def test_cli_bundle_create_server_id_from_file(monkeypatch, tmp_path):
         captured_server_id = kwargs.get('server_id')
         return str(bundle_path)
 
-    monkeypatch.setattr("ai_proxy.logdb.cli.create_bundle", mock_create_bundle)
+    monkeypatch.setattr("ai_proxy.logdb.cli.commands.create_bundle", mock_create_bundle)
 
     rc = logdb_cli.main([
         "bundle", "create",
@@ -187,7 +187,7 @@ def test_cli_bundle_create_server_id_env_override(monkeypatch, tmp_path):
         captured_server_id = kwargs.get('server_id')
         return str(bundle_path)
 
-    monkeypatch.setattr("ai_proxy.logdb.cli.create_bundle", mock_create_bundle)
+    monkeypatch.setattr("ai_proxy.logdb.cli.commands.create_bundle", mock_create_bundle)
 
     rc = logdb_cli.main([
         "bundle", "create",

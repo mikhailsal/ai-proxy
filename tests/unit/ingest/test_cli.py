@@ -1,7 +1,9 @@
 import datetime as dt
 import sqlite3
 import sys
+import logging
 from ai_proxy.logdb import cli as logdb_cli
+from ai_proxy.logdb.cli import commands
 from ai_proxy.logdb.bundle import verify_bundle
 from ai_proxy.logdb.fts import drop_fts_table
 from ai_proxy.logdb.merge import merge_partitions
@@ -31,27 +33,27 @@ def test_cli_gating_env_flags_for_ingest(monkeypatch, tmp_path):
     assert rc2 == 0
 
 
-def test_cli_init_error_handling(monkeypatch, tmp_path):
+def test_cli_init_error_handling(tmp_path, monkeypatch):
     """Test cmd_init handles database integrity check failures."""
     # Mock run_integrity_check to return "failed"
     original_check = run_integrity_check
     def mock_check(conn):
-        return "failed"
+        return "corrupt"
 
-    monkeypatch.setattr("ai_proxy.logdb.cli.run_integrity_check", mock_check)
+    monkeypatch.setattr("ai_proxy.logdb.cli.commands.run_integrity_check", mock_check)
 
     rc = logdb_cli.main(["init", "--out", str(tmp_path / "logs" / "db")])
     assert rc == 1  # Should return 1 for failed integrity check
 
 
-def test_cli_fts_drop_error_handling(monkeypatch, tmp_path):
+def test_cli_fts_drop_error_handling(tmp_path, monkeypatch):
     """Test _cmd_fts_drop handles exceptions and returns appropriate exit codes."""
     # Mock drop_fts_table to raise an exception
     original_drop = drop_fts_table
     def mock_drop(conn):
-        raise Exception("Database error")
+        raise ValueError("drop failed")
 
-    monkeypatch.setattr("ai_proxy.logdb.cli.drop_fts_table", mock_drop)
+    monkeypatch.setattr("ai_proxy.logdb.cli.commands.drop_fts_table", mock_drop)
     monkeypatch.setenv("LOGDB_FTS_ENABLED", "true")
 
     # Create a fake db file
@@ -69,24 +71,24 @@ def test_cli_fts_drop_error_handling(monkeypatch, tmp_path):
     assert rc == 1  # Should return 1 when drop operation fails
 
 
-def test_cli_bundle_verify_command(monkeypatch, tmp_path):
+def test_cli_bundle_verify_command(caplog, monkeypatch):
     """Test bundle verify command outputs correct results."""
     # Test successful verification
-    monkeypatch.setattr("ai_proxy.logdb.cli.verify_bundle", lambda x: True)
+    monkeypatch.setattr("ai_proxy.logdb.cli.commands.verify_bundle", lambda x: True)
     rc = logdb_cli.main(["bundle", "verify", "fake_bundle.tgz"])
     assert rc == 0
 
     # Test failed verification
-    monkeypatch.setattr("ai_proxy.logdb.cli.verify_bundle", lambda x: False)
+    monkeypatch.setattr("ai_proxy.logdb.cli.commands.verify_bundle", lambda x: False)
     rc = logdb_cli.main(["bundle", "verify", "fake_bundle.tgz"])
     assert rc == 1
 
 
-def test_cli_bundle_transfer_command(monkeypatch, tmp_path):
+def test_cli_bundle_transfer_command(caplog, monkeypatch):
     """Test bundle transfer command with different scenarios."""
     # Mock successful copy
-    monkeypatch.setattr("ai_proxy.logdb.cli.copy_with_resume", lambda src, dst: (1000, "abcd1234"))
-    monkeypatch.setattr("ai_proxy.logdb.cli.verify_bundle", lambda x: True)
+    monkeypatch.setattr("ai_proxy.logdb.cli.commands.copy_with_resume", lambda src, dst: (1000, "abcd1234"))
+    monkeypatch.setattr("ai_proxy.logdb.cli.commands.verify_bundle", lambda x: True)
 
     # Test with .tgz extension (should verify)
     rc = logdb_cli.main(["bundle", "transfer", "src.tgz", "dst.tgz"])
@@ -97,40 +99,40 @@ def test_cli_bundle_transfer_command(monkeypatch, tmp_path):
     assert rc == 0
 
 
-def test_cli_bundle_transfer_verify_failure(monkeypatch, tmp_path):
+def test_cli_bundle_transfer_verify_failure(caplog, monkeypatch):
     """Test bundle transfer command when verification fails."""
     # Mock copy success but verify failure
-    monkeypatch.setattr("ai_proxy.logdb.cli.copy_with_resume", lambda src, dst: (1000, "abcd1234"))
-    monkeypatch.setattr("ai_proxy.logdb.cli.verify_bundle", lambda x: False)
+    monkeypatch.setattr("ai_proxy.logdb.cli.commands.copy_with_resume", lambda src, dst: (1000, "abcd1234"))
+    monkeypatch.setattr("ai_proxy.logdb.cli.commands.verify_bundle", lambda x: False)
 
     rc = logdb_cli.main(["bundle", "transfer", "src.tgz", "dst.tgz"])
     assert rc == 1  # Should return 1 when verification fails
 
 
-def test_cli_bundle_import_command(monkeypatch, tmp_path):
+def test_cli_bundle_import_command(tmp_path, caplog, monkeypatch):
     """Test bundle import command output."""
     from ai_proxy.logdb.bundle import import_bundle
 
     # Mock import_bundle to return counts
-    monkeypatch.setattr("ai_proxy.logdb.cli.import_bundle", lambda bundle, dest: (5, 2))
+    monkeypatch.setattr("ai_proxy.logdb.cli.commands.import_bundle", lambda bundle, dest: (5, 2))
 
     rc = logdb_cli.main(["bundle", "import", "bundle.tgz", "--dest", str(tmp_path)])
     assert rc == 0
 
 
-def test_cli_merge_command(monkeypatch, tmp_path):
+def test_cli_merge_command(tmp_path, caplog, monkeypatch):
     """Test merge command output."""
     # Mock merge_partitions to return results
-    monkeypatch.setattr("ai_proxy.logdb.cli.merge_partitions", lambda src, dst: (3, 150, "ok"))
+    monkeypatch.setattr("ai_proxy.logdb.cli.commands.merge_partitions", lambda src, dst: (3, 150, "ok"))
 
     rc = logdb_cli.main(["merge", "--from", str(tmp_path / "src"), "--to", str(tmp_path / "dst.db")])
     assert rc == 0
 
 
-def test_cli_merge_command_integrity_failure(monkeypatch, tmp_path):
+def test_cli_merge_command_integrity_failure(tmp_path, monkeypatch):
     """Test merge command when integrity check fails."""
     # Mock merge_partitions to return failed integrity
-    monkeypatch.setattr("ai_proxy.logdb.cli.merge_partitions", lambda src, dst: (3, 150, "failed"))
+    monkeypatch.setattr("ai_proxy.logdb.cli.commands.merge_partitions", lambda src, dst: (3, 150, "failed"))
 
     rc = logdb_cli.main(["merge", "--from", str(tmp_path / "src"), "--to", str(tmp_path / "dst.db")])
     assert rc == 1
@@ -314,31 +316,39 @@ def test_cli_cmd_init_database_creation(tmp_path):
     assert os.path.isfile(expected_path)
 
 
-def test_cli_bundle_transfer_with_verification_error(monkeypatch, tmp_path):
-    """Test bundle transfer when verification fails."""
-    # Create test files
-    src_file = tmp_path / "test.tgz"
-    dest_file = tmp_path / "dest.tgz"
-    src_file.write_bytes(b"dummy content")
+def test_cli_bundle_transfer_with_verification_error(monkeypatch, tmp_path, caplog):
+    caplog.set_level(logging.INFO)
+    src_file = tmp_path / "src.tgz"
+    src_file.touch()
+    dest_file = tmp_path / "dst.tgz"
 
-    # Mock copy_with_resume to succeed but verify_bundle to fail
-    monkeypatch.setattr("ai_proxy.logdb.cli.copy_with_resume", lambda src, dst: (100, "abcd1234"))
-    monkeypatch.setattr("ai_proxy.logdb.cli.verify_bundle", lambda path: False)
+    monkeypatch.setattr("ai_proxy.logdb.cli.commands.copy_with_resume", lambda src, dst: (100, "abcd1234"))
+    monkeypatch.setattr("ai_proxy.logdb.cli.commands.verify_bundle", lambda path: False)
 
     # Test with .tgz extension (should try to verify)
     rc = logdb_cli.main(["bundle", "transfer", str(src_file), str(dest_file)])
     assert rc == 1  # Should return 1 when verification fails
 
+    # Test with raise exception in verify
+    def raise_exc(path):
+        raise ValueError("verify error")
 
-def test_cli_bundle_transfer_non_bundle_file(monkeypatch, tmp_path):
-    """Test bundle transfer with non-.tgz file (no verification)."""
+    monkeypatch.setattr("ai_proxy.logdb.cli.commands.verify_bundle", raise_exc)
+
+    rc = logdb_cli.main(["bundle", "transfer", str(src_file), str(dest_file)])
+    assert rc == 0  # Should succeed even if verification raises exception
+
+
+def test_cli_bundle_transfer_non_bundle_file(tmp_path, caplog, monkeypatch):
+    caplog.set_level(logging.INFO)
+
     # Create test files
     src_file = tmp_path / "test.txt"
     dest_file = tmp_path / "dest.txt"
     src_file.write_bytes(b"dummy content")
 
     # Mock copy_with_resume
-    monkeypatch.setattr("ai_proxy.logdb.cli.copy_with_resume", lambda src, dst: (100, "abcd1234"))
+    monkeypatch.setattr("ai_proxy.logdb.cli.commands.copy_with_resume", lambda src, dst: (1000, "abcd1234"))
 
     # Test with .txt extension (should not verify)
     rc = logdb_cli.main(["bundle", "transfer", str(src_file), str(dest_file)])

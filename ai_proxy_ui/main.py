@@ -11,34 +11,17 @@ import sqlite3
 from typing import Literal, Optional, List, Tuple
 import json
 
-
-def _get_allowed_origins() -> list[str]:
-    origins = os.getenv("LOGUI_ALLOWED_ORIGINS", "*")
-    # CSV to list, trim whitespace
-    parts = [p.strip() for p in origins.split(",") if p.strip()]
-    return parts if parts else ["*"]
+# Refactored helpers and auth dependency
+from ai_proxy_ui.config import _get_allowed_origins, _get_bool_env, _get_csv_env, API_VERSION
+from ai_proxy_ui.services import auth as auth_service
 
 
-def _get_bool_env(name: str, default: bool = False) -> bool:
-    value = os.getenv(name)
-    if value is None:
-        return default
-    return value.strip().lower() in ("1", "true", "yes", "on")
-
-
-def _get_csv_env(name: str) -> set[str]:
-    raw = os.getenv(name, "")
-    return {item.strip() for item in raw.split(",") if item.strip()}
-
-
-API_VERSION = "ui.v1"
-
-ENVIRONMENT = os.getenv("ENVIRONMENT", "development").strip().lower()
+# Use config helpers imported from `ai_proxy_ui.config`
 
 app = FastAPI(
     title="AI Proxy Logs UI API",
     openapi_url="/ui/v1/openapi.json",
-    docs_url=("/ui/v1/docs" if ENVIRONMENT != "production" else None),
+    docs_url=("/ui/v1/docs" if os.getenv("ENVIRONMENT", "development").strip().lower() != "production" else None),
     redoc_url=None,
 )
 
@@ -199,7 +182,7 @@ This ensures endpoints added later (e.g., /ui/v1/requests) are registered.
 
 
 # In production, expose Swagger UI only to admins
-if ENVIRONMENT == "production":
+if os.getenv("ENVIRONMENT", "development").strip().lower() == "production":
 
     @app.get("/ui/v1/docs", dependencies=[Depends(_require_auth("admin"))])
     async def _swagger_ui_admin_only():

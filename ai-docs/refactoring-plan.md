@@ -316,14 +316,14 @@ Acceptance Criteria (5J)
 - [x] No import errors; functionality preserved
 
 ### 5K: Refactor `ai_proxy/logdb/cli.py` (372 lines)
-- [ ] Create `ai_proxy/logdb/cli/commands.py` (main commands)
-- [ ] Create `ai_proxy/logdb/cli/parsers.py` (argument parsers)
-- [ ] Add `ai_proxy/logdb/cli/__init__.py` (entry point)
+- [x] Create `ai_proxy/logdb/cli/commands.py` (main commands)
+- [x] Create `ai_proxy/logdb/cli/parsers.py` (argument parsers)
+- [x] Add `ai_proxy/logdb/cli/__init__.py` (entry point)
 
 Acceptance Criteria (5K)
-- [ ] All LogDB CLI tests pass (run `make test-unit`)
-- [ ] Coverage >95% for CLI modules
-- [ ] CLI commands functional; no import errors
+- [x] All LogDB CLI tests pass (run `make test-unit`)
+- [x] Coverage >95% for CLI modules
+- [x] CLI commands functional; no import errors
 
 ---
 ## 🔧 Phase 6: Refactoring ai_proxy_ui/main.py (430 lines)
