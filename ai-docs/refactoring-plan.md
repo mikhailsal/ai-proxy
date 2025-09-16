@@ -207,39 +207,39 @@
 
 Each sub-phase below is self-contained with its own tasks and acceptance criteria. Execute, test, and validate each sub-phase independently before proceeding to the next. Maintain coverage >95% within each sub-phase.
 
-### 5A: Split `tests/unit/test_ui_api.py` (599 lines)
-- [ ] Create `tests/unit/ui/test_api.py`
-- [ ] Create `tests/unit/ui/test_models.py`
-- [ ] Create `tests/unit/ui/test_integration.py`
-- [ ] Update imports/fixtures; remove the original large file
+### 5A: Split `tests/unit/test_ui_api.py` (599 lines) ✅ COMPLETED
+- [x] Create `tests/unit/ui/test_api.py`
+- [x] Create `tests/unit/ui/test_models.py`
+- [x] Create `tests/unit/ui/test_integration.py`
+- [x] Update imports/fixtures; remove the original large file
 
-Acceptance Criteria (5A)
-- [ ] All UI API-related unit tests pass (run `make test-unit`)
-- [ ] Coverage >95% for new test modules
-- [ ] No import or path errors
-- [ ] Functionality preserved
+Acceptance Criteria (5A) ✅ MET
+- [x] All UI API-related unit tests pass (run `make test-unit`)
+- [x] Coverage >95% for new test modules
+- [x] No import or path errors
+- [x] Functionality preserved
 
-### 5B: Split `tests/unit/test_logging_config.py` (542 lines)
-- [ ] Create `tests/unit/logging/test_config.py`
-- [ ] Create `tests/unit/logging/test_handlers.py`
-- [ ] Create `tests/unit/logging/test_formatters.py`
-- [ ] Update imports/fixtures; remove the original large file
+### 5B: Split `tests/unit/test_logging_config.py` (542 lines) ✅ COMPLETED
+- [x] Create `tests/unit/logging/test_config.py`
+- [x] Create `tests/unit/logging/test_handlers.py`
+- [x] Create `tests/unit/logging/test_formatters.py`
+- [x] Update imports/fixtures; remove the original large file
 
-Acceptance Criteria (5B)
-- [ ] All logging unit tests pass (run `make test-unit`)
-- [ ] Coverage >95% for logging tests
-- [ ] No import errors
+Acceptance Criteria (5B) ✅ MET
+- [x] All logging unit tests pass (run `make test-unit`)
+- [x] Coverage >95% for logging tests
+- [x] No import errors
 
-### 5C: Split `tests/unit/test_adapters_gemini.py` (470 lines)
-- [ ] Create `tests/unit/adapters/test_gemini_core.py`
-- [ ] Create `tests/unit/adapters/test_gemini_integration.py`
-- [ ] Create `tests/unit/adapters/test_gemini_error_handling.py`
-- [ ] Update imports/fixtures; remove the original large file
+### 5C: Split `tests/unit/test_adapters_gemini.py` (470 lines) ✅ COMPLETED
+- [x] Create `tests/unit/adapters/test_gemini_core.py`
+- [x] Create `tests/unit/adapters/test_gemini_integration.py`
+- [x] Create `tests/unit/adapters/test_gemini_error_handling.py`
+- [x] Update imports/fixtures; remove the original large file
 
-Acceptance Criteria (5C)
-- [ ] Gemini adapter tests pass (run `make test-unit` and `make test-functional` if applicable)
-- [ ] Coverage >95% for gemini adapter tests
-- [ ] No import errors
+Acceptance Criteria (5C) ✅ MET
+- [x] Gemini adapter tests pass (run `make test-unit` and `make test-functional` if applicable)
+- [x] Coverage >95% for gemini adapter tests
+- [x] No import errors
 
 ### 5D: Split `tests/unit/test_logdb_stage_e.py` (462 lines)
 - [ ] Create `tests/unit/logdb/test_stage_e_core.py`
@@ -481,8 +481,8 @@ Acceptance Criteria (5K)
 
 ### Goal Achievement:
 - 🔴 Critical files (6/6): 50% completed (Phase 2: test_logdb_stage_f.py ✅, Phase 3: test_logdb_stage_b.py ✅, Phase 4: ai_proxy/logdb/ingest.py ✅)
-- 🟡 Files requiring attention (13/13): 0% completed
-- 🟢 Module structure: 53% completed (bundle + ingest modules infrastructure ✅)
+- 🟡 Files requiring attention (13/13): 23% completed (Phase 5A: test_ui_api.py ✅, Phase 5B: test_logging_config.py ✅, Phase 5C: test_adapters_gemini.py ✅)
+- 🟢 Module structure: 69% completed (bundle + ingest + ui + logging + adapters modules infrastructure ✅)
 - 🟢 **Coverage >95%:** ✅ Maintained at 98%
 
 ---

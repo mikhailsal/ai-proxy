@@ -1,21 +1,12 @@
-import logging
 import json
-import tempfile
-from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 from ai_proxy.logging.config import (
     PrettyJSONRenderer,
-    EndpointFileHandler,
-    ModelFileHandler,
-    setup_logging,
     get_endpoint_logger,
     get_model_logger,
     log_request_response,
     log_model_usage,
-    logger,
-    endpoint_handler,
-    model_handler,
 )
 
 
@@ -62,174 +53,6 @@ class TestPrettyJSONRenderer:
         assert parsed["obj"] == "non-serializable-object"
 
 
-class TestEndpointFileHandler:
-    """Test cases for EndpointFileHandler class."""
-
-    def test_endpoint_file_handler_init(self):
-        """Test EndpointFileHandler initialization."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            handler = EndpointFileHandler(base_log_dir=tmpdir)
-
-            assert handler.base_log_dir == Path(tmpdir)
-            assert isinstance(handler.handlers, dict)
-            assert len(handler.handlers) == 0
-
-    def test_endpoint_file_handler_get_handler(self):
-        """Test EndpointFileHandler get_handler method."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            handler = EndpointFileHandler(base_log_dir=tmpdir)
-
-            file_handler = handler.get_handler("test_endpoint")
-
-            assert isinstance(file_handler, logging.FileHandler)
-            assert "test_endpoint" in handler.handlers
-            assert handler.handlers["test_endpoint"] == file_handler
-
-    def test_endpoint_file_handler_clean_endpoint_name(self):
-        """Test EndpointFileHandler cleans endpoint names for filenames."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            handler = EndpointFileHandler(base_log_dir=tmpdir)
-
-            # Test various endpoint names
-            handler.get_handler("/v1/chat/completions")
-            handler.get_handler("api:endpoint")
-            handler.get_handler("///multiple///slashes///")
-            handler.get_handler("")
-
-            # Should have cleaned names
-            assert "v1_chat_completions" in handler.handlers
-            assert "apiendpoint" in handler.handlers
-            assert (
-                "multiple___slashes" in handler.handlers
-            )  # Multiple slashes become underscores
-            assert "general" in handler.handlers
-
-    def test_endpoint_file_handler_reuse_handler(self):
-        """Test EndpointFileHandler reuses existing handlers."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            handler = EndpointFileHandler(base_log_dir=tmpdir)
-
-            handler1 = handler.get_handler("test_endpoint")
-            handler2 = handler.get_handler("test_endpoint")
-
-            # Should be the same handler instance
-            assert handler1 is handler2
-            assert len(handler.handlers) == 1
-
-
-class TestModelFileHandler:
-    """Test cases for ModelFileHandler class."""
-
-    def test_model_file_handler_init(self):
-        """Test ModelFileHandler initialization."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            handler = ModelFileHandler(base_log_dir=tmpdir)
-
-            assert handler.base_log_dir == Path(tmpdir)
-            assert isinstance(handler.handlers, dict)
-            assert len(handler.handlers) == 0
-
-    def test_model_file_handler_get_handler(self):
-        """Test ModelFileHandler get_handler method."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            handler = ModelFileHandler(base_log_dir=tmpdir)
-
-            file_handler = handler.get_handler("gpt-4")
-
-            assert isinstance(file_handler, logging.FileHandler)
-            assert "gpt-4" in handler.handlers
-            assert handler.handlers["gpt-4"] == file_handler
-
-    def test_model_file_handler_clean_model_name(self):
-        """Test ModelFileHandler cleans model names for filenames."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            handler = ModelFileHandler(base_log_dir=tmpdir)
-
-            # Test various model names
-            handler.get_handler("openai/gpt-4")
-            handler.get_handler("anthropic:claude-3-opus")
-            handler.get_handler("gpt-4*")
-            handler.get_handler("")
-
-            # Should have cleaned names
-            assert "openai_gpt-4" in handler.handlers
-            assert "anthropic_claude-3-opus" in handler.handlers
-            assert "gpt-4star" in handler.handlers
-            assert "unknown_model" in handler.handlers
-
-    def test_model_file_handler_reuse_handler(self):
-        """Test ModelFileHandler reuses existing handlers."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            handler = ModelFileHandler(base_log_dir=tmpdir)
-
-            handler1 = handler.get_handler("gpt-4")
-            handler2 = handler.get_handler("gpt-4")
-
-            # Should be the same handler instance
-            assert handler1 is handler2
-            assert len(handler.handlers) == 1
-
-
-class TestSetupLogging:
-    """Test cases for setup_logging function."""
-
-    @patch("ai_proxy.logging.config.logging.basicConfig")
-    @patch("ai_proxy.logging.config.structlog.configure")
-    @patch("ai_proxy.logging.config.Path.mkdir")
-    def test_setup_logging_with_file_logging(
-        self, mock_mkdir, mock_structlog_configure, mock_basic_config
-    ):
-        """Test setup_logging with file logging enabled."""
-        setup_logging(log_level="DEBUG", enable_file_logging=True)
-
-        # Should create logs directory
-        mock_mkdir.assert_called_once_with(exist_ok=True)
-
-        # Should configure basic logging with file handler
-        mock_basic_config.assert_called_once()
-        args, kwargs = mock_basic_config.call_args
-        assert kwargs["level"] == logging.DEBUG
-        assert len(kwargs["handlers"]) == 2  # console + file
-
-        # Should configure structlog
-        mock_structlog_configure.assert_called_once()
-
-    @patch("ai_proxy.logging.config.logging.basicConfig")
-    @patch("ai_proxy.logging.config.structlog.configure")
-    @patch("ai_proxy.logging.config.Path.mkdir")
-    def test_setup_logging_without_file_logging(
-        self, mock_mkdir, mock_structlog_configure, mock_basic_config
-    ):
-        """Test setup_logging with file logging disabled."""
-        setup_logging(log_level="WARNING", enable_file_logging=False)
-
-        # Should still create logs directory
-        mock_mkdir.assert_called_once_with(exist_ok=True)
-
-        # Should configure basic logging with only console handler
-        mock_basic_config.assert_called_once()
-        args, kwargs = mock_basic_config.call_args
-        assert kwargs["level"] == logging.WARNING
-        assert len(kwargs["handlers"]) == 1  # console only
-
-        # Should configure structlog
-        mock_structlog_configure.assert_called_once()
-
-    @patch("ai_proxy.logging.config.logging.basicConfig")
-    @patch("ai_proxy.logging.config.structlog.configure")
-    @patch("ai_proxy.logging.config.Path.mkdir")
-    def test_setup_logging_invalid_log_level(
-        self, mock_mkdir, mock_structlog_configure, mock_basic_config
-    ):
-        """Test setup_logging with invalid log level defaults to INFO."""
-        setup_logging(log_level="INVALID", enable_file_logging=True)
-
-        # Should default to INFO level
-        mock_basic_config.assert_called_once()
-        args, kwargs = mock_basic_config.call_args
-        assert kwargs["level"] == logging.INFO
-
-
 class TestGetEndpointLogger:
     """Test cases for get_endpoint_logger function."""
 
@@ -261,7 +84,7 @@ class TestGetEndpointLogger:
 
                     # Should add handler and configure logger
                     mock_logger.addHandler.assert_called_once_with(mock_handler)
-                    mock_logger.setLevel.assert_called_once_with(logging.INFO)
+                    mock_logger.setLevel.assert_called_once_with(20)  # logging.INFO
                     assert mock_logger.propagate is False
 
                     # Should wrap with structlog
@@ -318,7 +141,7 @@ class TestGetModelLogger:
 
                     # Should add handler and configure logger
                     mock_logger.addHandler.assert_called_once_with(mock_handler)
-                    mock_logger.setLevel.assert_called_once_with(logging.INFO)
+                    mock_logger.setLevel.assert_called_once_with(20)  # logging.INFO
                     assert mock_logger.propagate is False
 
                     # Should wrap with structlog
@@ -516,27 +339,3 @@ class TestLogModelUsage:
 
         # Should log only once
         mock_logger.info.assert_called_once()
-
-
-class TestGlobalInstances:
-    """Test cases for global instances."""
-
-    def test_logger_instance(self):
-        """Test that logger is a structlog instance."""
-        assert logger is not None
-        # Should be a structlog logger
-        assert hasattr(logger, "info")
-        assert hasattr(logger, "error")
-        assert hasattr(logger, "bind")
-
-    def test_endpoint_handler_instance(self):
-        """Test that endpoint_handler is an EndpointFileHandler instance."""
-        assert isinstance(endpoint_handler, EndpointFileHandler)
-        assert hasattr(endpoint_handler, "get_handler")
-        assert hasattr(endpoint_handler, "handlers")
-
-    def test_model_handler_instance(self):
-        """Test that model_handler is a ModelFileHandler instance."""
-        assert isinstance(model_handler, ModelFileHandler)
-        assert hasattr(model_handler, "get_handler")
-        assert hasattr(model_handler, "handlers")
