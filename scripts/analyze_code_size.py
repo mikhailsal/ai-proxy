@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Анализатор размера кода для мониторинга рефакторинга.
-Используется для отслеживания прогресса уменьшения больших файлов.
+Code size analyzer for monitoring refactoring progress.
+Used to track reduction of large files across the project.
 """
 
 import os
@@ -24,7 +24,7 @@ class CodeAnalyzer:
         self.root_dir = Path(root_dir)
 
     def analyze_file(self, file_path: Path) -> FileStats:
-        """Анализирует отдельный файл"""
+        """Analyze a single file"""
         lines = 0
         functions = 0
         classes = 0
@@ -39,13 +39,13 @@ class CodeAnalyzer:
                     elif stripped.startswith('class '):
                         classes += 1
         except Exception as e:
-            print(f"Ошибка чтения файла {file_path}: {e}")
+            print(f"Error reading file {file_path}: {e}")
             return FileStats(str(file_path), 0, 0, 0)
 
         return FileStats(str(file_path), lines, functions, classes)
 
     def find_python_files(self) -> List[Path]:
-        """Находит все Python файлы в проекте"""
+        """Find all Python files in the project"""
         python_files = []
         for root, dirs, files in os.walk(self.root_dir):
             # Исключаем некоторые директории
@@ -58,12 +58,12 @@ class CodeAnalyzer:
         return python_files
 
     def analyze_project(self) -> Dict[str, List[FileStats]]:
-        """Анализирует весь проект"""
+        """Analyze the entire project"""
         python_files = self.find_python_files()
         results = {
-            'critical': [],  # > 500 строк
-            'warning': [],   # 300-500 строк
-            'normal': [],    # < 300 строк
+            'critical': [],  # > 500 lines
+            'warning': [],   # 300-500 lines
+            'normal': [],    # < 300 lines
             'summary': []
         }
 
@@ -97,51 +97,50 @@ class CodeAnalyzer:
         return results
 
     def print_report(self, results: Dict[str, List[FileStats]]) -> None:
-        """Печатает отчет"""
-        print("🚀 АНАЛИЗ РАЗМЕРА КОДА AI-PROXY ПРОЕКТА")
+        """Print the analysis report"""
+        print("🚀 AI-PROXY CODE SIZE ANALYSIS")
         print("=" * 60)
 
-        # Сводка
+        # Summary
         summary = results['summary'][0]
-        print("📊 СВОДКА:")
-        print(f"  Всего файлов: {summary['total_files']}")
-        print(",")
-        print(f"  Всего функций: {summary['total_functions']}")
-        print(f"  Всего классов: {summary['total_classes']}")
+        print("📊 SUMMARY:")
+        print(f"  Total files: {summary['total_files']}")
+        print(f"  Total functions: {summary['total_functions']}")
+        print(f"  Total classes: {summary['total_classes']}")
         print()
 
-        # Критические файлы
+        # Critical files
         if results['critical']:
-            print("🔴 КРИТИЧЕСКИЕ ФАЙЛЫ (>500 строк):")
+            print("🔴 CRITICAL FILES (>500 lines):")
             for file in sorted(results['critical'], key=lambda x: x.lines, reverse=True):
-                print("6")
+                print(f"  {file.path}: {file.lines} lines, {file.functions} functions, {file.classes} classes")
             print()
 
-        # Предупреждения
+        # Warnings
         if results['warning']:
-            print("🟡 ФАЙЛЫ ТРЕБУЮЩИЕ ВНИМАНИЯ (300-500 строк):")
+            print("🟡 FILES REQUIRING ATTENTION (300-500 lines):")
             for file in sorted(results['warning'], key=lambda x: x.lines, reverse=True):
-                print("6")
+                print(f"  {file.path}: {file.lines} lines, {file.functions} functions, {file.classes} classes")
             print()
 
-        # Рекомендации
-        print("💡 РЕКОМЕНДАЦИИ:")
+        # Recommendations
+        print("💡 RECOMMENDATIONS:")
         if results['critical']:
-            print("  • Разбить критические файлы на модули")
-            print("  • Выделить общую логику в отдельные файлы")
-            print("  • Создать фабрики для тестовых данных")
+            print("  • Split critical files into modules")
+            print("  • Extract common logic into separate files")
+            print("  • Create test data factories")
         if results['warning']:
-            print("  • Рассмотреть возможность дальнейшего разделения")
-            print("  • Проверить на наличие дублированного кода")
+            print("  • Consider further splitting")
+            print("  • Check for duplicated code")
 
         if not results['critical'] and not results['warning']:
-            print("  ✅ Отличная структура кода! Все файлы в норме.")
+            print("  ✅ Great code structure — all files are within size targets.")
 
         print()
-        print("📈 ЦЕЛИ РЕФАКТОРИНГА:")
-        print("  • Максимальный размер файла: < 300 строк")
-        print("  • Средний размер файла: < 150 строк")
-        print("  • Количество файлов в модуле: < 10")
+        print("📈 REFACTORING GOALS:")
+        print("  • Max file size: < 300 lines")
+        print("  • Average file size: < 150 lines")
+        print("  • Files per module: < 10")
 
 
 def main():
