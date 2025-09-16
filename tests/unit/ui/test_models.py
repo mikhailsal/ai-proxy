@@ -395,7 +395,7 @@ def test_iter_all_partitions_skips_non_matching_files(tmp_path, monkeypatch):
     open(base_dir / "wrong_prefix_20250912.sqlite3", "w").close()  # wrong prefix to hit line 357
     monkeypatch.setenv("LOGUI_API_KEYS", "user-key")
     monkeypatch.setenv("LOGUI_DB_ROOT", str(tmp_path / "logs" / "db"))
-    from ai_proxy_ui.main import _iter_all_partitions
+    from ai_proxy_ui.routers.requests import _iter_all_partitions
     # Direct call to test skips
     paths = _iter_all_partitions(str(tmp_path / "logs" / "db"))
     assert len(paths) == 1
@@ -403,7 +403,7 @@ def test_iter_all_partitions_skips_non_matching_files(tmp_path, monkeypatch):
 
 
 def test_decode_cursor_invalid_base64_raises(monkeypatch):
-    from ai_proxy_ui.main import _decode_cursor
+    from ai_proxy_ui.routers.requests import _decode_cursor
     import pytest
     with pytest.raises(Exception) as exc:  # HTTPException in context
         _decode_cursor("not-base64!!!")

@@ -114,9 +114,9 @@ def test_swagger_ui_gated_in_production_for_admin_only(monkeypatch):
     assert "text/html" in r.headers.get("content-type", "")
 
 
-def test_rate_limit_enforced_per_key():
-    os.environ["LOGUI_API_KEYS"] = "user-key"
-    os.environ["LOGUI_RATE_LIMIT_RPS"] = "2"
+def test_rate_limit_enforced_per_key(monkeypatch):
+    monkeypatch.setenv("LOGUI_API_KEYS", "user-key")
+    monkeypatch.setenv("LOGUI_RATE_LIMIT_RPS", "2")
 
     from ai_proxy_ui.main import app
 
@@ -165,16 +165,24 @@ def test_auth_empty_token_raises_401(monkeypatch):
 def test_rate_limit_invalid_rps_falls_back(monkeypatch):
     monkeypatch.setenv("LOGUI_API_KEYS", "user-key")
     monkeypatch.setenv("LOGUI_RATE_LIMIT_RPS", "invalid")
-    from ai_proxy_ui.main import app, _rate_limit_buckets, _rate_limit_cached_rps
+    from ai_proxy_ui.main import app
+    from ai_proxy_ui.services.auth import _rate_limit_buckets, _rate_limit_cached_rps as _auth_rate_limit_cached
     # Clear any existing rate limit state
     _rate_limit_buckets.clear()
     # Reset cached RPS to force re-evaluation of environment variable
-    import ai_proxy_ui.main
-    ai_proxy_ui.main._rate_limit_cached_rps = None
+    import ai_proxy_ui.services.auth as auth_module
+    auth_module._rate_limit_cached_rps = None
+    # Make time deterministic so all requests fall into the same window
+    import time as _time
+    fixed_sec = int(_time.time())
+    auth_module.time.time = lambda: fixed_sec
     client = TestClient(app)
     # Make requests to trigger the fallback path
     for _ in range(11):  # Default is 10, so 11th should 429
         r = client.get("/ui/v1/health", headers={"Authorization": "Bearer user-key"})
+    # Restore time.time to real function to avoid side effects
+    import importlib
+    importlib.reload(auth_module)
     assert r.status_code == 429
 
 
@@ -189,8 +197,8 @@ def test_config_invalid_rps_falls_back(monkeypatch):
 
 
 def test_parse_date_no_value_no_default_raises(monkeypatch):
-    # Direct import to test helper
-    from ai_proxy_ui.main import _parse_date_param
+    # Direct import to test helper; helpers live in routers.requests after refactor
+    from ai_proxy_ui.routers.requests import _parse_date_param
     import pytest
     with pytest.raises(Exception) as exc:
         _parse_date_param(None, None)
