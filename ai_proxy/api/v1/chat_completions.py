@@ -17,6 +17,13 @@ from ai_proxy.security.auth import get_api_key
 from ai_proxy.core.routing import router as routing_router
 from ai_proxy.core.config import settings
 from ai_proxy.api.v1.models import ChatCompletionRequest
+from ai_proxy.api.v1.validation import validate_chat_completion_request, create_validation_error_response
+from ai_proxy.api.v1.error_handlers import (
+    handle_streaming_error,
+    validate_provider_response,
+    handle_request_error,
+    create_internal_error_response,
+)
 
 router = APIRouter(tags=["API"])
 
@@ -45,32 +52,10 @@ async def chat_completions(request: Request, api_key: str = Depends(get_api_key)
 
     # Parse and validate request body
     try:
-        request_data = await request.json()
-        # Validate with Pydantic model
-        validated_request = ChatCompletionRequest(**request_data)
-        request_data = validated_request.model_dump(exclude_none=True)
+        raw_request_data = await request.json()
+        request_data = validate_chat_completion_request(raw_request_data)
     except ValueError as e:
-        logger.error(f"Invalid request data: {e}")
-        return JSONResponse(
-            content={
-                "error": {
-                    "message": f"Invalid request: {str(e)}",
-                    "type": "invalid_request_error",
-                }
-            },
-            status_code=400,
-        )
-    except Exception as e:
-        logger.error(f"Failed to parse request: {e}")
-        return JSONResponse(
-            content={
-                "error": {
-                    "message": "Malformed JSON in request body",
-                    "type": "invalid_request_error",
-                }
-            },
-            status_code=400,
-        )
+        return create_validation_error_response(str(e))
 
     # Extract model information for logging
     original_model = request_data.get("model", "unknown")
@@ -236,46 +221,13 @@ async def chat_completions(request: Request, api_key: str = Depends(get_api_key)
                     )
 
                 except Exception as e:
-                    total_latency_ms = (time.time() - start_time) * 1000
-                    status_code = 500
-                    error_response = {"error": f"Streaming error: {str(e)}"}
-
-                    logger.error("Error during streaming", exc_info=e)
-
-                    # Log error with full details
-                    log.info(
-                        "Streaming request failed with internal error",
-                        status_code=status_code,
-                        mapped_model=current_mapped_model,
-                        response_body=error_response,
-                        total_latency_ms=round(total_latency_ms),
-                        error=str(e),
+                    # Yield error chunk and stop processing
+                    error_chunk = handle_streaming_error(
+                        e, start_time, endpoint, request_data,
+                        original_model, current_mapped_model, api_key
                     )
-
-                    # Log to endpoint-specific log file
-                    log_request_response(
-                        endpoint=endpoint,
-                        request_data=request_data,
-                        response_data=error_response,
-                        status_code=status_code,
-                        latency_ms=total_latency_ms,
-                        api_key_hash=str(hash(api_key)),
-                    )
-
-                    # Log to model-specific log files
-                    log_model_usage(
-                        original_model=original_model,
-                        mapped_model=current_mapped_model,
-                        request_data=request_data,
-                        response_data=error_response,
-                        status_code=status_code,
-                        latency_ms=total_latency_ms,
-                        api_key_hash=str(hash(api_key)),
-                    )
-
-                    # Send error chunk
-                    error_chunk = f'data: {{"error": "Streaming error: {str(e)}"}}\n\ndata: [DONE]\n\n'
                     yield error_chunk
+                    return
 
             return StreamingResponse(
                 log_and_stream(),
@@ -288,31 +240,7 @@ async def chat_completions(request: Request, api_key: str = Depends(get_api_key)
             )
         else:
             # Handle non-streaming response
-            if not hasattr(provider_response, "status_code") or not hasattr(
-                provider_response, "content"
-            ):
-                raise ValueError(
-                    "Expected httpx.Response-like object for non-streaming"
-                )
-            try:
-                # At this point we know provider_response has the required attributes
-                assert hasattr(provider_response, "json"), (
-                    "Response object should have json method"
-                )
-                if not provider_response.content:
-                    logger.warning("Empty response from provider")
-                response_body = (
-                    provider_response.json()
-                    if provider_response.content
-                    else {"error": "Empty response from provider"}
-                )
-            except ValueError as json_error:
-                logger.error(f"Invalid JSON response from provider: {json_error}")
-                logger.debug(f"Response content: {provider_response.content!r}")
-                response_body = {"error": "Invalid response from provider"}
-                status_code = 502
-            else:
-                status_code = provider_response.status_code
+            response_body, status_code = validate_provider_response(provider_response)
 
             # Extract mapped model from response if available
             if isinstance(response_body, dict) and "model" in response_body:
@@ -358,29 +286,7 @@ async def chat_completions(request: Request, api_key: str = Depends(get_api_key)
             )
 
     except Exception as e:
-        logger.error("Error processing request", exc_info=e)
-        response_body = {"error": "Internal Server Error"}
-        status_code = 500
-
-        # Log error for non-streaming requests
-        if not is_streaming:
-            total_latency_ms = (time.time() - start_time) * 1000
-
-            log.info(
-                "Request finished",
-                status_code=status_code,
-                mapped_model=mapped_model,
-                response_body=response_body,
-                total_latency_ms=round(total_latency_ms),
-            )
-
-            return JSONResponse(
-                content=response_body,
-                status_code=status_code,
-            )
-        else:
-            # For streaming errors, return error response
-            return JSONResponse(
-                content=response_body,
-                status_code=status_code,
-            )
+        return handle_request_error(
+            e, start_time, endpoint, request_data,
+            original_model, mapped_model, api_key, is_streaming
+        )

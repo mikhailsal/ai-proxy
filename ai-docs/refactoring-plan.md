@@ -306,14 +306,14 @@ Acceptance Criteria (5I) ✅ MET
 - [x] No import errors
 
 ### 5J: Refactor `ai_proxy/api/v1/chat_completions.py` (386 lines)
-- [ ] Keep `ai_proxy/api/v1/chat_completions.py` as controller/entry
-- [ ] Extract validation to `ai_proxy/api/v1/validation.py`
-- [ ] Extract error handling to `ai_proxy/api/v1/error_handlers.py`
+- [x] Keep `ai_proxy/api/v1/chat_completions.py` as controller/entry
+- [x] Extract validation to `ai_proxy/api/v1/validation.py`
+- [x] Extract error handling to `ai_proxy/api/v1/error_handlers.py`
 
 Acceptance Criteria (5J)
-- [ ] All chat completion endpoint tests pass (run `make test-unit test-integration`)
-- [ ] Coverage >95% for the file (fix from current 94%)
-- [ ] No import errors; functionality preserved
+- [x] All chat completion endpoint tests pass (run `make test-unit test-integration`)
+- [x] Coverage >95% for the file (fix from current 94%)
+- [x] No import errors; functionality preserved
 
 ### 5K: Refactor `ai_proxy/logdb/cli.py` (372 lines)
 - [ ] Create `ai_proxy/logdb/cli/commands.py` (main commands)
@@ -481,8 +481,8 @@ Acceptance Criteria (5K)
 
 ### Goal Achievement:
 - 🔴 Critical files (6/6): 50% completed (Phase 2: test_logdb_stage_f.py ✅, Phase 3: test_logdb_stage_b.py ✅, Phase 4: ai_proxy/logdb/ingest.py ✅)
-- 🟡 Files requiring attention (13/13): 62% completed (Phase 5A: test_ui_api.py ✅, Phase 5B: test_logging_config.py ✅, Phase 5C: test_adapters_gemini.py ✅, Phase 5D: test_logdb_stage_e.py ✅, Phase 5E: test_chat_completions_endpoint.py ✅, Phase 5F: test_logdb_fts.py ✅, Phase 5G: test_api_models.py ✅, Phase 5H: test_adapters_openrouter.py ✅, Phase 5I: test_logdb_stage_d.py ✅)
-- 🟢 Module structure: 69% completed (bundle + ingest + ui + logging + adapters + api + logdb modules infrastructure ✅)
+- 🟡 Files requiring attention (13/13): 69% completed (Phase 5A: test_ui_api.py ✅, Phase 5B: test_logging_config.py ✅, Phase 5C: test_adapters_gemini.py ✅, Phase 5D: test_logdb_stage_e.py ✅, Phase 5E: test_chat_completions_endpoint.py ✅, Phase 5F: test_logdb_fts.py ✅, Phase 5G: test_api_models.py ✅, Phase 5H: test_adapters_openrouter.py ✅, Phase 5I: test_logdb_stage_d.py ✅, Phase 5J: ai_proxy/api/v1/chat_completions.py ✅)
+- 🟢 Module structure: 72% completed (bundle + ingest + ui + logging + adapters + api + logdb modules infrastructure ✅)
 - 🟢 **Coverage >95%:** ✅ Maintained at 98%
 
 ---

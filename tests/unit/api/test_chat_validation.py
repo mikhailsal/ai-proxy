@@ -158,8 +158,14 @@ class TestChatCompletionsValidation:
             }
         )
 
-        with patch("ai_proxy.api.v1.chat_completions.settings") as mock_settings:
-            mock_settings.get_mapped_model.return_value = (None, None)  # Model not found
+        with patch("ai_proxy.api.v1.chat_completions.settings") as mock_settings, \
+             patch("ai_proxy.core.routing.settings") as mock_routing_settings:
+
+            mock_settings.get_mapped_model.return_value = ("openrouter", "unsupported-model-12345")
+            mock_settings.is_valid_model.return_value = False  # Model is not valid
+
+            mock_routing_settings.get_mapped_model.return_value = ("openrouter", "unsupported-model-12345")
+            mock_routing_settings.is_valid_model.return_value = False  # Model is not valid
 
             # Execute
             response = await chat_completions(mock_request, "test-api-key")

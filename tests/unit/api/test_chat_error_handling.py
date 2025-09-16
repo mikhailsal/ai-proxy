@@ -38,7 +38,7 @@ class TestChatCompletionsErrorHandling:
 
     @patch("ai_proxy.api.v1.chat_completions.routing_router")
     @patch("ai_proxy.api.v1.chat_completions.settings")
-    @patch("ai_proxy.api.v1.chat_completions.logger")
+    @patch("ai_proxy.api.v1.error_handlers.logger")
     @patch("ai_proxy.api.v1.chat_completions.log_request_response")
     @patch("ai_proxy.api.v1.chat_completions.log_model_usage")
     @patch("ai_proxy.api.v1.chat_completions.time")
@@ -76,7 +76,7 @@ class TestChatCompletionsErrorHandling:
 
     @patch("ai_proxy.api.v1.chat_completions.routing_router")
     @patch("ai_proxy.api.v1.chat_completions.settings")
-    @patch("ai_proxy.api.v1.chat_completions.logger")
+    @patch("ai_proxy.api.v1.error_handlers.logger")
     @patch("ai_proxy.api.v1.chat_completions.log_request_response")
     @patch("ai_proxy.api.v1.chat_completions.log_model_usage")
     @patch("ai_proxy.api.v1.chat_completions.time")
@@ -111,7 +111,7 @@ class TestChatCompletionsErrorHandling:
 
     @patch("ai_proxy.api.v1.chat_completions.routing_router")
     @patch("ai_proxy.api.v1.chat_completions.settings")
-    @patch("ai_proxy.api.v1.chat_completions.logger")
+    @patch("ai_proxy.api.v1.error_handlers.logger")
     @patch("ai_proxy.api.v1.chat_completions.time")
     @pytest.mark.asyncio
     async def test_chat_completions_non_streaming_exception(
@@ -181,9 +181,9 @@ class TestChatCompletionsErrorHandling:
 
     @patch("ai_proxy.api.v1.chat_completions.routing_router")
     @patch("ai_proxy.api.v1.chat_completions.settings")
-    @patch("ai_proxy.api.v1.chat_completions.logger")
-    @patch("ai_proxy.api.v1.chat_completions.log_request_response")
-    @patch("ai_proxy.api.v1.chat_completions.log_model_usage")
+    @patch("ai_proxy.api.v1.error_handlers.logger")
+    @patch("ai_proxy.api.v1.error_handlers.log_request_response")
+    @patch("ai_proxy.api.v1.error_handlers.log_model_usage")
     @patch("ai_proxy.api.v1.chat_completions.time")
     @pytest.mark.asyncio
     async def test_chat_completions_streaming_exception(
@@ -225,7 +225,7 @@ class TestChatCompletionsErrorHandling:
 
     @patch("ai_proxy.api.v1.chat_completions.routing_router")
     @patch("ai_proxy.api.v1.chat_completions.settings")
-    @patch("ai_proxy.api.v1.chat_completions.logger")
+    @patch("ai_proxy.api.v1.error_handlers.logger")
     @patch("ai_proxy.api.v1.chat_completions.time")
     @pytest.mark.asyncio
     async def test_chat_completions_streaming_router_exception(
