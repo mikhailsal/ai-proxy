@@ -23,11 +23,10 @@ def test_bundle_import_corrupted_metadata(tmp_path):
     dest_dir.mkdir()
 
     # Should raise ValueError for missing metadata.json
-    try:
+    import pytest
+    with pytest.raises(ValueError) as exc:
         import_bundle(str(empty_bundle), str(dest_dir))
-        assert False, "Should have raised ValueError"
-    except ValueError as e:
-        assert "metadata.json" in str(e)
+    assert "metadata.json" in str(exc.value)
 
 
 def test_bundle_import_path_traversal_attack(tmp_path):
@@ -67,19 +66,20 @@ def test_bundle_import_path_traversal_attack(tmp_path):
     with open(meta_path, "w") as f:
         json.dump(meta, f)
 
-    # Create the malicious file in the tar structure
-    malicious_path = temp_dir / "db" / "../../../etc/passwd"
-    os.makedirs(os.path.dirname(malicious_path), exist_ok=True)
-    with open(malicious_path, "wb") as f:
+    # Create the malicious file safely inside temp_dir and add it to the tar
+    # with a traversal arcname so we don't write outside the tmp tree.
+    safe_malicious_src = temp_dir / "db" / "malicious_payload"
+    os.makedirs(os.path.dirname(safe_malicious_src), exist_ok=True)
+    with open(safe_malicious_src, "wb") as f:
         f.write(b"malicious content")
 
-    # Repack with the correct arcname
+    # Repack with the traversal arcname but using the safe source file
     malicious_bundle = tmp_path / "malicious.tgz"
     with tarfile.open(malicious_bundle, "w:gz") as tar:
         # Add metadata
         tar.add(str(meta_path), arcname="metadata.json")
-        # Add the malicious file with the traversal path
-        tar.add(str(malicious_path), arcname="db/../../../etc/passwd")
+        # Add the malicious file using a path-traversal arcname only (safe src)
+        tar.add(str(safe_malicious_src), arcname="db/../../../etc/passwd")
         # Add the original db files
         for root, _, files in os.walk(temp_dir / "db"):
             for file in files:
@@ -92,11 +92,10 @@ def test_bundle_import_path_traversal_attack(tmp_path):
     dest_dir.mkdir()
 
     # Should raise ValueError for path traversal attempt
-    try:
+    import pytest
+    with pytest.raises(ValueError) as exc2:
         import_bundle(str(malicious_bundle), str(dest_dir))
-        assert False, "Should have raised ValueError for path traversal"
-    except ValueError as e:
-        assert "Refusing to write outside destination" in str(e)
+    assert "Refusing to write outside destination" in str(exc2.value)
 
 
 def test_import_bundle_metadata_extraction_fails(tmp_path):
@@ -280,11 +279,10 @@ def test_import_bundle_file_extraction_fails(tmp_path, monkeypatch):
     dest_dir.mkdir()
 
     # Should raise ValueError when extractfile returns None
-    try:
+    import pytest
+    with pytest.raises(ValueError) as exc3:
         mock_import_bundle(str(bundle_path), str(dest_dir))
-        assert False, "Should have raised ValueError"
-    except ValueError as e:
-        assert "Failed to extract" in str(e)
+    assert "Failed to extract" in str(exc3.value)
 
 
 def test_import_bundle_checksum_mismatch(tmp_path):
@@ -327,8 +325,7 @@ def test_import_bundle_checksum_mismatch(tmp_path):
     dest_dir.mkdir()
 
     # Should raise ValueError for checksum mismatch
-    try:
+    import pytest
+    with pytest.raises(ValueError) as exc4:
         import_bundle(str(bundle_path), str(dest_dir))
-        assert False, "Should have raised ValueError"
-    except ValueError as e:
-        assert "Checksum mismatch" in str(e)
+    assert "Checksum mismatch" in str(exc4.value)

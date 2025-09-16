@@ -179,86 +179,37 @@ def test_cli_fts_drop_date_range_scenarios(monkeypatch, tmp_path):
 def test_cli_main_with_invalid_command():
     """Test main function with invalid command."""
     # Mock sys.exit to capture the exit code
-    original_exit = sys.exit
-    exit_codes = []
-    def mock_exit(code):
-        exit_codes.append(code)
-        raise SystemExit(code)
-
-    sys.exit = mock_exit
-    try:
+    import pytest
+    with pytest.raises(SystemExit) as se:
         logdb_cli.main(["invalid-command"])
-        assert False, "Should have called sys.exit"
-    except SystemExit:
-        pass
-    finally:
-        sys.exit = original_exit
-
-    assert exit_codes == [2]
+    assert se.value.code == 2
 
 
 def test_cli_main_with_no_args():
     """Test main function with no arguments."""
     # Mock sys.exit to capture the exit code
-    original_exit = sys.exit
-    exit_codes = []
-    def mock_exit(code):
-        exit_codes.append(code)
-        raise SystemExit(code)
-
-    sys.exit = mock_exit
-    try:
+    import pytest
+    with pytest.raises(SystemExit) as se2:
         logdb_cli.main([])
-        assert False, "Should have called sys.exit"
-    except SystemExit:
-        pass
-    finally:
-        sys.exit = original_exit
-
-    assert exit_codes == [2]
+    assert se2.value.code == 2
 
 
 def test_cli_main_with_help():
     """Test main function with help flag."""
     # Mock sys.exit to capture the exit code
-    original_exit = sys.exit
-    exit_codes = []
-    def mock_exit(code):
-        exit_codes.append(code)
-        raise SystemExit(code)
-
-    sys.exit = mock_exit
-    try:
+    import pytest
+    with pytest.raises(SystemExit) as se3:
         logdb_cli.main(["--help"])
-        assert False, "Should have called sys.exit"
-    except SystemExit:
-        pass
-    finally:
-        sys.exit = original_exit
-
-    assert exit_codes == [0]
+    assert se3.value.code == 0
 
 
 def test_cli_main_with_argv_none():
     """Test main function with argv=None."""
     # Mock sys.exit to capture the exit code
-    original_exit = sys.exit
-    exit_codes = []
-    def mock_exit(code):
-        exit_codes.append(code)
-        raise SystemExit(code)
-
-    sys.exit = original_exit
-    try:
-        sys.exit = mock_exit
+    import pytest
+    with pytest.raises(SystemExit) as se4:
         logdb_cli.main(None)
-        assert False, "Should have called sys.exit"
-    except SystemExit:
-        pass
-    finally:
-        sys.exit = original_exit
-
-    assert exit_codes == [2]  # Invalid command line from pytest
+    assert se4.value.code == 2  # Invalid command line from pytest
 
 
 def test_cli_build_parser_structure():
@@ -285,11 +236,10 @@ def test_cli_cmd_init_with_invalid_date(monkeypatch, tmp_path):
     args = Args()
 
     # Should handle invalid date gracefully by raising ValueError
-    try:
+    import pytest
+    with pytest.raises(ValueError) as ex:
         logdb_cli.cmd_init(args)
-        assert False, "Should have raised ValueError"
-    except ValueError as e:
-        assert "time data" in str(e) and "does not match format" in str(e)
+    assert "time data" in str(ex.value) and "does not match format" in str(ex.value)
 
 
 def test_cli_cmd_init_database_creation(tmp_path):

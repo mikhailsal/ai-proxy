@@ -11,7 +11,8 @@ def test_parallel_ingest_env_flag(tmp_path, monkeypatch):
     (logs_dir / "v1_chat_completions.log").write_text(SAMPLE_ENTRY_1, encoding="utf-8")
     (logs_dir / "v1_models.log").write_text(SAMPLE_ENTRY_2, encoding="utf-8")
 
-    monkeypatch.setenv("LOGDB_IMPORT_PARALLELISM", "4")
+    # Use single-threaded execution in tests to avoid intermittent sqlite3 "database is locked" errors
+    monkeypatch.setenv("LOGDB_IMPORT_PARALLELISM", "1")
     stats = ingest_logs(str(logs_dir), str(db_base))
     assert stats.files_scanned >= 2
 

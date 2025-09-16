@@ -64,12 +64,14 @@ def test_bundle_collect_raw_logs_file_not_found_error(tmp_path, monkeypatch):
     temp_file.write_text("test")
     temp_file.unlink()  # File no longer exists
 
-    # Mock os.stat to raise FileNotFoundError
+    # Mock os.stat to raise FileNotFoundError using monkeypatch for safe restore
     original_stat = os.stat
-    def mock_stat(path):
-        if str(path) == str(temp_file):
+    def mock_stat(*args, **kwargs):
+        # first positional arg is the path
+        path = args[0] if args else kwargs.get('path')
+        if path is not None and str(path) == str(temp_file):
             raise FileNotFoundError("File not found")
-        return original_stat(path)
+        return original_stat(*args, **kwargs)
 
     monkeypatch.setattr(os, "stat", mock_stat)
 
@@ -173,11 +175,10 @@ def test_verify_bundle_metadata_extraction_fails(tmp_path):
         tar.addfile(info)
 
     # This should trigger the ValueError when extractfile returns None
-    try:
+    import pytest
+    with pytest.raises(ValueError) as exc:
         verify_bundle(str(bundle_path))
-        assert False, "Should have raised ValueError"
-    except ValueError as e:
-        assert "Failed to extract metadata" in str(e)
+    assert "Failed to extract metadata" in str(exc.value)
 
 
 def test_verify_bundle_file_extraction_fails(tmp_path):
