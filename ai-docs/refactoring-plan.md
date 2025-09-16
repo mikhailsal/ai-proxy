@@ -203,78 +203,129 @@
 
 ---
 
-## 🔧 Phase 5: Refactoring Remaining Large Files
+## 🔧 Phase 5: Split Into Independently Testable Sub-Phases
 
-### 5.1 test_ui_api.py (599 lines)
-- [ ] `tests/unit/ui/test_api.py` - UI API tests
-- [ ] `tests/unit/ui/test_models.py` - UI model tests
-- [ ] `tests/unit/ui/test_integration.py` - integration tests
+Each sub-phase below is self-contained with its own tasks and acceptance criteria. Execute, test, and validate each sub-phase independently before proceeding to the next. Maintain coverage >95% within each sub-phase.
 
-### 5.2 test_logging_config.py (542 lines)
-- [ ] `tests/unit/logging/test_config.py` - basic configuration
-- [ ] `tests/unit/logging/test_handlers.py` - log handlers
-- [ ] `tests/unit/logging/test_formatters.py` - formatters
+### 5A: Split `tests/unit/test_ui_api.py` (599 lines)
+- [ ] Create `tests/unit/ui/test_api.py`
+- [ ] Create `tests/unit/ui/test_models.py`
+- [ ] Create `tests/unit/ui/test_integration.py`
+- [ ] Update imports/fixtures; remove the original large file
 
-### 5.3 test_adapters_gemini.py (470 lines)
-- [ ] `tests/unit/adapters/test_gemini_core.py` - core functionality
-- [ ] `tests/unit/adapters/test_gemini_integration.py` - integration tests
-- [ ] `tests/unit/adapters/test_gemini_error_handling.py` - error handling
+Acceptance Criteria (5A)
+- [ ] All UI API-related unit tests pass (run `make test-unit`)
+- [ ] Coverage >95% for new test modules
+- [ ] No import or path errors
+- [ ] Functionality preserved
 
-### 5.4 test_logdb_stage_e.py (462 lines)
-- [ ] `tests/unit/logdb/test_stage_e_core.py`
-- [ ] `tests/unit/logdb/test_stage_e_utils.py`
+### 5B: Split `tests/unit/test_logging_config.py` (542 lines)
+- [ ] Create `tests/unit/logging/test_config.py`
+- [ ] Create `tests/unit/logging/test_handlers.py`
+- [ ] Create `tests/unit/logging/test_formatters.py`
+- [ ] Update imports/fixtures; remove the original large file
 
-### 5.5 test_chat_completions_endpoint.py (439 lines)
-- [ ] `tests/unit/api/test_chat_core.py`
-- [ ] `tests/unit/api/test_chat_validation.py`
-- [ ] `tests/unit/api/test_chat_error_handling.py`
+Acceptance Criteria (5B)
+- [ ] All logging unit tests pass (run `make test-unit`)
+- [ ] Coverage >95% for logging tests
+- [ ] No import errors
 
-### 5.6 test_logdb_fts.py (423 lines)
-- [ ] `tests/unit/logdb/test_fts_core.py`
-- [ ] `tests/unit/logdb/test_fts_indexing.py`
-- [ ] `tests/unit/logdb/test_fts_search.py`
+### 5C: Split `tests/unit/test_adapters_gemini.py` (470 lines)
+- [ ] Create `tests/unit/adapters/test_gemini_core.py`
+- [ ] Create `tests/unit/adapters/test_gemini_integration.py`
+- [ ] Create `tests/unit/adapters/test_gemini_error_handling.py`
+- [ ] Update imports/fixtures; remove the original large file
 
-### 5.7 test_api_models.py (410 lines)
-- [ ] `tests/unit/api/test_models_core.py`
-- [ ] `tests/unit/api/test_models_validation.py`
-- [ ] `tests/unit/api/test_models_serialization.py`
+Acceptance Criteria (5C)
+- [ ] Gemini adapter tests pass (run `make test-unit` and `make test-functional` if applicable)
+- [ ] Coverage >95% for gemini adapter tests
+- [ ] No import errors
 
-### 5.8 test_adapters_openrouter.py (406 lines)
-- [ ] `tests/unit/adapters/test_openrouter_core.py`
-- [ ] `tests/unit/adapters/test_openrouter_integration.py`
-- [ ] `tests/unit/adapters/test_openrouter_error_handling.py`
+### 5D: Split `tests/unit/test_logdb_stage_e.py` (462 lines)
+- [ ] Create `tests/unit/logdb/test_stage_e_core.py`
+- [ ] Create `tests/unit/logdb/test_stage_e_utils.py`
+- [ ] Update imports/fixtures; remove the original large file
 
-### 5.9 test_logdb_stage_d.py (391 lines)
-- [ ] `tests/unit/logdb/test_stage_d_core.py`
-- [ ] `tests/unit/logdb/test_stage_d_utils.py`
+Acceptance Criteria (5D)
+- [ ] Stage E tests pass (run `make test-unit`)
+- [ ] Coverage >95% for Stage E tests
+- [ ] No import errors
 
-### 5.10 ai_proxy/api/v1/chat_completions.py (386 lines)
-- [ ] `ai_proxy/api/v1/chat_completions.py` (keep)
+### 5E: Split `tests/unit/test_chat_completions_endpoint.py` (439 lines)
+- [ ] Create `tests/unit/api/test_chat_core.py`
+- [ ] Create `tests/unit/api/test_chat_validation.py`
+- [ ] Create `tests/unit/api/test_chat_error_handling.py`
+- [ ] Update imports/fixtures; remove the original large file
+
+Acceptance Criteria (5E)
+- [ ] Chat endpoint tests pass (run `make test-unit` and `make test-integration` where applicable)
+- [ ] Coverage >95% for chat endpoint tests
+- [ ] No import errors
+
+### 5F: Split `tests/unit/test_logdb_fts.py` (423 lines)
+- [ ] Create `tests/unit/logdb/test_fts_core.py`
+- [ ] Create `tests/unit/logdb/test_fts_indexing.py`
+- [ ] Create `tests/unit/logdb/test_fts_search.py`
+- [ ] Update imports/fixtures; remove the original large file
+
+Acceptance Criteria (5F)
+- [ ] LogDB FTS tests pass (run `make test-unit`)
+- [ ] Coverage >95% for FTS tests
+- [ ] No import errors
+
+### 5G: Split `tests/unit/test_api_models.py` (410 lines)
+- [ ] Create `tests/unit/api/test_models_core.py`
+- [ ] Create `tests/unit/api/test_models_validation.py`
+- [ ] Create `tests/unit/api/test_models_serialization.py`
+- [ ] Update imports/fixtures; remove the original large file
+
+Acceptance Criteria (5G)
+- [ ] API models tests pass (run `make test-unit`)
+- [ ] Coverage >95% for API models tests
+- [ ] No import errors
+
+### 5H: Split `tests/unit/test_adapters_openrouter.py` (406 lines)
+- [ ] Create `tests/unit/adapters/test_openrouter_core.py`
+- [ ] Create `tests/unit/adapters/test_openrouter_integration.py`
+- [ ] Create `tests/unit/adapters/test_openrouter_error_handling.py`
+- [ ] Update imports/fixtures; remove the original large file
+
+Acceptance Criteria (5H)
+- [ ] OpenRouter adapter tests pass (run `make test-unit` and `make test-functional` if applicable)
+- [ ] Coverage >95% for OpenRouter adapter tests
+- [ ] No import errors
+
+### 5I: Split `tests/unit/test_logdb_stage_d.py` (391 lines)
+- [ ] Create `tests/unit/logdb/test_stage_d_core.py`
+- [ ] Create `tests/unit/logdb/test_stage_d_utils.py`
+- [ ] Update imports/fixtures; remove the original large file
+
+Acceptance Criteria (5I)
+- [ ] Stage D tests pass (run `make test-unit`)
+- [ ] Coverage >95% for Stage D tests
+- [ ] No import errors
+
+### 5J: Refactor `ai_proxy/api/v1/chat_completions.py` (386 lines)
+- [ ] Keep `ai_proxy/api/v1/chat_completions.py` as controller/entry
 - [ ] Extract validation to `ai_proxy/api/v1/validation.py`
 - [ ] Extract error handling to `ai_proxy/api/v1/error_handlers.py`
 
-### 5.11 ai_proxy/logdb/cli.py (372 lines)
-- [ ] `ai_proxy/logdb/cli/commands.py` - main commands
-- [ ] `ai_proxy/logdb/cli/parsers.py` - argument parsers
-- [ ] `ai_proxy/logdb/cli/__init__.py` - entry point
+Acceptance Criteria (5J)
+- [ ] All chat completion endpoint tests pass (run `make test-unit test-integration`)
+- [ ] Coverage >95% for the file (fix from current 94%)
+- [ ] No import errors; functionality preserved
 
-### 5.12 test_core_routing.py (353 lines)
-- [ ] `tests/unit/core/test_routing_core.py`
-- [ ] `tests/unit/core/test_routing_validation.py`
-- [ ] `tests/unit/core/test_routing_error_handling.py`
+### 5K: Refactor `ai_proxy/logdb/cli.py` (372 lines)
+- [ ] Create `ai_proxy/logdb/cli/commands.py` (main commands)
+- [ ] Create `ai_proxy/logdb/cli/parsers.py` (argument parsers)
+- [ ] Add `ai_proxy/logdb/cli/__init__.py` (entry point)
 
-### Phase 5 Acceptance Criteria
-- [ ] All tests pass (run `make test-unit test-integration`)
-- [ ] Coverage maintained above 95% for all files (run `make coverage`)
-- [ ] No coverage degradation from Phase 4 (must fix if below 95%)
-- [ ] **CRITICAL:** Fix `chat_completions.py` coverage from 94% to >95%
-- [ ] All original large files removed
-- [ ] New module structure functional
-- [ ] No import errors across the project
-- [ ] All functionality preserved
+Acceptance Criteria (5K)
+- [ ] All LogDB CLI tests pass (run `make test-unit`)
+- [ ] Coverage >95% for CLI modules
+- [ ] CLI commands functional; no import errors
 
 ---
-
 ## 🔧 Phase 6: Refactoring ai_proxy_ui/main.py (430 lines)
 
 ### 6.1 Structure Analysis
