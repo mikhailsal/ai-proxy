@@ -241,37 +241,37 @@ Acceptance Criteria (5C) ✅ MET
 - [x] Coverage >95% for gemini adapter tests
 - [x] No import errors
 
-### 5D: Split `tests/unit/test_logdb_stage_e.py` (462 lines)
-- [ ] Create `tests/unit/logdb/test_stage_e_core.py`
-- [ ] Create `tests/unit/logdb/test_stage_e_utils.py`
-- [ ] Update imports/fixtures; remove the original large file
+### 5D: Split `tests/unit/test_logdb_stage_e.py` (462 lines) ✅ COMPLETED
+- [x] Create `tests/unit/logdb/test_stage_e_core.py`
+- [x] Create `tests/unit/logdb/test_stage_e_utils.py`
+- [x] Update imports/fixtures; remove the original large file
 
-Acceptance Criteria (5D)
-- [ ] Stage E tests pass (run `make test-unit`)
-- [ ] Coverage >95% for Stage E tests
-- [ ] No import errors
+Acceptance Criteria (5D) ✅ MET
+- [x] Stage E tests pass (run `make test-unit`)
+- [x] Coverage >95% for Stage E tests
+- [x] No import errors
 
-### 5E: Split `tests/unit/test_chat_completions_endpoint.py` (439 lines)
-- [ ] Create `tests/unit/api/test_chat_core.py`
-- [ ] Create `tests/unit/api/test_chat_validation.py`
-- [ ] Create `tests/unit/api/test_chat_error_handling.py`
-- [ ] Update imports/fixtures; remove the original large file
+### 5E: Split `tests/unit/test_chat_completions_endpoint.py` (439 lines) ✅ COMPLETED
+- [x] Create `tests/unit/api/test_chat_core.py`
+- [x] Create `tests/unit/api/test_chat_validation.py`
+- [x] Create `tests/unit/api/test_chat_error_handling.py`
+- [x] Update imports/fixtures; remove the original large file
 
-Acceptance Criteria (5E)
-- [ ] Chat endpoint tests pass (run `make test-unit` and `make test-integration` where applicable)
-- [ ] Coverage >95% for chat endpoint tests
-- [ ] No import errors
+Acceptance Criteria (5E) ✅ MET
+- [x] Chat endpoint tests pass (run `make test-unit` and `make test-integration` where applicable)
+- [x] Coverage >95% for chat endpoint tests
+- [x] No import errors
 
-### 5F: Split `tests/unit/test_logdb_fts.py` (423 lines)
-- [ ] Create `tests/unit/logdb/test_fts_core.py`
-- [ ] Create `tests/unit/logdb/test_fts_indexing.py`
-- [ ] Create `tests/unit/logdb/test_fts_search.py`
-- [ ] Update imports/fixtures; remove the original large file
+### 5F: Split `tests/unit/test_logdb_fts.py` (423 lines) ✅ COMPLETED
+- [x] Create `tests/unit/logdb/test_fts_core.py`
+- [x] Create `tests/unit/logdb/test_fts_indexing.py`
+- [x] Create `tests/unit/logdb/test_fts_search.py`
+- [x] Update imports/fixtures; remove the original large file
 
-Acceptance Criteria (5F)
-- [ ] LogDB FTS tests pass (run `make test-unit`)
-- [ ] Coverage >95% for FTS tests
-- [ ] No import errors
+Acceptance Criteria (5F) ✅ MET
+- [x] LogDB FTS tests pass (run `make test-unit`)
+- [x] Coverage >95% for FTS tests
+- [x] No import errors
 
 ### 5G: Split `tests/unit/test_api_models.py` (410 lines)
 - [ ] Create `tests/unit/api/test_models_core.py`
@@ -481,8 +481,8 @@ Acceptance Criteria (5K)
 
 ### Goal Achievement:
 - 🔴 Critical files (6/6): 50% completed (Phase 2: test_logdb_stage_f.py ✅, Phase 3: test_logdb_stage_b.py ✅, Phase 4: ai_proxy/logdb/ingest.py ✅)
-- 🟡 Files requiring attention (13/13): 23% completed (Phase 5A: test_ui_api.py ✅, Phase 5B: test_logging_config.py ✅, Phase 5C: test_adapters_gemini.py ✅)
-- 🟢 Module structure: 69% completed (bundle + ingest + ui + logging + adapters modules infrastructure ✅)
+- 🟡 Files requiring attention (13/13): 38% completed (Phase 5A: test_ui_api.py ✅, Phase 5B: test_logging_config.py ✅, Phase 5C: test_adapters_gemini.py ✅, Phase 5D: test_logdb_stage_e.py ✅, Phase 5E: test_chat_completions_endpoint.py ✅, Phase 5F: test_logdb_fts.py ✅)
+- 🟢 Module structure: 69% completed (bundle + ingest + ui + logging + adapters + api + logdb modules infrastructure ✅)
 - 🟢 **Coverage >95%:** ✅ Maintained at 98%
 
 ---
