@@ -1,7 +1,6 @@
 import pytest
 import json
 from unittest.mock import AsyncMock, MagicMock
-import httpx
 
 from ai_proxy.adapters.openrouter import OpenRouterAdapter
 

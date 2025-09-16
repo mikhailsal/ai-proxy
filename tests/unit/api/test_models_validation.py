@@ -49,7 +49,10 @@ class TestChatCompletionResponseValidation:
 
     def test_response_validation_required_fields(self):
         """Test ChatCompletionResponse validation for required fields."""
-        from ai_proxy.api.v1.models import ChatCompletionResponse, ChatMessage, Choice, Usage
+        from ai_proxy.api.v1.models import (
+            ChatCompletionResponse,
+            Usage,
+        )
 
         with pytest.raises(ValidationError):
             ChatCompletionResponse(

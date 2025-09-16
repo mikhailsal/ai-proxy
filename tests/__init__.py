@@ -41,5 +41,3 @@ def _check_cgroup_docker() -> bool:
             return "docker" in content or "containerd" in content
     except (FileNotFoundError, PermissionError):
         return False
-
-

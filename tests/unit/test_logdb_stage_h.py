@@ -86,6 +86,7 @@ def test_copy_with_resume_source_not_found(tmp_path):
     with pytest.raises(FileNotFoundError):
         copy_with_resume(str(src), str(dest))
 
+
 def test_copy_with_resume_destination_exists_different(tmp_path):
     src = tmp_path / "src.bin"
     src.write_bytes(b"original content")
@@ -93,6 +94,7 @@ def test_copy_with_resume_destination_exists_different(tmp_path):
     dest.write_bytes(b"different content")
     with pytest.raises(ValueError, match="Destination exists with different content"):
         copy_with_resume(str(src), str(dest))
+
 
 def test_copy_with_resume_tmp_larger_than_src(tmp_path):
     src = tmp_path / "src.bin"
@@ -103,6 +105,7 @@ def test_copy_with_resume_tmp_larger_than_src(tmp_path):
     size, _ = copy_with_resume(str(src), str(dest))
     assert size == len(b"small")
     assert dest.read_bytes() == b"small"
+
 
 def test_copy_with_resume_oserror_on_getsize(tmp_path):
     src = tmp_path / "src.bin"
@@ -115,15 +118,18 @@ def test_copy_with_resume_oserror_on_getsize(tmp_path):
     assert size == len(b"content")
     assert dest.read_bytes() == b"content"
 
+
 def test_copy_with_resume_checksum_mismatch(tmp_path):
     src = tmp_path / "src.bin"
     src.write_bytes(b"original")
     dest = tmp_path / "dst.bin"
+
     # Mock the post-copy sha to differ
     def mock_sha(path):
         if path.endswith(".part"):
             return "wrong_sha", 8
         return _sha256_of_file(path)
+
     with mock.patch("ai_proxy.logdb.transport._sha256_of_file", side_effect=mock_sha):
         with pytest.raises(ValueError, match="Checksum mismatch"):
             copy_with_resume(str(src), str(dest))

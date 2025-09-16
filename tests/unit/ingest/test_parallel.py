@@ -1,4 +1,3 @@
-import datetime as dt
 import sqlite3
 from ai_proxy.logdb.ingest import ingest_logs
 from tests.unit.shared.ingest_fixtures import SAMPLE_ENTRY_1, SAMPLE_ENTRY_2
@@ -98,9 +97,6 @@ def test_parallel_import_exception_handling(tmp_path, monkeypatch):
     # Simplified test for concurrent.futures import failure
     # We'll mock the import at the module level instead of __builtins__
     import ai_proxy.logdb.ingest as ingest_module
-
-    # Store original import function
-    original_has_parallel = hasattr(ingest_module, 'ThreadPoolExecutor')
 
     # Mock the import failure by setting has_parallel to False in the function
     def mock_ingest_logs_no_parallel(source_dir, base_db_dir, since=None, to=None):

@@ -3,9 +3,8 @@ import datetime
 import os
 import sqlite3
 import tarfile
-from pathlib import Path
 
-from ai_proxy.logdb.bundle import create_bundle, verify_bundle
+from ai_proxy.logdb.bundle import create_bundle
 from ai_proxy.logdb.partitioning import compute_partition_path
 
 
@@ -61,12 +60,12 @@ def create_test_bundle(tmp_path, **kwargs):
     bundle_path = create_bundle_path(tmp_path)
 
     defaults = {
-        'base_db_dir': base_db_dir,
-        'since': date,
-        'to': date,
-        'out_path': str(bundle_path),
-        'include_raw': False,
-        'server_id': "test-server",
+        "base_db_dir": base_db_dir,
+        "since": date,
+        "to": date,
+        "out_path": str(bundle_path),
+        "include_raw": False,
+        "server_id": "test-server",
     }
     defaults.update(kwargs)
 
@@ -85,7 +84,11 @@ def create_raw_logs_structure(tmp_path, log_files=None):
         ]
 
     created_files = []
-    target_ts = int(datetime.datetime.combine(dt.date(2025, 9, 10), datetime.time(12, 0)).timestamp())
+    target_ts = int(
+        datetime.datetime.combine(
+            dt.date(2025, 9, 10), datetime.time(12, 0)
+        ).timestamp()
+    )
 
     for filename, content in log_files:
         file_path = raw_dir / filename
@@ -96,7 +99,9 @@ def create_raw_logs_structure(tmp_path, log_files=None):
     return str(raw_dir), created_files
 
 
-def create_test_database_file(tmp_path, filename="test.sqlite3", content=b"fake db content"):
+def create_test_database_file(
+    tmp_path, filename="test.sqlite3", content=b"fake db content"
+):
     """Create a test database file."""
     db_file = tmp_path / filename
     db_file.write_bytes(content)
@@ -114,6 +119,7 @@ def create_bundle_metadata(bundle_path, modifications=None):
 
     # Read and modify metadata if needed
     import json
+
     meta_path = temp_dir / "metadata.json"
     with open(meta_path) as f:
         meta = json.load(f)

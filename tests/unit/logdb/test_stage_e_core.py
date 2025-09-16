@@ -302,7 +302,9 @@ def test_assign_dialogs_for_range_empty_range(tmp_path):
     base.mkdir(parents=True)
 
     # Empty range should return empty list
-    result = assign_dialogs_for_range(str(base), dt.date(2025, 9, 10), dt.date(2025, 9, 9), 1800)
+    result = assign_dialogs_for_range(
+        str(base), dt.date(2025, 9, 10), dt.date(2025, 9, 9), 1800
+    )
     assert result == []
 
 
@@ -314,7 +316,9 @@ def test_assign_dialogs_for_range_no_files(tmp_path):
     base.mkdir(parents=True)
 
     # No files should return empty list
-    result = assign_dialogs_for_range(str(base), dt.date(2025, 9, 10), dt.date(2025, 9, 11), 1800)
+    result = assign_dialogs_for_range(
+        str(base), dt.date(2025, 9, 10), dt.date(2025, 9, 11), 1800
+    )
     assert result == []
 
 
@@ -326,7 +330,9 @@ def test_clear_dialogs_for_range_empty_range(tmp_path):
     base.mkdir(parents=True)
 
     # Empty range should return empty list
-    result = clear_dialogs_for_range(str(base), dt.date(2025, 9, 10), dt.date(2025, 9, 9))
+    result = clear_dialogs_for_range(
+        str(base), dt.date(2025, 9, 10), dt.date(2025, 9, 9)
+    )
     assert result == []
 
 

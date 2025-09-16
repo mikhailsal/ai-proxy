@@ -1,13 +1,13 @@
-import os
-import sqlite3
 import pytest
 from unittest import mock
 
 from ai_proxy.logdb.schema import open_connection_with_pragmas
 
+
 @pytest.fixture
 def temp_db_path(tmp_path):
     return str(tmp_path / "test.db")
+
 
 def test_open_connection_with_pragmas_normal(temp_db_path, monkeypatch):
     monkeypatch.setenv("LOGDB_WAL_AUTOCHECKPOINT_PAGES", "1000")
@@ -24,6 +24,7 @@ def test_open_connection_with_pragmas_normal(temp_db_path, monkeypatch):
         assert cache_size == -2000
     finally:
         conn.close()
+
 
 def test_open_connection_with_pragmas_invalid_env(temp_db_path, monkeypatch):
     def mock_getenv(key, default=None):

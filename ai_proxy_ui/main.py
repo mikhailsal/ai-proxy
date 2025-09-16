@@ -1,18 +1,18 @@
-from fastapi import FastAPI, APIRouter, Depends, HTTPException, Request, Query
+from fastapi import FastAPI, APIRouter, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.openapi.docs import get_swagger_ui_html
 import os
-import time
 import uuid
-import base64
-import datetime as _dt
-import sqlite3
-from typing import Literal, Optional, List, Tuple
-import json
+from typing import Literal
 
 # Refactored helpers and auth dependency
-from ai_proxy_ui.config import _get_allowed_origins, _get_bool_env, _get_csv_env, API_VERSION
+from ai_proxy_ui.config import (
+    _get_allowed_origins,
+    _get_bool_env,
+    _get_csv_env,
+    API_VERSION,
+)
 from ai_proxy_ui.services import auth as auth_service
 from ai_proxy_ui.routers import requests as requests_router
 
@@ -22,7 +22,11 @@ from ai_proxy_ui.routers import requests as requests_router
 app = FastAPI(
     title="AI Proxy Logs UI API",
     openapi_url="/ui/v1/openapi.json",
-    docs_url=("/ui/v1/docs" if os.getenv("ENVIRONMENT", "development").strip().lower() != "production" else None),
+    docs_url=(
+        "/ui/v1/docs"
+        if os.getenv("ENVIRONMENT", "development").strip().lower() != "production"
+        else None
+    ),
     redoc_url=None,
 )
 
@@ -103,12 +107,16 @@ async def get_config():
 
 
 @v1.get("/whoami")
-async def whoami(role: Literal["user", "admin"] = Depends(auth_service._require_auth())):
+async def whoami(
+    role: Literal["user", "admin"] = Depends(auth_service._require_auth()),
+):
     # Return the effective role for the caller's token
     return {"role": role}
 
 
-admin = APIRouter(prefix="/ui/v1/admin", dependencies=[Depends(auth_service._require_auth("admin"))])
+admin = APIRouter(
+    prefix="/ui/v1/admin", dependencies=[Depends(auth_service._require_auth("admin"))]
+)
 
 
 @admin.get("/ping")

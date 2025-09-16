@@ -4,10 +4,12 @@ from pathlib import Path
 import sys
 
 import pytest
+from scripts.check_module_dependencies import ModuleDependencyAnalyzer
 
 # Provide a lightweight fake `networkx` implementation so tests don't require
 # the real external dependency when running in the project's test environment.
 _nx = types.ModuleType("networkx")
+
 
 class _DiGraph:
     def __init__(self):
@@ -39,13 +41,14 @@ def _simple_cycles(graph):
 
 _nx.DiGraph = _DiGraph
 _nx.simple_cycles = _simple_cycles
+
+
 class _NXError(Exception):
     pass
 
+
 _nx.NetworkXError = _NXError
 sys.modules.setdefault("networkx", _nx)
-
-from scripts.check_module_dependencies import ModuleDependencyAnalyzer
 
 
 def _write(path: Path, content: str) -> None:
@@ -118,7 +121,10 @@ def test_detect_cycles_and_print_report_recommendations(capsys) -> None:
     # This should not raise and should print both cycle info and a recommendation
     analyzer.print_report()
     out = capsys.readouterr().out
-    assert "CIRCULAR DEPENDENCIES DETECTED" in out or "NO CIRCULAR DEPENDENCIES FOUND" in out
+    assert (
+        "CIRCULAR DEPENDENCIES DETECTED" in out
+        or "NO CIRCULAR DEPENDENCIES FOUND" in out
+    )
     assert "Consider splitting modules" in out
 
 
@@ -180,5 +186,3 @@ def test_main_handles_importerror(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "NetworkX library not found" in out
     assert exc.value.code == 1
-
-

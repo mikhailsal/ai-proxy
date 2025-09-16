@@ -1,8 +1,8 @@
 """
 Configuration helpers for the Logs UI API.
 """
+
 import os
-from typing import Set
 
 
 def _get_allowed_origins() -> list[str]:

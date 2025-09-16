@@ -14,6 +14,7 @@ from ..dialogs import (
 )
 from ..partitioning import ensure_partition_database
 
+
 def cmd_init(args) -> int:
     if args.date:
         target_date = _dt.datetime.strptime(args.date, "%Y-%m-%d").date()
@@ -32,6 +33,7 @@ def cmd_init(args) -> int:
     print(db_path)
     print(status)
     return 0 if status == "ok" else 1
+
 
 def _cmd_fts_build(args) -> int:
     since_date = (
@@ -54,6 +56,7 @@ def _cmd_fts_build(args) -> int:
     for db_path, rows_idx, rows_skip in results:
         print(f"{db_path} indexed={rows_idx} skipped={rows_skip}")
     return 0
+
 
 def _cmd_fts_drop(args) -> int:
     since_date = (
@@ -91,13 +94,12 @@ def _cmd_fts_drop(args) -> int:
         cur = cur + _dt.timedelta(days=1) if cur else _dt.date.today()
     return rc
 
+
 def _cmd_bundle_create(args) -> int:
     since_date = _dt.datetime.strptime(args.since, "%Y-%m-%d").date()
     to_date = _dt.datetime.strptime(args.to, "%Y-%m-%d").date()
     # Env default for include_raw; CLI flag overrides when provided
-    env_include_raw = (
-        os.getenv("LOGDB_BUNDLE_INCLUDE_RAW", "false").lower() == "true"
-    )
+    env_include_raw = os.getenv("LOGDB_BUNDLE_INCLUDE_RAW", "false").lower() == "true"
     include_raw = bool(args.include_raw) or env_include_raw
     # Resolve server_id: prefer env LOGDB_SERVER_ID, then .server_id under db dir, else empty
     server_id = os.getenv("LOGDB_SERVER_ID", "").strip()
@@ -124,16 +126,16 @@ def _cmd_bundle_create(args) -> int:
     print(args.out)
     return 0
 
+
 def _cmd_bundle_verify(args) -> int:
     ok = verify_bundle(os.path.abspath(args.bundle))
     print("ok" if ok else "fail")
     return 0 if ok else 1
 
+
 def _cmd_bundle_transfer(args) -> int:
     # Perform resumable copy, then verify destination checksum equals source
-    size, sha = copy_with_resume(
-        os.path.abspath(args.src), os.path.abspath(args.dest)
-    )
+    size, sha = copy_with_resume(os.path.abspath(args.src), os.path.abspath(args.dest))
     # If file appears to be a bundle, optionally run verify to ensure integrity of contents
     try:
         if str(args.dest).endswith(".tgz"):
@@ -145,6 +147,7 @@ def _cmd_bundle_transfer(args) -> int:
         pass
     print(f"bytes={size} sha256={sha}")
     return 0
+
 
 def _cmd_dialogs_assign(args) -> int:
     if os.getenv("LOGDB_GROUPING_ENABLED", "false").lower() != "true":
@@ -162,6 +165,7 @@ def _cmd_dialogs_assign(args) -> int:
         print(f"{db_path} updated={updated}")
     return 0
 
+
 def _cmd_dialogs_clear(args) -> int:
     if os.getenv("LOGDB_GROUPING_ENABLED", "false").lower() != "true":
         print("Dialogs disabled by LOGDB_GROUPING_ENABLED")
@@ -170,19 +174,17 @@ def _cmd_dialogs_clear(args) -> int:
         _dt.datetime.strptime(args.since, "%Y-%m-%d").date() if args.since else None
     )
     to_date = _dt.datetime.strptime(args.to, "%Y-%m-%d").date() if args.to else None
-    results = clear_dialogs_for_range(
-        os.path.abspath(args.out), since_date, to_date
-    )
+    results = clear_dialogs_for_range(os.path.abspath(args.out), since_date, to_date)
     for db_path, updated in results:
         print(f"{db_path} cleared={updated}")
     return 0
 
+
 def _cmd_bundle_import(args) -> int:
-    imp, skip = import_bundle(
-        os.path.abspath(args.bundle), os.path.abspath(args.dest)
-    )
+    imp, skip = import_bundle(os.path.abspath(args.bundle), os.path.abspath(args.dest))
     print(f"imported={imp} skipped={skip}")
     return 0
+
 
 def _cmd_merge(args) -> int:
     nsrc, total, status = merge_partitions(

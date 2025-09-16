@@ -70,6 +70,7 @@ def test_raw_logs_date_filtering_and_env_default(tmp_path, monkeypatch):
 
     # Set mtime for files: in-range on 'date', out-of-range one day before
     import datetime
+
     in_range = os.path.join(raw_dir, "app.log")
     out_range = os.path.join(raw_dir, "service.log.1")
 
@@ -141,23 +142,29 @@ def test_cli_bundle_create_server_id_from_file(monkeypatch, tmp_path):
     bundle_path = create_bundle_path(tmp_path, "server_id_test.tgz")
 
     # Mock create_bundle to capture the server_id parameter
-    original_create = create_bundle
     captured_server_id = None
 
     def mock_create_bundle(**kwargs):
         nonlocal captured_server_id
-        captured_server_id = kwargs.get('server_id')
+        captured_server_id = kwargs.get("server_id")
         return str(bundle_path)
 
     monkeypatch.setattr("ai_proxy.logdb.cli.commands.create_bundle", mock_create_bundle)
 
-    rc = logdb_cli.main([
-        "bundle", "create",
-        "--since", date.strftime("%Y-%m-%d"),
-        "--to", date.strftime("%Y-%m-%d"),
-        "--out", str(bundle_path),
-        "--db", base_db_dir,
-    ])
+    rc = logdb_cli.main(
+        [
+            "bundle",
+            "create",
+            "--since",
+            date.strftime("%Y-%m-%d"),
+            "--to",
+            date.strftime("%Y-%m-%d"),
+            "--out",
+            str(bundle_path),
+            "--db",
+            base_db_dir,
+        ]
+    )
 
     assert rc == 0
     assert captured_server_id == "test-server-from-file"
@@ -184,18 +191,25 @@ def test_cli_bundle_create_server_id_env_override(monkeypatch, tmp_path):
 
     def mock_create_bundle(**kwargs):
         nonlocal captured_server_id
-        captured_server_id = kwargs.get('server_id')
+        captured_server_id = kwargs.get("server_id")
         return str(bundle_path)
 
     monkeypatch.setattr("ai_proxy.logdb.cli.commands.create_bundle", mock_create_bundle)
 
-    rc = logdb_cli.main([
-        "bundle", "create",
-        "--since", date.strftime("%Y-%m-%d"),
-        "--to", date.strftime("%Y-%m-%d"),
-        "--out", str(bundle_path),
-        "--db", base_db_dir,
-    ])
+    rc = logdb_cli.main(
+        [
+            "bundle",
+            "create",
+            "--since",
+            date.strftime("%Y-%m-%d"),
+            "--to",
+            date.strftime("%Y-%m-%d"),
+            "--out",
+            str(bundle_path),
+            "--db",
+            base_db_dir,
+        ]
+    )
 
     assert rc == 0
     assert captured_server_id == "from-env"
@@ -219,6 +233,7 @@ def test_collect_db_files_basic(tmp_path):
         db_file = month_dir / f"ai_proxy_{date_str}.sqlite3"
         # Create a minimal SQLite database file
         import sqlite3
+
         conn = sqlite3.connect(str(db_file))
         conn.close()
 

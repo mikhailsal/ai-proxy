@@ -1,5 +1,3 @@
-import datetime as dt
-
 # Sample log entries for ingest testing
 SAMPLE_ENTRY_1 = (
     "2025-09-10 12:00:00 - INFO - {\n"

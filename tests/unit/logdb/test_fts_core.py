@@ -1,4 +1,3 @@
-import datetime as dt
 import json
 import os
 import sqlite3
@@ -34,46 +33,56 @@ def test_sqlite_supports_fts5_true_with_compile_option():
     mock_conn.execute.return_value = mock_cur
     assert _sqlite_supports_fts5(mock_conn) is True
 
+
 def test_sqlite_supports_fts5_true_with_table_creation():
     mock_conn = mock.MagicMock()
     mock_cur = mock.Mock()
     mock_cur.fetchone.return_value = None
+
     def side_effect(q):
         if "pragma_compile_options" in q:
             return mock_cur
         # Simulate success for CREATE/DROP
         return mock.Mock()
+
     mock_conn.execute.side_effect = side_effect
     assert _sqlite_supports_fts5(mock_conn) is True
+
 
 def test_sqlite_supports_fts5_false_no_option_no_creation():
     mock_conn = mock.MagicMock()
     mock_cur = mock.Mock()
     mock_cur.fetchone.return_value = None
+
     def side_effect(q):
         if "pragma_compile_options" in q:
             return mock_cur
         if "CREATE" in q:
             raise sqlite3.OperationalError("no such module: fts5")
         return mock.Mock()
+
     mock_conn.execute.side_effect = side_effect
     assert _sqlite_supports_fts5(mock_conn) is False
+
 
 def test_sqlite_supports_fts5_false_on_exception():
     mock_conn = mock.MagicMock()
     mock_conn.execute.side_effect = Exception("unexpected error")
     assert _sqlite_supports_fts5(mock_conn) is False
 
+
 def test_sqlite_supports_fts5_false_on_creation_except():
     mock_conn = mock.MagicMock()
     mock_cur = mock.Mock()
     mock_cur.fetchone.return_value = None
+
     def side_effect(q):
         if "pragma_compile_options" in q:
             return mock_cur
         if "CREATE" in q:
             raise Exception("other error")
         return mock.Mock()
+
     mock_conn.execute.side_effect = side_effect
     assert _sqlite_supports_fts5(mock_conn) is False
 
@@ -83,13 +92,18 @@ def test_create_fts_table_success(temp_db_path):
     conn = open_connection_with_pragmas(temp_db_path)
     with mock.patch("ai_proxy.logdb.fts._sqlite_supports_fts5", return_value=True):
         create_fts_table(conn)
-    table = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='request_text_index';").fetchone()
+    table = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='request_text_index';"
+    ).fetchone()
     assert table is not None
 
 
 def test_create_fts_table_raises_if_no_fts5(temp_db_path):
     conn = open_connection_with_pragmas(temp_db_path)
-    with mock.patch("ai_proxy.logdb.fts._sqlite_supports_fts5", return_value=False), pytest.raises(RuntimeError, match="SQLite build does not support FTS5"):
+    with (
+        mock.patch("ai_proxy.logdb.fts._sqlite_supports_fts5", return_value=False),
+        pytest.raises(RuntimeError, match="SQLite build does not support FTS5"),
+    ):
         create_fts_table(conn)
 
 
@@ -99,7 +113,9 @@ def test_drop_fts_table_success(temp_db_path):
     with mock.patch("ai_proxy.logdb.fts._sqlite_supports_fts5", return_value=True):
         create_fts_table(conn)
     drop_fts_table(conn)
-    table = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='request_text_index';").fetchone()
+    table = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='request_text_index';"
+    ).fetchone()
     assert table is None
 
 
@@ -116,7 +132,11 @@ def test_iter_text_from_messages_valid_list():
         {"role": "system", "content": [{"text": "test\nmulti"}]},
     ]
     result = list(_iter_text_from_messages(messages))
-    assert result == [("user", "hello"), ("assistant", "world"), ("system", "test\nmulti")]
+    assert result == [
+        ("user", "hello"),
+        ("assistant", "world"),
+        ("system", "test\nmulti"),
+    ]
 
 
 def test_iter_text_from_messages_not_list():
@@ -135,7 +155,9 @@ def test_iter_text_from_messages_empty_content():
 
 
 def test_iter_text_from_messages_mixed_parts():
-    messages = [{"content": [{"text": "a"}, {"type": "text", "text": "b"}, {"text": ""}]}]
+    messages = [
+        {"content": [{"text": "a"}, {"type": "text", "text": "b"}, {"text": ""}]}
+    ]
     result = list(_iter_text_from_messages(messages))
     assert result == [("user", "a\nb")]
 
@@ -165,9 +187,7 @@ def test_iter_text_from_response_content_direct():
 
 def test_iter_text_from_response_gemini_style():
     resp = {
-        "candidates": [
-            {"content": {"parts": [{"text": "part1"}, {"text": "part2"}]}}
-        ]
+        "candidates": [{"content": {"parts": [{"text": "part1"}, {"text": "part2"}]}}]
     }
     result = list(_iter_text_from_response(resp))
     assert result == [("assistant", "part1\npart2")]
@@ -176,7 +196,10 @@ def test_iter_text_from_response_gemini_style():
 def test_iter_text_from_response_invalid():
     assert list(_iter_text_from_response("not dict")) == []
     assert list(_iter_text_from_response({"choices": [123]})) == []
-    assert list(_iter_text_from_response({"candidates": [{"content": {"parts": [123]}}]})) == []
+    assert (
+        list(_iter_text_from_response({"candidates": [{"content": {"parts": [123]}}]}))
+        == []
+    )
     with mock.patch("builtins.isinstance", side_effect=Exception("mock error")):
         assert list(_iter_text_from_response({})) == []
 
@@ -225,16 +248,20 @@ def test_extract_text_fragments_deduplication():
 
 
 def test_extract_text_fragments_mixed_formats():
-    req = json.dumps({
-        "messages": [{"role": "user", "content": "msg"}],
-        "prompt": "prompt",
-        "contents": [{"parts": [{"text": "content"}]}]
-    })
-    resp = json.dumps({
-        "choices": [{"message": {"content": "choice"}}],
-        "content": "direct",
-        "candidates": [{"content": {"parts": [{"text": "candidate"}]}}]
-    })
+    req = json.dumps(
+        {
+            "messages": [{"role": "user", "content": "msg"}],
+            "prompt": "prompt",
+            "contents": [{"parts": [{"text": "content"}]}],
+        }
+    )
+    resp = json.dumps(
+        {
+            "choices": [{"message": {"content": "choice"}}],
+            "content": "direct",
+            "candidates": [{"content": {"parts": [{"text": "candidate"}]}}],
+        }
+    )
     result = _extract_text_fragments(req, resp)
     assert result == [
         ("user", "msg"),
@@ -242,18 +269,24 @@ def test_extract_text_fragments_mixed_formats():
         ("user", "content"),
         ("assistant", "choice"),
         ("assistant", "direct"),
-        ("assistant", "candidate")
+        ("assistant", "candidate"),
     ]
 
 
 def test_extract_text_fragments_empty_content_str_skipped(temp_db_path):
     conn = open_connection_with_pragmas(temp_db_path)
-    conn.execute("CREATE TABLE requests (request_id TEXT, endpoint TEXT, model_original TEXT, model_mapped TEXT, request_json TEXT, response_json TEXT);")
-    conn.execute("INSERT INTO requests VALUES (?, ?, ?, ?, ?, ?);", ("r1", "", "", "", json.dumps({"messages": [{"content": "   "}]}) , "{}"))  # whitespace only
+    conn.execute(
+        "CREATE TABLE requests (request_id TEXT, endpoint TEXT, model_original TEXT, model_mapped TEXT, request_json TEXT, response_json TEXT);"
+    )
+    conn.execute(
+        "INSERT INTO requests VALUES (?, ?, ?, ?, ?, ?);",
+        ("r1", "", "", "", json.dumps({"messages": [{"content": "   "}]}), "{}"),
+    )  # whitespace only
     conn.commit()
     conn.close()
 
     with mock.patch("ai_proxy.logdb.fts._sqlite_supports_fts5", return_value=True):
         from ai_proxy.logdb.fts import build_partition_fts
+
         indexed, skipped = build_partition_fts(temp_db_path)
         assert indexed == 0

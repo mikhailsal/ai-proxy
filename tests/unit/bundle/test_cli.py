@@ -14,6 +14,7 @@ def test_collect_raw_logs_file_not_found_during_walk(tmp_path):
 
     # Mock os.stat to raise FileNotFoundError for this specific file
     original_stat = os.stat
+
     def mock_stat(path):
         if str(path).endswith("test.log"):
             raise FileNotFoundError("Simulated file not found")

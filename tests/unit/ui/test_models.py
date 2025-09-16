@@ -200,13 +200,22 @@ def test_request_details_endpoint_returns_full_payload(tmp_path, monkeypatch):
 def test_list_requests_invalid_dates(monkeypatch):
     monkeypatch.setenv("LOGUI_API_KEYS", "user-key")
     from ai_proxy_ui.main import app
+
     client = TestClient(app)
     # Invalid format
-    r = client.get("/ui/v1/requests", params={"since": "invalid"}, headers={"Authorization": "Bearer user-key"})
+    r = client.get(
+        "/ui/v1/requests",
+        params={"since": "invalid"},
+        headers={"Authorization": "Bearer user-key"},
+    )
     assert r.status_code == 400
     assert "Invalid date" in r.json()["message"]
     # to before since
-    r = client.get("/ui/v1/requests", params={"since": "2025-09-10", "to": "2025-09-09"}, headers={"Authorization": "Bearer user-key"})
+    r = client.get(
+        "/ui/v1/requests",
+        params={"since": "2025-09-10", "to": "2025-09-09"},
+        headers={"Authorization": "Bearer user-key"},
+    )
     assert r.status_code == 400
     assert "to' date must be on/after 'since" in r.json()["message"]
 
@@ -216,8 +225,13 @@ def test_list_requests_no_partitions_returns_empty(monkeypatch, tmp_path):
     monkeypatch.setenv("LOGUI_RATE_LIMIT_RPS", "1000")
     monkeypatch.setenv("LOGUI_DB_ROOT", str(tmp_path / "empty_db"))
     from ai_proxy_ui.main import app
+
     client = TestClient(app)
-    r = client.get("/ui/v1/requests", params={"since": "2025-09-10", "to": "2025-09-10"}, headers={"Authorization": "Bearer user-key"})
+    r = client.get(
+        "/ui/v1/requests",
+        params={"since": "2025-09-10", "to": "2025-09-10"},
+        headers={"Authorization": "Bearer user-key"},
+    )
     assert r.status_code == 200
     data = r.json()
     assert data["items"] == []
@@ -234,14 +248,24 @@ def test_list_requests_invalid_cursor(tmp_path, monkeypatch):
         / f"{today.month:02d}"
         / f"ai_proxy_{today.strftime('%Y%m%d')}.sqlite3"
     )
-    _make_partition(str(p), rows=1, base_ts=int(dt.datetime(today.year, today.month, today.day, 12, 0).timestamp()), start_id=0)
+    _make_partition(
+        str(p),
+        rows=1,
+        base_ts=int(dt.datetime(today.year, today.month, today.day, 12, 0).timestamp()),
+        start_id=0,
+    )
 
     monkeypatch.setenv("LOGUI_API_KEYS", "user-key")
     monkeypatch.setenv("LOGUI_RATE_LIMIT_RPS", "1000")
     monkeypatch.setenv("LOGUI_DB_ROOT", str(base_dir))
     from ai_proxy_ui.main import app
+
     client = TestClient(app)
-    r = client.get("/ui/v1/requests", params={"cursor": "!!!"}, headers={"Authorization": "Bearer user-key"})
+    r = client.get(
+        "/ui/v1/requests",
+        params={"cursor": "!!!"},
+        headers={"Authorization": "Bearer user-key"},
+    )
     assert r.status_code == 400
     assert "Invalid cursor" in r.json()["message"]
 
@@ -249,9 +273,15 @@ def test_list_requests_invalid_cursor(tmp_path, monkeypatch):
 def test_get_request_details_invalid_json_fallback(tmp_path, monkeypatch):
     base_dir = tmp_path / "logs" / "db"
     d = dt.date(2025, 9, 10)
-    p = base_dir / f"{d.year:04d}" / f"{d.month:02d}" / f"ai_proxy_{d.strftime('%Y%m%d')}.sqlite3"
+    p = (
+        base_dir
+        / f"{d.year:04d}"
+        / f"{d.month:02d}"
+        / f"ai_proxy_{d.strftime('%Y%m%d')}.sqlite3"
+    )
     os.makedirs(os.path.dirname(p), exist_ok=True)
     import sqlite3 as _sqlite
+
     conn = _sqlite.connect(str(p))
     try:
         conn.executescript("""
@@ -293,8 +323,11 @@ def test_get_request_details_invalid_json_fallback(tmp_path, monkeypatch):
     monkeypatch.setenv("LOGUI_API_KEYS", "user-key")
     monkeypatch.setenv("LOGUI_DB_ROOT", str(base_dir))
     from ai_proxy_ui.main import app
+
     client = TestClient(app)
-    r = client.get("/ui/v1/requests/rid-bad", headers={"Authorization": "Bearer user-key"})
+    r = client.get(
+        "/ui/v1/requests/rid-bad", headers={"Authorization": "Bearer user-key"}
+    )
     assert r.status_code == 200
     data = r.json()
     assert isinstance(data["request_json"], str)
@@ -310,6 +343,7 @@ def test_config_defaults_when_env_unset(monkeypatch):
     monkeypatch.delenv("LOGUI_ADMIN_API_KEYS", raising=False)
     monkeypatch.delenv("LOGUI_RATE_LIMIT_RPS", raising=False)
     from ai_proxy_ui.main import app
+
     client = TestClient(app)
     r = client.get("/ui/v1/config", headers={"Authorization": "Bearer user-key"})
     assert r.status_code == 200
@@ -324,8 +358,11 @@ def test_request_details_no_partitions_404(monkeypatch, tmp_path):
     monkeypatch.setenv("LOGUI_API_KEYS", "user-key")
     monkeypatch.setenv("LOGUI_DB_ROOT", str(tmp_path / "empty_db"))
     from ai_proxy_ui.main import app
+
     client = TestClient(app)
-    r = client.get("/ui/v1/requests/some_id", headers={"Authorization": "Bearer user-key"})
+    r = client.get(
+        "/ui/v1/requests/some_id", headers={"Authorization": "Bearer user-key"}
+    )
     assert r.status_code == 404
     assert "Request not found" in r.json()["message"]
 
@@ -333,9 +370,15 @@ def test_request_details_no_partitions_404(monkeypatch, tmp_path):
 def test_request_details_none_json_returns_none(tmp_path, monkeypatch):
     base_dir = tmp_path / "logs" / "db"
     d = dt.date(2025, 9, 10)
-    p = base_dir / f"{d.year:04d}" / f"{d.month:02d}" / f"ai_proxy_{d.strftime('%Y%m%d')}.sqlite3"
+    p = (
+        base_dir
+        / f"{d.year:04d}"
+        / f"{d.month:02d}"
+        / f"ai_proxy_{d.strftime('%Y%m%d')}.sqlite3"
+    )
     os.makedirs(os.path.dirname(p), exist_ok=True)
     import sqlite3 as _sqlite
+
     conn = _sqlite.connect(str(p))
     try:
         conn.executescript("""
@@ -377,8 +420,11 @@ def test_request_details_none_json_returns_none(tmp_path, monkeypatch):
     monkeypatch.setenv("LOGUI_API_KEYS", "user-key")
     monkeypatch.setenv("LOGUI_DB_ROOT", str(base_dir))
     from ai_proxy_ui.main import app
+
     client = TestClient(app)
-    r = client.get("/ui/v1/requests/rid-none", headers={"Authorization": "Bearer user-key"})
+    r = client.get(
+        "/ui/v1/requests/rid-none", headers={"Authorization": "Bearer user-key"}
+    )
     assert r.status_code == 200
     data = r.json()
     assert data["request_json"] is None
@@ -392,10 +438,13 @@ def test_iter_all_partitions_skips_non_matching_files(tmp_path, monkeypatch):
     open(base_dir / "ai_proxy_20250910.sqlite3", "w").close()
     open(base_dir / "other_file.txt", "w").close()
     open(base_dir / "ai_proxy_20250911.db", "w").close()  # wrong extension
-    open(base_dir / "wrong_prefix_20250912.sqlite3", "w").close()  # wrong prefix to hit line 357
+    open(
+        base_dir / "wrong_prefix_20250912.sqlite3", "w"
+    ).close()  # wrong prefix to hit line 357
     monkeypatch.setenv("LOGUI_API_KEYS", "user-key")
     monkeypatch.setenv("LOGUI_DB_ROOT", str(tmp_path / "logs" / "db"))
     from ai_proxy_ui.routers.requests import _iter_all_partitions
+
     # Direct call to test skips
     paths = _iter_all_partitions(str(tmp_path / "logs" / "db"))
     assert len(paths) == 1
@@ -405,6 +454,7 @@ def test_iter_all_partitions_skips_non_matching_files(tmp_path, monkeypatch):
 def test_decode_cursor_invalid_base64_raises(monkeypatch):
     from ai_proxy_ui.routers.requests import _decode_cursor
     import pytest
+
     with pytest.raises(Exception) as exc:  # HTTPException in context
         _decode_cursor("not-base64!!!")
     assert "Invalid cursor" in str(exc.value)

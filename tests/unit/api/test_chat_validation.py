@@ -108,7 +108,7 @@ class TestChatCompletionsValidation:
                 "model": "gpt-4",
                 "messages": [
                     {"role": "user"},  # Missing content
-                    {"content": "Hello"}  # Missing role
+                    {"content": "Hello"},  # Missing role
                 ],
                 "stream": False,
             }
@@ -158,19 +158,32 @@ class TestChatCompletionsValidation:
             }
         )
 
-        with patch("ai_proxy.api.v1.chat_completions.settings") as mock_settings, \
-             patch("ai_proxy.core.routing.settings") as mock_routing_settings:
-
-            mock_settings.get_mapped_model.return_value = ("openrouter", "unsupported-model-12345")
+        with (
+            patch("ai_proxy.api.v1.chat_completions.settings") as mock_settings,
+            patch("ai_proxy.core.routing.settings") as mock_routing_settings,
+        ):
+            mock_settings.get_mapped_model.return_value = (
+                "openrouter",
+                "unsupported-model-12345",
+            )
             mock_settings.is_valid_model.return_value = False  # Model is not valid
 
-            mock_routing_settings.get_mapped_model.return_value = ("openrouter", "unsupported-model-12345")
-            mock_routing_settings.is_valid_model.return_value = False  # Model is not valid
+            mock_routing_settings.get_mapped_model.return_value = (
+                "openrouter",
+                "unsupported-model-12345",
+            )
+            mock_routing_settings.is_valid_model.return_value = (
+                False  # Model is not valid
+            )
 
             # Execute
             response = await chat_completions(mock_request, "test-api-key")
 
             # Verify - should return error for unsupported model
-            assert response.status_code in [400, 404, 500]  # Bad request, not found, or internal error
+            assert response.status_code in [
+                400,
+                404,
+                500,
+            ]  # Bad request, not found, or internal error
             response_data = json.loads(response.body)
             assert "error" in response_data

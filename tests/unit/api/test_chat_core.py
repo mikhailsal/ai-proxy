@@ -1,6 +1,5 @@
 import pytest
 from unittest.mock import Mock, patch, AsyncMock
-import json
 
 from ai_proxy.api.v1.chat_completions import chat_completions_options, chat_completions
 

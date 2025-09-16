@@ -2,7 +2,6 @@ import importlib.util
 import os
 import sys
 from types import SimpleNamespace
-from pathlib import Path
 
 
 def _load_deps_module():
@@ -34,7 +33,11 @@ def test_print_report_various_branches(capsys):
     analyzer = deps_mod.ModuleDependencyAnalyzer("/tmp")
 
     # craft modules and dependencies to hit printing branches
-    analyzer.modules = {"ai_proxy.main", "ai_proxy.logdb.ingest", "tests.unit.bundle.test_creation"}
+    analyzer.modules = {
+        "ai_proxy.main",
+        "ai_proxy.logdb.ingest",
+        "tests.unit.bundle.test_creation",
+    }
     analyzer.dependencies = {
         "tests.unit.bundle.test_creation": {"ai_proxy"},
         "tests.unit.ingest.test_cli": {"ai_proxy", "tests"},
@@ -63,7 +66,9 @@ def test_detect_cycles_reports_cycles():
     def _simple_cycles(graph):
         return [["a", "b", "c"]]
 
-    sys.modules["networkx"] = SimpleNamespace(DiGraph=_FakeDiGraph, simple_cycles=_simple_cycles)
+    sys.modules["networkx"] = SimpleNamespace(
+        DiGraph=_FakeDiGraph, simple_cycles=_simple_cycles
+    )
 
     deps_mod = _load_deps_module()
     analyzer = deps_mod.ModuleDependencyAnalyzer("/tmp")
@@ -73,5 +78,3 @@ def test_detect_cycles_reports_cycles():
     assert cycles == [["a", "b", "c"]]
 
     del sys.modules["networkx"]
-
-

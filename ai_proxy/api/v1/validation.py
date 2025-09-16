@@ -34,7 +34,9 @@ def validate_chat_completion_request(request_data: Dict[str, Any]) -> Dict[str, 
         raise ValueError("Malformed JSON in request body")
 
 
-def create_validation_error_response(error_message: str, error_type: str = "invalid_request_error") -> JSONResponse:
+def create_validation_error_response(
+    error_message: str, error_type: str = "invalid_request_error"
+) -> JSONResponse:
     """
     Create a standardized validation error response.
 

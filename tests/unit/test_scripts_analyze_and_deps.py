@@ -4,8 +4,6 @@ import importlib.util
 import sys
 from pathlib import Path
 
-import pytest
-
 
 def _write(path: Path, content: str):
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -18,13 +16,16 @@ def test_analyze_code_size_basic(tmp_path, capsys):
     pkg.mkdir()
 
     # small file
-    _write(pkg / "a.py", """
+    _write(
+        pkg / "a.py",
+        """
     def f():
         return 1
 
     class C:
         pass
-    """)
+    """,
+    )
 
     # medium file (350 lines)
     medium_lines = ["def fn(): pass\n" for _ in range(350)]
@@ -35,7 +36,9 @@ def test_analyze_code_size_basic(tmp_path, capsys):
     (pkg / "big.py").write_text("".join(critical_lines))
 
     # import analyzer from scripts by path
-    spec = importlib.util.spec_from_file_location("analyzer", os.path.join(os.getcwd(), "scripts", "analyze_code_size.py"))
+    spec = importlib.util.spec_from_file_location(
+        "analyzer", os.path.join(os.getcwd(), "scripts", "analyze_code_size.py")
+    )
     analyzer_mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(analyzer_mod)
 
@@ -61,13 +64,18 @@ def test_analyze_no_large_files_and_main_invocation(tmp_path, capsys, monkeypatc
 
     # Create a few small files only
     for i in range(3):
-        _write(pkg / f"small_{i}.py", """
+        _write(
+            pkg / f"small_{i}.py",
+            """
         def f():
             return 1
-        """)
+        """,
+        )
 
     # import analyzer
-    spec = importlib.util.spec_from_file_location("analyzer", os.path.join(os.getcwd(), "scripts", "analyze_code_size.py"))
+    spec = importlib.util.spec_from_file_location(
+        "analyzer", os.path.join(os.getcwd(), "scripts", "analyze_code_size.py")
+    )
     analyzer_mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(analyzer_mod)
 
@@ -97,14 +105,20 @@ def test_check_module_dependencies_detects_cycle(tmp_path):
     ap.mkdir()
 
     # module a imports ai_proxy.b
-    _write(ap / "a.py", """
+    _write(
+        ap / "a.py",
+        """
     import ai_proxy.b
-    """)
+    """,
+    )
 
     # module b imports ai_proxy.a creating a cycle
-    _write(ap / "b.py", """
+    _write(
+        ap / "b.py",
+        """
     import ai_proxy.a
-    """)
+    """,
+    )
 
     # Provide a minimal fake networkx module in sys.modules to avoid ImportError
     class _FakeDiGraph:
@@ -127,7 +141,9 @@ def test_check_module_dependencies_detects_cycle(tmp_path):
     sys.modules["networkx"] = fake_nx
 
     # import dependency analyzer
-    spec = importlib.util.spec_from_file_location("deps", os.path.join(os.getcwd(), "scripts", "check_module_dependencies.py"))
+    spec = importlib.util.spec_from_file_location(
+        "deps", os.path.join(os.getcwd(), "scripts", "check_module_dependencies.py")
+    )
     deps_mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(deps_mod)
 
@@ -142,5 +158,3 @@ def test_check_module_dependencies_detects_cycle(tmp_path):
 
     # cleanup fake module
     del sys.modules["networkx"]
-
-

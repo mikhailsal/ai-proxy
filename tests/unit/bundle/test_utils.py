@@ -36,6 +36,7 @@ def test_sha256_of_file_basic(tmp_path):
 
     # Verify hash by computing it manually
     import hashlib
+
     expected_hash = hashlib.sha256(test_content).hexdigest()
     assert sha256_hash == expected_hash
 
@@ -66,6 +67,7 @@ def test_sha256_of_file_with_empty_chunks(tmp_path):
     assert size == len(test_content)
 
     import hashlib
+
     expected_hash = hashlib.sha256(test_content).hexdigest()
     assert sha256_hash == expected_hash
 

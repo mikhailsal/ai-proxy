@@ -1,7 +1,5 @@
-import os
 import time
 
-import sqlite3
 
 from ai_proxy.logdb.processing import batch_processor
 from ai_proxy.logdb.partitioning import ensure_control_database
@@ -87,5 +85,3 @@ def test_memory_pressure_forces_flush(tmp_path, monkeypatch):
     )
 
     assert inserted >= 0
-
-

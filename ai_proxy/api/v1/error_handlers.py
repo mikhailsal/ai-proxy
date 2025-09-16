@@ -2,9 +2,9 @@
 Error handling utilities for API endpoints.
 """
 
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse
 import time
-from typing import Dict, Any, AsyncGenerator
+from typing import Dict, Any
 
 from ai_proxy.logging.config import (
     logger,
@@ -20,7 +20,7 @@ def handle_streaming_error(
     request_data: Dict[str, Any],
     original_model: str,
     mapped_model: str,
-    api_key: str
+    api_key: str,
 ) -> str:
     """
     Handle errors during streaming response processing.
@@ -75,7 +75,9 @@ def handle_streaming_error(
     )
 
     # Return error chunk for streaming response
-    error_chunk = f'data: {{"error": "Streaming error: {str(error)}"}}\n\ndata: [DONE]\n\n'
+    error_chunk = (
+        f'data: {{"error": "Streaming error: {str(error)}"}}\n\ndata: [DONE]\n\n'
+    )
     return error_chunk
 
 
@@ -93,7 +95,9 @@ def validate_provider_response(provider_response) -> tuple[Dict[str, Any], int]:
         ValueError: If response validation fails
     """
     # Validate response object structure
-    if not hasattr(provider_response, "status_code") or not hasattr(provider_response, "content"):
+    if not hasattr(provider_response, "status_code") or not hasattr(
+        provider_response, "content"
+    ):
         raise ValueError("Expected httpx.Response-like object for non-streaming")
 
     if not hasattr(provider_response, "json"):
@@ -124,7 +128,7 @@ def handle_request_error(
     original_model: str,
     mapped_model: str,
     api_key: str,
-    is_streaming: bool
+    is_streaming: bool,
 ) -> JSONResponse:
     """
     Handle general request processing errors.

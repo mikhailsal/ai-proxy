@@ -75,5 +75,3 @@ class TestIntegrationWithTestClient:
         assert data["object"] == "list"
         assert "data" in data
         assert isinstance(data["data"], list)
-
-

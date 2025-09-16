@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import Mock, patch, AsyncMock
+from unittest.mock import patch, AsyncMock
 import json
 
 from ai_proxy.adapters.gemini import GeminiAdapter
@@ -62,7 +62,9 @@ class TestGeminiAdapterErrorHandling:
                 await gemini_adapter._handle_non_streaming_response(gemini_request, {})
 
     @pytest.mark.asyncio
-    async def test_stream_chat_completions_exception_openai_format(self, gemini_adapter):
+    async def test_stream_chat_completions_exception_openai_format(
+        self, gemini_adapter
+    ):
         """Test streaming exception handling with OpenAI format."""
         gemini_request = {
             "model": "gemini-pro",

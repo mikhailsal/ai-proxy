@@ -4,18 +4,13 @@ from ai_proxy.logdb.parsers.log_parser import (
     _iter_json_blocks,
     _parse_log_entry,
     _normalize_entry,
-    _safe_iso_to_datetime
+    _safe_iso_to_datetime,
 )
-from ai_proxy.logdb.utils.file_utils import (
-    _file_sha256,
-    _file_prefix_sha256,
-    _env_int
-)
+from ai_proxy.logdb.utils.file_utils import _file_sha256, _file_prefix_sha256, _env_int
 from ai_proxy.logdb.processing.batch_processor import (
     _estimate_batch_bytes,
-    _scan_log_file
+    _scan_log_file,
 )
-from ai_proxy.logdb.utils.server_utils import _derive_server_id
 from tests.unit.shared.ingest_fixtures import SAMPLE_ENTRY_1
 
 
@@ -65,7 +60,9 @@ def test_iter_json_blocks_no_braces(tmp_path):
 
     # Create file without JSON braces
     test_file = tmp_path / "no_braces.log"
-    test_file.write_text("2025-09-10 12:00:00 - INFO - No JSON here\nAnother line without braces\n")
+    test_file.write_text(
+        "2025-09-10 12:00:00 - INFO - No JSON here\nAnother line without braces\n"
+    )
 
     with open(test_file, "r") as f:
         blocks = list(_iter_json_blocks(f))
@@ -81,7 +78,7 @@ def test_parse_log_entry_edge_cases():
 
     # Test non-dict JSON (line 165)
     assert _parse_log_entry("[]") is None
-    assert _parse_log_entry("\"string\"") is None
+    assert _parse_log_entry('"string"') is None
     assert _parse_log_entry("123") is None
 
     # Test missing required fields (line 167)
@@ -99,18 +96,36 @@ def test_normalize_entry_edge_cases():
     assert _normalize_entry(entry_no_ts) is None
 
     # Test invalid timestamp (line 182)
-    entry_bad_ts = {"timestamp": "invalid", "endpoint": "/v1/chat", "request": {}, "response": {}}
+    entry_bad_ts = {
+        "timestamp": "invalid",
+        "endpoint": "/v1/chat",
+        "request": {},
+        "response": {},
+    }
     assert _normalize_entry(entry_bad_ts) is None
 
     # Test empty endpoint (line 187)
-    entry_no_endpoint = {"timestamp": "2025-09-10T12:00:00Z", "endpoint": "", "request": {}, "response": {}}
+    entry_no_endpoint = {
+        "timestamp": "2025-09-10T12:00:00Z",
+        "endpoint": "",
+        "request": {},
+        "response": {},
+    }
     assert _normalize_entry(entry_no_endpoint) is None
 
     # Test missing request/response (line 192)
-    entry_no_req = {"timestamp": "2025-09-10T12:00:00Z", "endpoint": "/v1/chat", "response": {}}
+    entry_no_req = {
+        "timestamp": "2025-09-10T12:00:00Z",
+        "endpoint": "/v1/chat",
+        "response": {},
+    }
     assert _normalize_entry(entry_no_req) is None
 
-    entry_no_resp = {"timestamp": "2025-09-10T12:00:00Z", "endpoint": "/v1/chat", "request": {}}
+    entry_no_resp = {
+        "timestamp": "2025-09-10T12:00:00Z",
+        "endpoint": "/v1/chat",
+        "request": {},
+    }
     assert _normalize_entry(entry_no_resp) is None
 
     # Test unserializable request/response (line 197-198)
@@ -122,7 +137,7 @@ def test_normalize_entry_edge_cases():
         "timestamp": "2025-09-10T12:00:00Z",
         "endpoint": "/v1/chat",
         "request": UnserializableObj(),
-        "response": {}
+        "response": {},
     }
     assert _normalize_entry(entry_bad_json) is None
 
@@ -136,7 +151,7 @@ def test_normalize_entry_invalid_status_and_latency():
         "endpoint": "/v1/chat",
         "request": {},
         "response": {},
-        "status_code": "not-a-number"
+        "status_code": "not-a-number",
     }
     result = _normalize_entry(entry_bad_status)
     assert result is not None
@@ -148,7 +163,7 @@ def test_normalize_entry_invalid_status_and_latency():
         "endpoint": "/v1/chat",
         "request": {},
         "response": {},
-        "latency_ms": "not-a-float"
+        "latency_ms": "not-a-float",
     }
     result = _normalize_entry(entry_bad_latency)
     assert result is not None
@@ -160,9 +175,45 @@ def test_estimate_batch_bytes_exception_handling():
 
     # Test with data that might cause encoding issues
     problematic_batch = [
-        ("id1", "server1", 123, "/v1/chat", None, None, 200, 1.0, None, "req1", "resp1"),
-        ("id2", "server2", 124, "/v1/chat", None, None, 200, 1.0, None, None, "resp2"),  # None request
-        ("id3", "server3", 125, "/v1/chat", None, None, 200, 1.0, None, "req3", None),  # None response
+        (
+            "id1",
+            "server1",
+            123,
+            "/v1/chat",
+            None,
+            None,
+            200,
+            1.0,
+            None,
+            "req1",
+            "resp1",
+        ),
+        (
+            "id2",
+            "server2",
+            124,
+            "/v1/chat",
+            None,
+            None,
+            200,
+            1.0,
+            None,
+            None,
+            "resp2",
+        ),  # None request
+        (
+            "id3",
+            "server3",
+            125,
+            "/v1/chat",
+            None,
+            None,
+            200,
+            1.0,
+            None,
+            "req3",
+            None,
+        ),  # None response
     ]
 
     # Should handle exceptions gracefully
@@ -221,14 +272,15 @@ def test_scan_log_file_seek_logic(tmp_path):
     server_id = _derive_server_id(str(db_base))
 
     # This will exercise the seek logic when resuming
-    inserted, skipped = _scan_log_file(str(log_path), str(db_base), None, None, server_id)
+    inserted, skipped = _scan_log_file(
+        str(log_path), str(db_base), None, None, server_id
+    )
     assert inserted >= 0  # Should complete without error
 
 
 def test_derive_server_id_edge_cases(tmp_path, monkeypatch):
     """Test _derive_server_id with various scenarios."""
     from ai_proxy.logdb.ingest import _derive_server_id
-    import os
 
     # Test with explicit LOGDB_SERVER_ID env var
     monkeypatch.setenv("LOGDB_SERVER_ID", "explicit-server-123")

@@ -18,8 +18,6 @@ class IngestStats:
     rows_skipped: int
 
 
-
-
 def ingest_logs(
     source_dir: str,
     base_db_dir: str,

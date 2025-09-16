@@ -1,7 +1,8 @@
 """
 Requests router for Logs UI API split out from `ai_proxy_ui/main.py` during refactor Stage 6.
 """
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import Optional, List, Tuple
 import os
 import datetime as _dt
@@ -9,13 +10,16 @@ import base64
 import sqlite3
 import json
 
-from ai_proxy_ui.config import _get_bool_env
 from ai_proxy_ui.services import auth as auth_service
 
-router = APIRouter(prefix="/ui/v1", dependencies=[Depends(auth_service._require_auth())])
+router = APIRouter(
+    prefix="/ui/v1", dependencies=[Depends(auth_service._require_auth())]
+)
 
 
-def _parse_date_param(value: Optional[str], default: Optional[_dt.date] = None) -> _dt.date:
+def _parse_date_param(
+    value: Optional[str], default: Optional[_dt.date] = None
+) -> _dt.date:
     if not value:
         if default is None:
             raise HTTPException(status_code=400, detail="Missing date parameter")
@@ -74,7 +78,9 @@ async def list_requests(
     start_date = _parse_date_param(since, default=today)
     end_date = _parse_date_param(to, default=today)
     if end_date < start_date:
-        raise HTTPException(status_code=400, detail="'to' date must be on/after 'since'")
+        raise HTTPException(
+            status_code=400, detail="'to' date must be on/after 'since'"
+        )
 
     db_files = _iter_partition_paths(base_dir, start_date, end_date)
     if not db_files:

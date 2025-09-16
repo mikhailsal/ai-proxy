@@ -1,6 +1,7 @@
 """
 Authentication and rate-limiting helpers for the Logs UI API.
 """
+
 import os
 import time
 from typing import Literal

@@ -1,5 +1,3 @@
-import datetime as dt
-import json
 import os
 import sqlite3
 import pytest
@@ -22,6 +20,7 @@ def temp_db_path(tmp_path):
 
 
 # Search-related tests for FTS functionality
+
 
 def test_fts_search_basic_functionality(temp_db_path):
     """Test that FTS search works for basic queries."""
@@ -52,15 +51,21 @@ def test_fts_search_basic_functionality(temp_db_path):
     conn = sqlite3.connect(temp_db_path)
     try:
         # Check that we can search for content
-        results = conn.execute("SELECT request_id, content FROM request_text_index WHERE request_text_index MATCH 'cats'").fetchall()
+        results = conn.execute(
+            "SELECT request_id, content FROM request_text_index WHERE request_text_index MATCH 'cats'"
+        ).fetchall()
         assert len(results) >= 1  # Should find at least the user message about cats
 
         # Check that search is case-insensitive
-        results = conn.execute("SELECT request_id, content FROM request_text_index WHERE request_text_index MATCH 'CATS'").fetchall()
+        results = conn.execute(
+            "SELECT request_id, content FROM request_text_index WHERE request_text_index MATCH 'CATS'"
+        ).fetchall()
         assert len(results) >= 1
 
         # Check that search finds content in responses too
-        results = conn.execute("SELECT request_id, content FROM request_text_index WHERE request_text_index MATCH 'great'").fetchall()
+        results = conn.execute(
+            "SELECT request_id, content FROM request_text_index WHERE request_text_index MATCH 'great'"
+        ).fetchall()
         assert len(results) >= 1
     finally:
         conn.close()
@@ -94,11 +99,15 @@ def test_fts_search_proximity_queries(temp_db_path):
     conn = sqlite3.connect(temp_db_path)
     try:
         # Test proximity search for "error" near "timeout"
-        results = conn.execute("SELECT request_id FROM request_text_index WHERE request_text_index MATCH 'error'").fetchall()
+        results = conn.execute(
+            "SELECT request_id FROM request_text_index WHERE request_text_index MATCH 'error'"
+        ).fetchall()
         assert len(results) >= 1  # Should find requests containing "error"
 
         # Test that general search works
-        general_results = conn.execute("SELECT request_id FROM request_text_index WHERE request_text_index MATCH 'error'").fetchall()
+        general_results = conn.execute(
+            "SELECT request_id FROM request_text_index WHERE request_text_index MATCH 'error'"
+        ).fetchall()
         assert len(general_results) >= 1  # Should find error-related content
     finally:
         conn.close()
@@ -173,13 +182,17 @@ def test_fts_search_empty_results(temp_db_path):
 
     with mock.patch("ai_proxy.logdb.fts._sqlite_supports_fts5", return_value=True):
         indexed, skipped = build_partition_fts(temp_db_path)
-        assert indexed == 1  # User message (assistant response might be empty or deduplicated)
+        assert (
+            indexed == 1
+        )  # User message (assistant response might be empty or deduplicated)
         assert skipped == 0
 
     # Test search for non-existent term
     conn = sqlite3.connect(temp_db_path)
     try:
-        results = conn.execute("SELECT request_id FROM request_text_index WHERE request_text_index MATCH 'nonexistenttermxyz'").fetchall()
+        results = conn.execute(
+            "SELECT request_id FROM request_text_index WHERE request_text_index MATCH 'nonexistenttermxyz'"
+        ).fetchall()
         assert len(results) == 0  # Should return empty results
     finally:
         conn.close()
@@ -213,15 +226,21 @@ def test_fts_search_special_characters(temp_db_path):
     conn = sqlite3.connect(temp_db_path)
     try:
         # Search for email-like pattern
-        email_results = conn.execute("SELECT request_id FROM request_text_index WHERE request_text_index MATCH 'example'").fetchall()
+        email_results = conn.execute(
+            "SELECT request_id FROM request_text_index WHERE request_text_index MATCH 'example'"
+        ).fetchall()
         assert len(email_results) >= 1
 
         # Search for API endpoint pattern
-        api_results = conn.execute("SELECT request_id FROM request_text_index WHERE request_text_index MATCH 'v1'").fetchall()
+        api_results = conn.execute(
+            "SELECT request_id FROM request_text_index WHERE request_text_index MATCH 'v1'"
+        ).fetchall()
         assert len(api_results) >= 1
 
         # Search for numeric patterns
-        numeric_results = conn.execute("SELECT request_id FROM request_text_index WHERE request_text_index MATCH '123'").fetchall()
+        numeric_results = conn.execute(
+            "SELECT request_id FROM request_text_index WHERE request_text_index MATCH '123'"
+        ).fetchall()
         assert len(numeric_results) >= 1
     finally:
         conn.close()

@@ -186,7 +186,7 @@ def test_ingest_invalid_timestamp(tmp_path):
     invalid_ts_log = logs_dir / "invalid_ts.log"
     invalid_ts_log.write_text(
         '2025-09-10 12:00:00 - INFO - {"timestamp": "invalid", "endpoint": "/v1/chat", "request": {}, "response": {}}',
-        encoding="utf-8"
+        encoding="utf-8",
     )
     stats = ingest_logs(str(logs_dir), str(db_base))
     assert stats.rows_inserted == 0
@@ -199,7 +199,7 @@ def test_ingest_date_range_skip(tmp_path):
     out_range_log = logs_dir / "out_range.log"
     out_range_log.write_text(
         '2024-01-01 00:00:00 - INFO - {"timestamp": "2024-01-01T00:00:00Z", "endpoint": "/v1/chat", "request": {}, "response": {}}',
-        encoding="utf-8"
+        encoding="utf-8",
     )
     since = dt.date(2025, 1, 1)
     to = dt.date(2025, 12, 31)
@@ -256,9 +256,8 @@ def test_date_filtering_edge_cases(tmp_path):
         '  "endpoint": "/v1/chat",\n'
         '  "request": {"model": "gpt-4"},\n'
         '  "response": {"id": "1"}\n'
-        "}\n"
+        "}\n" + SAMPLE_ENTRY_1 +
         # Entry in range
-        + SAMPLE_ENTRY_1 +
         # Entry after range
         "2025-12-31 12:00:00 - INFO - {\n"
         '  "timestamp": "2025-12-31T12:00:00Z",\n'

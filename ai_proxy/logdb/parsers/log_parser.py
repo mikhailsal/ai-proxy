@@ -1,6 +1,6 @@
 import datetime as dt
 import json
-from typing import Dict, Iterator, Optional, Tuple
+from typing import Dict, Iterator, List, Optional, Tuple
 
 # Reuse central datetime parser from utils to avoid duplication
 from ..utils.file_utils import _safe_iso_to_datetime

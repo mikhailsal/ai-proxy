@@ -349,79 +349,81 @@ Acceptance Criteria (5K)
 
 ---
 
-## 🧪 Phase 7: Testing and Validation
+## 🔧 Phase 7: CI/CD and Automation
 
-### 7.1 Run All Tests
-- [ ] Verify all tests pass after refactoring
-- [ ] Run functional tests
-- [ ] Check integration tests
+This phase establishes repeatable, fast, and secure automation to run tests, checks and releases in the same Dockerized environment used for development and CI.
 
-### 7.2 Coverage Verification
-- [ ] Coverage maintained above 95% for all files (run `make coverage`)
-- [ ] No coverage degradation from Phase 6 (must fix if below 95%)
-- [ ] Verify all new modules are covered by tests
+### 7.1 CI Pipeline Implementation
+- [ ] Add a CI pipeline that runs inside Docker (GitHub Actions / GitLab CI) and mirrors `make test` targets
+- [ ] Ensure CI invokes Docker-based test runners per `DEVELOPMENT.md` (unit, integration, functional, UI)
+- [ ] Add caching for dependencies and test artifacts to reduce run time
 
-### 7.3 Performance Verification
-- [ ] Measure test execution time
-- [ ] Check module import speed
+### 7.2 Quality and Safety Gates
+- [ ] Enforce coverage gate (>= 95%) as a CI check using the same coverage invocation as local/dev (Dockerized)
+- [ ] Add linting, type-checking, and security scanning (bandit / safety or SCA) into the pipeline
+- [ ] Add file-size and import-depth checks to fail PRs that violate size/import rules
+
+### 7.3 Automation for Releases and Artifacts
+- [ ] Add a reproducible release workflow (versioning, changelog generation, build artifact publishing)
+- [ ] Publish documentation site (e.g., GitHub Pages or CI-hosted artifact) as part of CD
 
 ### Phase 7 Acceptance Criteria
-- [ ] All test suites pass (unit, integration, functional, UI)
-- [ ] Coverage maintained above 95% for all files (run `make coverage`)
-- [ ] No coverage degradation from Phase 6 (must fix if below 95%)
-- [ ] Performance metrics acceptable
-- [ ] No regressions in functionality
+- [ ] CI pipelines run Dockerized tests and pass on pull requests
+- [ ] Coverage gate enforced and prevents merge if <95%
+- [ ] Lint, type and security checks run and report actionable results
+- [ ] Release workflow can produce reproducible artifacts and published docs
 
 ---
 
-## 📚 Phase 8: Documentation and CI/CD
+## 🔧 Phase 8: Development Guidelines and Standards
 
-### 8.1 Documentation Updates
-- [ ] Update DEVELOPMENT.md with new structure
-- [ ] Create module dependency diagrams
-- [ ] Document API for each module
+This phase defines the rules, templates and checklists the team will use to keep code quality, readability and consistency high during and after refactoring.
 
-### 8.2 CI/CD Setup
-- [ ] Add file size checks to CI
-- [ ] Setup automatic architecture verification
-- [ ] Create dependency analysis scripts
+### 8.1 Coding Standards and Naming
+- [ ] Define module naming rules and directory layout conventions (max import depth, file size limits)
+- [ ] Create code style guide (formatting, docstrings, function/class naming, high-verbosity clarity rules)
 
-### 8.3 Guidelines Creation
-- [ ] Write module naming rules
-- [ ] Create new module templates
-- [ ] Document refactoring process
+### 8.2 PR and Review Process
+- [ ] Define PR checklist: tests, coverage, changelog, docs, architecture impact
+- [ ] Create code review templates and mandatory reviewers for critical modules
+- [ ] Define branching and release strategy (feature branches, squashing policy, semantic versioning)
+
+### 8.3 Templates and Onboarding Artifacts
+- [ ] Create module and test templates (`module/__init__.py`, `tests/test_module.py`, docs stub)
+- [ ] Create commit message guidelines and changelog template
+- [ ] Produce a short developer onboarding checklist (local dev, Docker test instructions, CI expectations)
 
 ### Phase 8 Acceptance Criteria
-- [ ] Documentation updated and accurate
-- [ ] CI/CD checks functional (including coverage >95% checks)
-- [ ] Code quality guidelines documented
-- [ ] Team can follow new processes
+- [ ] Team has a documented, accessible guidelines repo/section
+- [ ] PR checklist and review templates exist and are enforced by CI where possible
+- [ ] Module and test templates adopted for new work
 
 ---
 
-## 📈 Phase 9: Monitoring and Support
+## 🔧 Phase 9: Documentation and Publishing
 
-### 9.1 Code Quality Metrics
-- [ ] Setup file size monitoring
-- [ ] Create code metrics dashboard
-- [ ] Automatic warnings for large files
+This phase focuses on creating, updating and publishing the documentation developers and operators need to work with the refactored codebase and CI/CD systems.
 
-### 9.2 Code Review Process
-- [ ] Update code review checklist
-- [ ] Add architecture checks
-- [ ] Create review templates for modules
+### 9.1 Developer and Architecture Docs
+- [ ] Update `DEVELOPMENT.md` with new structure and Docker testing guidance (explicit CI parity steps)
+- [ ] Create module dependency diagrams and a brief architecture overview for each major package
+- [ ] Document API surface and important internal contracts (e.g., adapters, routing, logdb partitioning)
 
-### 9.3 Support Plan
-- [ ] Regular code structure audits
-- [ ] Plan for gradual improvement of remaining files
-- [ ] Technical debt monitoring
+### 9.2 Operational and Runbook Docs
+- [ ] Document CI/CD runbooks: how to re-run jobs, debug failures, rotate credentials used by CI
+- [ ] Publish runbooks for deployment, HTTPS setup, and common recovery scenarios
+
+### 9.3 Publishing and Discovery
+- [ ] Configure CI to publish built documentation (site or artifact) and attach to releases
+- [ ] Add a short changelog generator step into CI to include merged PR notes on release
 
 ### Phase 9 Acceptance Criteria
-- [ ] Monitoring systems functional (including coverage monitoring >95%)
-- [ ] Code review process updated with coverage requirements
-- [ ] Support plan documented and actionable
+- [ ] `DEVELOPMENT.md` and README reflect the new structure and CI expectations
+- [ ] Architecture diagrams and API docs available from the repo or published site
+- [ ] Operational runbooks and CI debug documentation exist and are discoverable
 
 ---
+
 
 ## 🎯 Refactoring Success Criteria
 

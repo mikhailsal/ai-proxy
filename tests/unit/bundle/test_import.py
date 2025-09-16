@@ -7,8 +7,6 @@ from ai_proxy.logdb.bundle import import_bundle, create_bundle
 from tests.unit.shared.bundle_fixtures import (
     create_sample_partition,
     create_bundle_path,
-    create_test_bundle,
-    create_test_database_file,
 )
 
 
@@ -16,7 +14,7 @@ def test_bundle_import_corrupted_metadata(tmp_path):
     """Test import_bundle handles missing or corrupted metadata.json."""
     # Create an empty tar.gz file (no metadata.json)
     empty_bundle = tmp_path / "empty.tgz"
-    with tarfile.open(empty_bundle, "w:gz") as tar:
+    with tarfile.open(empty_bundle, "w:gz") as _:
         pass
 
     dest_dir = tmp_path / "dest"
@@ -24,6 +22,7 @@ def test_bundle_import_corrupted_metadata(tmp_path):
 
     # Should raise ValueError for missing metadata.json
     import pytest
+
     with pytest.raises(ValueError) as exc:
         import_bundle(str(empty_bundle), str(dest_dir))
     assert "metadata.json" in str(exc.value)
@@ -57,11 +56,9 @@ def test_bundle_import_path_traversal_attack(tmp_path):
         meta = json.load(f)
 
     # Add a malicious entry
-    meta["files"].append({
-        "path": "db/../../../etc/passwd",
-        "sha256": "abcd1234",
-        "bytes": 100
-    })
+    meta["files"].append(
+        {"path": "db/../../../etc/passwd", "sha256": "abcd1234", "bytes": 100}
+    )
 
     with open(meta_path, "w") as f:
         json.dump(meta, f)
@@ -83,7 +80,7 @@ def test_bundle_import_path_traversal_attack(tmp_path):
         # Add the original db files
         for root, _, files in os.walk(temp_dir / "db"):
             for file in files:
-                if file.endswith('.sqlite3'):  # Only add actual db files
+                if file.endswith(".sqlite3"):  # Only add actual db files
                     full_path = os.path.join(root, file)
                     rel_path = os.path.relpath(full_path, temp_dir)
                     tar.add(full_path, arcname=rel_path)
@@ -93,6 +90,7 @@ def test_bundle_import_path_traversal_attack(tmp_path):
 
     # Should raise ValueError for path traversal attempt
     import pytest
+
     with pytest.raises(ValueError) as exc2:
         import_bundle(str(malicious_bundle), str(dest_dir))
     assert "Refusing to write outside destination" in str(exc2.value)
@@ -140,12 +138,8 @@ def test_import_bundle_with_directories_and_existing_files(tmp_path):
         "schema_version": "v1",
         "include_raw": False,
         "files": [
-            {
-                "path": "db/test.sqlite3",
-                "sha256": sha,
-                "bytes": len(b"fake db content")
-            }
-        ]
+            {"path": "db/test.sqlite3", "sha256": sha, "bytes": len(b"fake db content")}
+        ],
     }
 
     with tarfile.open(bundle_path, "w:gz") as tar:
@@ -154,6 +148,7 @@ def test_import_bundle_with_directories_and_existing_files(tmp_path):
         meta_info = tarfile.TarInfo(name="metadata.json")
         meta_info.size = len(meta_bytes)
         from ai_proxy.logdb.bundle import _BytesIO
+
         tar.addfile(meta_info, fileobj=_BytesIO(meta_bytes))
 
         # Add a directory (should be skipped)
@@ -186,13 +181,11 @@ def test_import_bundle_with_directories_and_existing_files(tmp_path):
 def test_import_bundle_file_extraction_fails(tmp_path, monkeypatch):
     """Test import_bundle when tar.extractfile returns None for a file."""
     # We'll patch the import_bundle function to inject our mock
-    original_import_bundle = import_bundle
 
     def mock_import_bundle(bundle_path, dest_dir):
         # Call the original function but with a mocked extractfile
         import os
         import json
-        import hashlib
 
         os.makedirs(os.path.abspath(dest_dir), exist_ok=True)
 
@@ -227,8 +220,12 @@ def test_import_bundle_file_extraction_fails(tmp_path, monkeypatch):
                 rel = os.path.relpath(name, start="db")
                 dest_path = os.path.join(dest_dir, rel)
                 dest_real = os.path.realpath(os.path.abspath(dest_path))
-                if not (dest_real == base_abs or dest_real.startswith(base_abs + os.sep)):
-                    raise ValueError(f"Refusing to write outside destination: {dest_path}")
+                if not (
+                    dest_real == base_abs or dest_real.startswith(base_abs + os.sep)
+                ):
+                    raise ValueError(
+                        f"Refusing to write outside destination: {dest_path}"
+                    )
 
                 if os.path.exists(dest_real):
                     skipped += 1
@@ -256,12 +253,8 @@ def test_import_bundle_file_extraction_fails(tmp_path, monkeypatch):
         "schema_version": "v1",
         "include_raw": False,
         "files": [
-            {
-                "path": "db/test.sqlite3",
-                "sha256": sha,
-                "bytes": len(b"test content")
-            }
-        ]
+            {"path": "db/test.sqlite3", "sha256": sha, "bytes": len(b"test content")}
+        ],
     }
 
     with tarfile.open(bundle_path, "w:gz") as tar:
@@ -270,6 +263,7 @@ def test_import_bundle_file_extraction_fails(tmp_path, monkeypatch):
         meta_info = tarfile.TarInfo(name="metadata.json")
         meta_info.size = len(meta_bytes)
         from ai_proxy.logdb.bundle import _BytesIO
+
         tar.addfile(meta_info, fileobj=_BytesIO(meta_bytes))
 
         # Add the actual file
@@ -280,6 +274,7 @@ def test_import_bundle_file_extraction_fails(tmp_path, monkeypatch):
 
     # Should raise ValueError when extractfile returns None
     import pytest
+
     with pytest.raises(ValueError) as exc3:
         mock_import_bundle(str(bundle_path), str(dest_dir))
     assert "Failed to extract" in str(exc3.value)
@@ -305,9 +300,9 @@ def test_import_bundle_checksum_mismatch(tmp_path):
             {
                 "path": "db/test.sqlite3",
                 "sha256": "wrong_checksum_hash",  # Intentionally wrong
-                "bytes": len(test_content)
+                "bytes": len(test_content),
             }
-        ]
+        ],
     }
 
     with tarfile.open(bundle_path, "w:gz") as tar:
@@ -316,6 +311,7 @@ def test_import_bundle_checksum_mismatch(tmp_path):
         meta_info = tarfile.TarInfo(name="metadata.json")
         meta_info.size = len(meta_bytes)
         from ai_proxy.logdb.bundle import _BytesIO
+
         tar.addfile(meta_info, fileobj=_BytesIO(meta_bytes))
 
         # Add the actual file
@@ -326,6 +322,7 @@ def test_import_bundle_checksum_mismatch(tmp_path):
 
     # Should raise ValueError for checksum mismatch
     import pytest
+
     with pytest.raises(ValueError) as exc4:
         import_bundle(str(bundle_path), str(dest_dir))
     assert "Checksum mismatch" in str(exc4.value)

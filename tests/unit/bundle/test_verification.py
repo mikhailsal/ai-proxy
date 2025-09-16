@@ -1,6 +1,5 @@
 import json
 import os
-import sqlite3
 import tarfile
 
 from ai_proxy.logdb.bundle import (
@@ -9,10 +8,7 @@ from ai_proxy.logdb.bundle import (
     _collect_db_files,
 )
 from tests.unit.shared.bundle_fixtures import (
-    create_sample_partition,
-    create_bundle_path,
     create_test_bundle,
-    create_bundle_metadata,
 )
 
 
@@ -66,9 +62,10 @@ def test_bundle_collect_raw_logs_file_not_found_error(tmp_path, monkeypatch):
 
     # Mock os.stat to raise FileNotFoundError using monkeypatch for safe restore
     original_stat = os.stat
+
     def mock_stat(*args, **kwargs):
         # first positional arg is the path
-        path = args[0] if args else kwargs.get('path')
+        path = args[0] if args else kwargs.get("path")
         if path is not None and str(path) == str(temp_file):
             raise FileNotFoundError("File not found")
         return original_stat(*args, **kwargs)
@@ -176,6 +173,7 @@ def test_verify_bundle_metadata_extraction_fails(tmp_path):
 
     # This should trigger the ValueError when extractfile returns None
     import pytest
+
     with pytest.raises(ValueError) as exc:
         verify_bundle(str(bundle_path))
     assert "Failed to extract metadata" in str(exc.value)
@@ -206,16 +204,15 @@ def test_verify_bundle_file_extraction_fails(tmp_path):
 
         # But modify metadata to reference this as a file
         import json
+
         meta_path = temp_dir / "metadata.json"
         with open(meta_path) as f:
             meta = json.load(f)
 
         # Add a fake file entry
-        meta["files"].append({
-            "path": "db/test_file",
-            "sha256": "fake_hash",
-            "bytes": 100
-        })
+        meta["files"].append(
+            {"path": "db/test_file", "sha256": "fake_hash", "bytes": 100}
+        )
 
         with open(meta_path, "w") as f:
             json.dump(meta, f)
@@ -244,11 +241,9 @@ def test_verify_bundle_missing_file_in_tar(tmp_path):
         meta = json.load(f)
 
     # Add a reference to a non-existent file
-    meta["files"].append({
-        "path": "db/nonexistent.sqlite3",
-        "sha256": "fakehash",
-        "bytes": 100
-    })
+    meta["files"].append(
+        {"path": "db/nonexistent.sqlite3", "sha256": "fakehash", "bytes": 100}
+    )
 
     with open(meta_path, "w") as f:
         json.dump(meta, f)
@@ -282,13 +277,7 @@ def test_verify_bundle_with_special_file_types(tmp_path):
         "server_id": "test-server",
         "schema_version": "v1",
         "include_raw": False,
-        "files": [
-            {
-                "path": "db/special_file",
-                "sha256": "fakehash",
-                "bytes": 100
-            }
-        ]
+        "files": [{"path": "db/special_file", "sha256": "fakehash", "bytes": 100}],
     }
 
     with tarfile.open(bundle_path, "w:gz") as tar:
@@ -297,6 +286,7 @@ def test_verify_bundle_with_special_file_types(tmp_path):
         meta_info = tarfile.TarInfo(name="metadata.json")
         meta_info.size = len(meta_bytes)
         from ai_proxy.logdb.bundle import _BytesIO
+
         tar.addfile(meta_info, fileobj=_BytesIO(meta_bytes))
 
         # Add a character device file (extractfile returns None for these)

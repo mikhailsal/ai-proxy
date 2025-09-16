@@ -1,6 +1,3 @@
-import pytest
-from pydantic import ValidationError
-
 from ai_proxy.api.v1.models import (
     ChatMessage,
     ChatCompletionRequest,

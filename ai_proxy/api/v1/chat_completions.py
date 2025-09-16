@@ -16,13 +16,14 @@ from ai_proxy.logging.config import (
 from ai_proxy.security.auth import get_api_key
 from ai_proxy.core.routing import router as routing_router
 from ai_proxy.core.config import settings
-from ai_proxy.api.v1.models import ChatCompletionRequest
-from ai_proxy.api.v1.validation import validate_chat_completion_request, create_validation_error_response
+from ai_proxy.api.v1.validation import (
+    validate_chat_completion_request,
+    create_validation_error_response,
+)
 from ai_proxy.api.v1.error_handlers import (
     handle_streaming_error,
     validate_provider_response,
     handle_request_error,
-    create_internal_error_response,
 )
 
 router = APIRouter(tags=["API"])
@@ -76,7 +77,9 @@ async def chat_completions(request: Request, api_key: str = Depends(get_api_key)
     response_body = {"error": "Internal Server Error"}
 
     try:
-        provider_response = await routing_router.route_chat_completions(request_data, api_key)
+        provider_response = await routing_router.route_chat_completions(
+            request_data, api_key
+        )
 
         if is_streaming:
             # Handle streaming response
@@ -223,8 +226,13 @@ async def chat_completions(request: Request, api_key: str = Depends(get_api_key)
                 except Exception as e:
                     # Yield error chunk and stop processing
                     error_chunk = handle_streaming_error(
-                        e, start_time, endpoint, request_data,
-                        original_model, current_mapped_model, api_key
+                        e,
+                        start_time,
+                        endpoint,
+                        request_data,
+                        original_model,
+                        current_mapped_model,
+                        api_key,
                     )
                     yield error_chunk
                     return
@@ -287,6 +295,12 @@ async def chat_completions(request: Request, api_key: str = Depends(get_api_key)
 
     except Exception as e:
         return handle_request_error(
-            e, start_time, endpoint, request_data,
-            original_model, mapped_model, api_key, is_streaming
+            e,
+            start_time,
+            endpoint,
+            request_data,
+            original_model,
+            mapped_model,
+            api_key,
+            is_streaming,
         )

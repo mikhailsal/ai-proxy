@@ -1,6 +1,5 @@
 import datetime as dt
 import sqlite3
-import pytest
 from unittest.mock import patch
 from unittest import mock
 
@@ -130,6 +129,7 @@ def test_derive_server_id_file_read_error(tmp_path, monkeypatch):
     with mock.patch("builtins.open", side_effect=Exception("read error")):
         server_id = _derive_server_id(str(db_base))
         assert server_id  # Falls back
+
 
 def test_derive_server_id_file_write_error(tmp_path, monkeypatch):
     db_base = tmp_path / "logs" / "db"

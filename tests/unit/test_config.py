@@ -268,10 +268,11 @@ class TestSettings:
         """Test the main block execution for coverage."""
         import tempfile
         import os
-        import sys
 
         # Read the main block code from config.py
-        config_file_path = os.path.join(os.path.dirname(__file__), "..", "..", "ai_proxy", "core", "config.py")
+        config_file_path = os.path.join(
+            os.path.dirname(__file__), "..", "..", "ai_proxy", "core", "config.py"
+        )
         with open(config_file_path, "r") as f:
             config_content = f.read()
 
@@ -292,9 +293,9 @@ class TestSettings:
                 # Execute the main block code directly
                 # Set up the namespace with necessary imports
                 namespace = {
-                    'os': os,
-                    'yaml': yaml,
-                    'Settings': Settings,
+                    "os": os,
+                    "yaml": yaml,
+                    "Settings": Settings,
                 }
 
                 exec(main_block_code, namespace)
