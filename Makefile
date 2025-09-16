@@ -159,10 +159,10 @@ test-ui-integration: ## Run integration tests for AI Proxy UI (Python API)
 test-ui-all: test-ui-unit test-ui-integration ## Run all AI Proxy UI tests
 	@echo "All AI Proxy UI tests completed!"
 
-coverage: ## Run tests with coverage report in Docker
+coverage: ## Run tests with coverage report in Docker (includes scripts/)
 	@echo "Running tests with coverage in Docker..."
 	@docker compose run --rm -e DOCKER_CONTAINER=true -e COVERAGE_FILE=/app/logs/.coverage ai-proxy \
-		poetry run pytest tests/ --tb=line --cov=ai_proxy --cov=ai_proxy_ui --cov-report=term-missing --cov-report=html:/app/logs/coverage-html || { echo "Coverage reporting requires pytest-cov"; exit 1; }
+		poetry run pytest tests/ --tb=line --cov=ai_proxy --cov=ai_proxy_ui --cov=scripts --cov-report=term-missing --cov-report=html:/app/logs/coverage-html || { echo "Coverage reporting requires pytest-cov"; exit 1; }
 
 test-specific: ## Run specific test file or function in Docker (usage: make test-specific TEST=path/to/test.py)
 	@echo "Running specific test in Docker..."
