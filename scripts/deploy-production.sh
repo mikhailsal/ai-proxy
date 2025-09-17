@@ -44,22 +44,22 @@ error() {
 # Check prerequisites
 check_prerequisites() {
     log "Checking prerequisites..."
-    
+
     # Check if DEPLOY_HOST is set
     if [[ -z "$REMOTE_HOST" ]]; then
         error "DEPLOY_HOST environment variable is required. Example: DEPLOY_HOST=senki1 $0"
     fi
-    
+
     # Check if we're in the right directory
     if [[ ! -f "$PROJECT_DIR/pyproject.toml" ]] || [[ ! -f "$PROJECT_DIR/docker-compose.yml" ]]; then
         error "Not in AI Proxy project directory"
     fi
-    
+
     # Check if remote host is accessible
     if ! ssh -o ConnectTimeout=5 "$REMOTE_HOST" "echo 'Connection test successful'" >/dev/null 2>&1; then
         error "Cannot connect to remote host: $REMOTE_HOST"
     fi
-    
+
     # Check if remote directory exists, create if needed
     if ! ssh "$REMOTE_HOST" "test -d '$REMOTE_PATH'"; then
         warning "Remote directory does not exist: $REMOTE_PATH"
@@ -70,12 +70,12 @@ check_prerequisites() {
             error "Failed to create remote directory: $REMOTE_PATH"
         fi
     fi
-    
+
     # Check and install rsync on remote host if needed
     log "Checking rsync availability..."
     if ! ssh "$REMOTE_HOST" "command -v rsync >/dev/null 2>&1"; then
         log "Installing rsync..."
-        
+
         # Try to install rsync (suppress stdout, keep stderr for errors)
         if ssh "$REMOTE_HOST" "command -v apt-get >/dev/null 2>&1"; then
             # Debian/Ubuntu
@@ -85,7 +85,7 @@ check_prerequisites() {
                 error "Failed to install rsync. Please install manually: apt-get install rsync"
             fi
         elif ssh "$REMOTE_HOST" "command -v yum >/dev/null 2>&1"; then
-            # RHEL/CentOS  
+            # RHEL/CentOS
             if ssh "$REMOTE_HOST" "yum install -y rsync >/dev/null 2>&1"; then
                 success "rsync installed"
             else
@@ -104,37 +104,37 @@ check_prerequisites() {
     else
         success "rsync available"
     fi
-    
+
     success "Prerequisites check passed"
 }
 
 # Install Docker if not available
 install_docker_if_needed() {
     log "Checking Docker installation..."
-    
+
     if ssh "$REMOTE_HOST" "command -v docker >/dev/null 2>&1"; then
         success "Docker is already installed"
         return 0
     fi
-    
+
     warning "Docker not found, installing Docker..."
-    
+
     ssh "$REMOTE_HOST" "
         # Install Docker using official installation script
         curl -fsSL https://get.docker.com -o get-docker.sh &&
         sh get-docker.sh &&
         rm get-docker.sh &&
-        
+
         # Start and enable Docker service
         systemctl start docker &&
         systemctl enable docker &&
-        
+
         # Add current user to docker group (if not root)
         if [ \"\$(id -u)\" != \"0\" ]; then
             usermod -aG docker \$(whoami)
         fi
     " > "$LOG_DIR/docker-install-$TIMESTAMP.log" 2>&1
-    
+
     if [ $? -eq 0 ]; then
         success "Docker installed successfully"
         return 0
@@ -146,7 +146,7 @@ install_docker_if_needed() {
 # Detect Docker Compose command (supports both v1 and v2)
 detect_docker_compose_command() {
     log "Detecting Docker Compose command..."
-    
+
     # Check if docker compose (v2) is available
     if ssh "$REMOTE_HOST" "docker compose version >/dev/null 2>&1"; then
         DOCKER_COMPOSE_CMD="docker compose"
@@ -163,7 +163,7 @@ detect_docker_compose_command() {
 # Create backup
 create_backup() {
     log "Creating backup on remote server..."
-    
+
     ssh "$REMOTE_HOST" "
         mkdir -p '$BACKUP_DIR' &&
         cd '$REMOTE_PATH' &&
@@ -173,7 +173,7 @@ create_backup() {
             --exclude='.git' \
             . 2>&1
     " > "$LOG_DIR/backup-$TIMESTAMP.log"
-    
+
     success "Backup created: ai-proxy-backup-$TIMESTAMP.tar.gz"
 }
 
@@ -196,7 +196,7 @@ EOF
 # Sync files to remote
 sync_files() {
     log "Syncing code files to production..."
-    
+
     # Exclude heavy or irrelevant directories (node_modules, caches, VCS, build artifacts)
     local RSYNC_EXCLUDES=(
         "--exclude=.git"
@@ -228,7 +228,7 @@ sync_files() {
         rsync -az --delete "${RSYNC_EXCLUDES[@]}" "$PROJECT_DIR/ui/" "$REMOTE_HOST:$REMOTE_PATH/ui/" \
             >"$LOG_DIR/sync-ui-$TIMESTAMP.log" 2>&1
     fi
-    
+
     # Sync individual configuration files (not directories)
     local config_files=(
         "config.yml"
@@ -240,7 +240,7 @@ sync_files() {
         ".env.example"
         "deployment-timestamp.txt"
     )
-    
+
     # Check if this is first deployment (no .env on remote)
     if ! ssh "$REMOTE_HOST" "test -f '$REMOTE_PATH/.env'"; then
         log "First deployment detected - syncing local .env file"
@@ -248,13 +248,13 @@ sync_files() {
     else
         log "Existing .env found on remote - preserving it"
     fi
-    
+
     for file in "${config_files[@]}"; do
         if [[ -f "$PROJECT_DIR/$file" ]]; then
             scp -q "$PROJECT_DIR/$file" "$REMOTE_HOST:$REMOTE_PATH/" 2>>"$LOG_DIR/sync-config-$TIMESTAMP.log"
         fi
     done
-    
+
     # Sync scripts and tests directories (rsync with excludes)
     rsync -az --delete "${RSYNC_EXCLUDES[@]}" "$PROJECT_DIR/scripts/" "$REMOTE_HOST:$REMOTE_PATH/scripts/" \
         >"$LOG_DIR/sync-scripts-$TIMESTAMP.log" 2>&1
@@ -262,14 +262,14 @@ sync_files() {
         rsync -az --delete "${RSYNC_EXCLUDES[@]}" "$PROJECT_DIR/tests/" "$REMOTE_HOST:$REMOTE_PATH/tests/" \
             >"$LOG_DIR/sync-tests-$TIMESTAMP.log" 2>&1
     fi
-    
+
     # NEVER sync these production-specific directories:
     # - .env files (production secrets)
     # - certs/ (SSL certificates)
     # - logs/ (production logs)
     # - traefik/ (traefik config and acme.json)
     # - backups/ (backup files)
-    
+
     success "Files synced successfully (production configs preserved)"
 }
 
@@ -286,7 +286,7 @@ ensure_env_and_permissions() {
         # Priority: 1) Current user if not root, 2) Docker group user, 3) First regular user, 4) Use root if no alternatives
         CURRENT_USER_UID=\$(id -u)
         CURRENT_USER_GID=\$(id -g)
-        
+
         if [ \"\$CURRENT_USER_UID\" != \"0\" ]; then
             # Use current user if not root
             DETECTED_UID=\$CURRENT_USER_UID
@@ -295,7 +295,7 @@ ensure_env_and_permissions() {
         else
             # We're running as root, try to find a better user
             echo \"Running as root, looking for appropriate container user...\"
-            
+
             # Try to find docker group and its first user
             DOCKER_GID=\$(getent group docker | cut -d: -f3 2>/dev/null || echo \"\")
             if [ -n \"\$DOCKER_GID\" ]; then
@@ -310,7 +310,7 @@ ensure_env_and_permissions() {
                     fi
                 fi
             fi
-            
+
             # Fallback to first regular user
             if [ -z \"\$DETECTED_UID\" ]; then
                 DETECTED_UID=\$(awk -F: '\$3 >= 1000 && \$3 < 65534 {print \$3; exit}' /etc/passwd)
@@ -320,7 +320,7 @@ ensure_env_and_permissions() {
                     echo \"Using first regular user: \$DETECTED_USER (UID=\$DETECTED_UID, GID=\$DETECTED_GID)\"
                 fi
             fi
-            
+
             # Final decision: use root if no alternatives found
             if [ -z \"\$DETECTED_UID\" ]; then
                 DETECTED_UID=0
@@ -356,7 +356,7 @@ ensure_env_and_permissions() {
 
         # Prepare and fix permissions on key directories for the detected UID/GID
         mkdir -p logs certs traefik bundles tmp
-        
+
         # Fix ownership and permissions for all directories
         for dir in logs certs traefik bundles tmp; do
             if [ -d \"\$dir\" ]; then
@@ -371,7 +371,7 @@ ensure_env_and_permissions() {
             chown \${HOST_UID:-\$DETECTED_UID}:\${HOST_GID:-\$DETECTED_GID} deployment-timestamp.txt || true
             chmod u+rw deployment-timestamp.txt || true
         fi
-        
+
         # Set BASE_DOMAIN for subdomain routing (extract from DOMAIN if it contains subdomain)
         if grep -q '^DOMAIN=' .env 2>/dev/null; then
             CURRENT_DOMAIN=\$(grep '^DOMAIN=' .env | cut -d= -f2)
@@ -386,7 +386,7 @@ ensure_env_and_permissions() {
                 fi
             fi
         fi
-        
+
         # Fix script permissions
         find scripts -name '*.sh' -type f -exec chmod +x {} \; 2>/dev/null || true
     " > "$LOG_DIR/env-perms-$TIMESTAMP.log" 2>&1
@@ -397,7 +397,7 @@ ensure_env_and_permissions() {
 # Check service health before deployment
 check_service_health() {
     log "Checking current service health..."
-    
+
     local health_status=$(ssh "$REMOTE_HOST" "
         cd '$REMOTE_PATH' &&
         if [ -f .env ]; then
@@ -413,7 +413,7 @@ check_service_health() {
             echo 'NO_ENV'
         fi
     ")
-    
+
     if [[ "$health_status" == *'"status":"ok"'* ]]; then
         success "Service is healthy before deployment"
         return 0
@@ -448,7 +448,7 @@ deploy_application() {
     # Wait for containers to be ready
     log "Waiting for ai-proxy to be ready..."
     sleep 15
-    
+
     # Check health endpoint
     local attempts=0
     while [ $attempts -lt 30 ]; do
@@ -458,7 +458,7 @@ deploy_application() {
         attempts=$((attempts + 1))
         sleep 2
     done
-    
+
     if [ $attempts -ge 30 ]; then
         error "ai-proxy did not become healthy in time"
         return 1
@@ -474,16 +474,16 @@ deploy_application() {
 # Verify deployment
 verify_deployment() {
     log "Verifying deployment..."
-    
+
     # Wait for service to be ready
     local max_attempts=30
     local attempt=1
-    
+
     while [[ $attempt -le $max_attempts ]]; do
         if [[ $attempt -eq 1 ]] || [[ $((attempt % 5)) -eq 0 ]]; then
             log "Health check attempt $attempt/$max_attempts..."
         fi
-        
+
         local health_status=$(ssh "$REMOTE_HOST" "
             cd '$REMOTE_PATH' &&
             DOMAIN=\$(grep '^DOMAIN=' .env 2>/dev/null | cut -d= -f2) &&
@@ -495,23 +495,23 @@ verify_deployment() {
                 echo 'NO_DOMAIN'
             fi
         " 2>>"$LOG_DIR/health-check-$TIMESTAMP.log")
-        
+
         if [[ "$health_status" == *'"status":"ok"'* ]] || [[ "$health_status" == *'"status": "ok"'* ]]; then
             success "Service is healthy after deployment"
             break
         fi
-        
+
         if [[ $attempt -eq $max_attempts ]]; then
             error "Service health check failed after deployment"
         fi
-        
+
         sleep 1
         ((attempt++))
     done
-    
+
     # Test basic functionality
     log "Testing basic functionality..."
-    
+
     local test_result=$(ssh "$REMOTE_HOST" "
         cd '$REMOTE_PATH' &&
         DOMAIN=\$(grep '^DOMAIN=' .env 2>/dev/null | cut -d= -f2) &&
@@ -528,20 +528,20 @@ verify_deployment() {
             echo 'NO_CONFIG'
         fi
     ")
-    
+
     if [[ "$test_result" == *'"id"'* ]]; then
         success "Basic functionality test passed"
     else
         warning "Basic functionality test failed, but service is healthy"
     fi
-    
+
     success "Deployment verification completed"
 }
 
 # List available backups
 list_backups() {
     log "Available backups on $REMOTE_HOST:"
-    
+
     ssh "$REMOTE_HOST" "
         cd '$BACKUP_DIR' &&
         if ls ai-proxy-backup-*.tar.gz >/dev/null 2>&1; then
@@ -576,18 +576,18 @@ list_backups() {
 # Restore specific backup
 restore_backup() {
     local backup_file="$1"
-    
+
     if [[ -z "$backup_file" ]]; then
         error "Backup filename is required. Use --list-backups to see available backups."
     fi
-    
+
     # Check if backup exists
     if ! ssh "$REMOTE_HOST" "test -f '$BACKUP_DIR/$backup_file'"; then
         error "Backup file not found: $backup_file"
     fi
-    
+
     warning "Restoring from specific backup: $backup_file"
-    
+
     # Create a backup of current state before restoration
     log "Creating safety backup of current state..."
     ssh "$REMOTE_HOST" "
@@ -598,9 +598,9 @@ restore_backup() {
             --exclude='.git' \
             .
     "
-    
+
     log "Restoring from backup: $backup_file"
-    
+
     ssh "$REMOTE_HOST" "
         cd '$REMOTE_PATH' &&
         $DOCKER_COMPOSE_CMD down 2>&1 &&
@@ -609,7 +609,7 @@ restore_backup() {
         $DOCKER_COMPOSE_CMD up -d 2>&1 &&
         sleep 10
     " > "$LOG_DIR/restore-$backup_file-$TIMESTAMP.log" 2>&1
-    
+
     success "Backup restoration completed"
     log "Safety backup created: safety-backup-before-restore-$TIMESTAMP.tar.gz"
 }
@@ -617,15 +617,15 @@ restore_backup() {
 # Rollback function (uses latest backup)
 rollback() {
     warning "Rolling back to previous version..."
-    
+
     local latest_backup=$(ssh "$REMOTE_HOST" "ls -t '$BACKUP_DIR'/ai-proxy-backup-*.tar.gz | head -1")
-    
+
     if [[ -z "$latest_backup" ]]; then
         error "No backup found for rollback"
     fi
-    
+
     log "Using backup: $(basename "$latest_backup")"
-    
+
     ssh "$REMOTE_HOST" "
         cd '$REMOTE_PATH' &&
         $DOCKER_COMPOSE_CMD down 2>&1 &&
@@ -634,41 +634,41 @@ rollback() {
         $DOCKER_COMPOSE_CMD up -d 2>&1 &&
         sleep 10
     " > "$LOG_DIR/rollback-$TIMESTAMP.log" 2>&1
-    
+
     success "Rollback completed"
 }
 
 # Cleanup old backups
 cleanup_backups() {
     log "Cleaning up old backups (keeping last 5)..."
-    
+
     ssh "$REMOTE_HOST" "
         cd '$BACKUP_DIR' &&
         ls -t ai-proxy-backup-*.tar.gz | tail -n +6 | xargs -r rm -f &&
         echo 'Remaining backups:' &&
         ls -la ai-proxy-backup-*.tar.gz 2>/dev/null || echo 'No backups found'
     "
-    
+
     success "Backup cleanup completed"
 }
 
 # Check if HTTPS is already configured
 check_https_configuration() {
     log "Checking HTTPS configuration..."
-    
+
     local https_configured=false
-    
+
     # Check if traefik container exists and is running
     local traefik_status=$(ssh "$REMOTE_HOST" "
         cd '$REMOTE_PATH' &&
         docker ps --format 'table {{.Names}}\t{{.Status}}' | grep traefik || echo 'NOT_FOUND'
     ")
-    
+
     # Check if SSL certificates exist
     local certs_exist=$(ssh "$REMOTE_HOST" "
         test -f '$REMOTE_PATH/certs/acme.json' && echo 'EXISTS' || echo 'NOT_EXISTS'
     ")
-    
+
     # Check if .env has DOMAIN configured
     local domain_configured=$(ssh "$REMOTE_HOST" "
         cd '$REMOTE_PATH' &&
@@ -683,11 +683,11 @@ check_https_configuration() {
             echo 'NO_ENV'
         fi
     ")
-    
+
     if [[ "$traefik_status" == *"Up"* ]] && [[ "$certs_exist" == "EXISTS" ]] && [[ "$domain_configured" == "CONFIGURED" ]]; then
         https_configured=true
     fi
-    
+
     if $https_configured; then
         success "HTTPS is already configured and running"
         return 0
@@ -703,22 +703,22 @@ check_https_configuration() {
 # Setup HTTPS configuration on remote server
 setup_https_remote() {
     log "Setting up HTTPS configuration on remote server..."
-    
+
     # Copy setup-https.sh script to remote server
     scp -q "$PROJECT_DIR/scripts/setup-https.sh" "$REMOTE_HOST:$REMOTE_PATH/scripts/" 2>"$LOG_DIR/setup-https-copy-$TIMESTAMP.log"
-    
+
     # Make it executable and run it with default settings (nip.io)
     ssh "$REMOTE_HOST" "
         cd '$REMOTE_PATH' &&
         chmod +x scripts/setup-https.sh &&
         ./scripts/setup-https.sh -e info@techsupport-services.com
     " > "$LOG_DIR/setup-https-$TIMESTAMP.log" 2>&1
-    
+
     # Check if HTTPS setup was successful
     local setup_status=$?
     if [[ $setup_status -eq 0 ]]; then
         success "HTTPS setup completed successfully"
-        
+
         # Show the generated domain
         local generated_domain=$(ssh "$REMOTE_HOST" "
             cd '$REMOTE_PATH' &&
@@ -726,11 +726,11 @@ setup_https_remote() {
                 grep '^DOMAIN=' .env 2>/dev/null | cut -d= -f2
             fi
         ")
-        
+
         if [[ -n "$generated_domain" ]]; then
             log "Generated domain: $generated_domain"
         fi
-        
+
         return 0
     else
         warning "HTTPS setup failed"
@@ -743,12 +743,12 @@ setup_https_remote() {
 main() {
     local action="${1:-}"
     local backup_file="${2:-}"
-    
+
     log "Starting AI Proxy production deployment..."
     log "Remote host: $REMOTE_HOST"
     log "Remote path: $REMOTE_PATH"
     log "Timestamp: $TIMESTAMP"
-    
+
     # Create deployment timestamp file locally, to be included in the build
     echo "$TIMESTAMP" > "$PROJECT_DIR/deployment-timestamp.txt"
 
@@ -756,9 +756,9 @@ main() {
     if [[ "$action" == "" ]]; then
         trap 'error "Deployment failed! Run with --rollback to restore previous version"' ERR
     fi
-    
+
     check_prerequisites
-    
+
     # Handle different actions
     case "$action" in
         "--rollback")
@@ -788,17 +788,17 @@ main() {
             error "Unknown action: $action"
             ;;
     esac
-    
+
     # Store current health status
     local was_healthy=false
     if check_service_health; then
         was_healthy=true
     fi
-    
+
     create_backup
     sync_files
     ensure_env_and_permissions
-    
+
     # Check and setup HTTPS if needed (only for normal deployments, after files are synced)
     if [[ "$action" == "" ]]; then
         if ! check_https_configuration; then
@@ -808,18 +808,18 @@ main() {
             fi
         fi
     fi
-    
+
     deploy_application
     verify_deployment
     cleanup_backups
-    
+
     # Note: Keep local timestamp file for potential future deployments
     # It will be overwritten on next deployment anyway
 
     success "🎉 Deployment completed successfully!"
     log "Backup available at: $BACKUP_DIR/ai-proxy-backup-$TIMESTAMP.tar.gz"
     log "Deployment logs available at: $LOG_DIR/"
-    
+
     # Show deployment summary
     ssh "$REMOTE_HOST" "
         cd '$REMOTE_PATH' &&
@@ -901,4 +901,4 @@ case "${1:-}" in
     *)
         error "Unknown option: $1. Use --help for usage information."
         ;;
-esac 
+esac

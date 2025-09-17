@@ -197,5 +197,3 @@ it('collapses long JSON by default and toggles open', async () => {
   // Copy buttons present
   expect(screen.getAllByLabelText('copy-json').length).toBeGreaterThan(0)
 })
-
-

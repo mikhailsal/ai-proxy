@@ -24,7 +24,7 @@ command_with_long_output > /tmp/data.txt && head -20 /tmp/data.txt
 # ✅ Read targeted portions only
 read_file(target_file="file.py", start_line=50, end_line=100)
 
-# ✅ Use grep_search even for single files  
+# ✅ Use grep_search even for single files
 grep_search(query="class.*Config", include_pattern="config.py")
 
 # ❌ Avoid reading entire large files
@@ -45,7 +45,7 @@ grep_search(query="API_KEY", include_pattern="config/*.py")
 
 ## Quick Rules
 1. **Terminal**: Always append `| head -N` or `| tail -N` to limit output
-2. **Files**: Read chunks, not entire files  
+2. **Files**: Read chunks, not entire files
 3. **Search**: Use `grep_search` with `include_pattern` over full file reads
 4. **Temp files**: For multi-step analysis of long output
 5. **Progressive**: Build understanding incrementally

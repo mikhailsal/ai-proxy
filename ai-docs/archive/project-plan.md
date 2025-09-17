@@ -335,4 +335,4 @@ The project will be developed in phases to deliver value incrementally.
 *   [ ] `[Phase 3]` Add support for local models via a provider adapter (e.g., for Ollama or LM Studio).
 *   [ ] `[Phase 3]` Conduct and analyze load tests to identify and fix bottlenecks.
 *   [ ] `[Phase 3]` Create a simple admin UI or CLI for viewing logs and managing keys.
-*   [ ] `[Phase 3]` Implement data redaction and retention policies for compliance. 
+*   [ ] `[Phase 3]` Implement data redaction and retention policies for compliance.

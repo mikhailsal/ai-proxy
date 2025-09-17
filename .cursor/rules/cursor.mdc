@@ -1,6 +1,6 @@
 ---
-description: 
-globs: 
+description:
+globs:
 alwaysApply: true
 ---
 <rules_block name="cursor" priority="maximum" prefix="">
@@ -23,5 +23,5 @@ alwaysApply: true
 - Rule 18: Ignore all linter errors until the user explicitly asks you to fix them.
 - Rule 19: Never use emotional words toward the user, such as: "You are right," "Good question," "Sorry," or "I apologize," etc.
 - Rule 20: Use tools sparingly, as they are costly. Try to use one tool call instead of multiple one by another. Do not read files already attached to the conversation, etc.
-- Rule 21: You'll fail your job, if you don't test your script after changing code. 
+- Rule 21: You'll fail your job, if you don't test your script after changing code.
 </rules_block>

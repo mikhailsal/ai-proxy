@@ -35,4 +35,4 @@ services:
       - |
         ./wait-for-service.sh http://ai-proxy:8123/health 120
         echo "AI proxy service is up, running tests..."
-        poetry run pytest ${TEST_PATH} --tb=line -q --disable-warnings 
+        poetry run pytest ${TEST_PATH} --tb=line -q --disable-warnings

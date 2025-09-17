@@ -59,7 +59,7 @@ if [ ! -z "$API_KEYS" ]; then
         -H "Authorization: Bearer $FIRST_KEY" \
         -d '{"model":"gpt-4","messages":[{"role":"user","content":"test"}]}' \
         https://$DOMAIN/v1/chat/completions || echo "000")
-    
+
     if [ "$API_RESPONSE" = "200" ] || [ "$API_RESPONSE" = "400" ] || [ "$API_RESPONSE" = "429" ]; then
         echo "✅ API endpoint accessible (status: $API_RESPONSE)"
     else
@@ -91,4 +91,4 @@ echo ""
 echo "🔍 If tests failed, check:"
 echo "   - docker-compose logs traefik"
 echo "   - docker-compose logs ai-proxy"
-echo "   - DNS configuration for $DOMAIN" 
+echo "   - DNS configuration for $DOMAIN"

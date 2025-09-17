@@ -1,6 +1,6 @@
 ---
-description: 
-globs: 
+description:
+globs:
 alwaysApply: false
 ---
 ### Steps for Finding Root Cause
@@ -12,4 +12,3 @@ alwaysApply: false
 5.  **Iterate:** If the root cause is not found, refine hypotheses, gather more information, and repeat the testing process.
 6.  **Identify root cause:** Pinpoint the specific reason for the problem based on conclusive evidence from testing.
 7.  **Verify fix:** Ensure the proposed solution resolves the problem and does not introduce new issues.
-

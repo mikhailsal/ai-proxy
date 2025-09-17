@@ -1,6 +1,6 @@
 ---
 description: if you have any problems with file editing
-globs: 
+globs:
 alwaysApply: false
 ---
 If the edit_file shows unexpected changes, it doesn't always mean your edits weren't applied. Try these troubleshooting steps:

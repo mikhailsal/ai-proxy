@@ -131,4 +131,4 @@ FUNCTIONAL_TEST_BASE_URL=http://localhost:9000 make test-functional
 ### Tests Timeout
 - Increase timeout values in test fixtures if needed
 - Check network connectivity to external services
-- Verify provider services are operational 
+- Verify provider services are operational

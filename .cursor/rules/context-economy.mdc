@@ -15,7 +15,7 @@ Always append output limiters to commands that might produce long output:
 ```bash
 # ✅ Good - Limited output
 ls -la | head -20
-grep -r "pattern" . | head -10  
+grep -r "pattern" . | head -10
 find . -name "*.py" | head -15
 docker ps | head -10
 git log --oneline | head -20
@@ -28,7 +28,7 @@ When you need to analyze extensive command output, write to temporary files:
 # ✅ Good - Save long output to temp file
 find . -name "*.py" -exec wc -l {} \; > /tmp/line_counts.txt && head -20 /tmp/line_counts.txt
 
-# ✅ Good - Analyze large logs via temp file  
+# ✅ Good - Analyze large logs via temp file
 journalctl --since="1 hour ago" > /tmp/recent_logs.txt && grep -i error /tmp/recent_logs.txt | head -10
 
 # ✅ Good - Process large data dumps
@@ -81,7 +81,7 @@ Use progressive reading strategy for unknown files:
 # Step 1: Get file overview
 head -20 filename.py && tail -20 filename.py
 
-# Step 2: Find key sections  
+# Step 2: Find key sections
 grep_search(query="class|def|import", include_pattern="filename.py")
 
 # Step 3: Read specific sections based on findings
@@ -96,7 +96,7 @@ Use `codebase_search` for semantic understanding and concept discovery:
 ```bash
 # ✅ Good - Semantic searches
 codebase_search("authentication implementation")
-codebase_search("database connection setup")  
+codebase_search("database connection setup")
 codebase_search("error handling patterns")
 ```
 
@@ -130,7 +130,7 @@ For complex analysis requiring multiple steps:
 # Step 1: Gather data
 ps aux > /tmp/processes.txt
 
-# Step 2: Analyze in chunks  
+# Step 2: Analyze in chunks
 grep python /tmp/processes.txt | head -10
 grep node /tmp/processes.txt | head -10
 grep -v root /tmp/processes.txt | head -15
@@ -147,7 +147,7 @@ Build understanding progressively rather than loading everything at once:
 # Phase 1: Overview
 ls -la project/ | head -10
 
-# Phase 2: Structure understanding  
+# Phase 2: Structure understanding
 find project/ -type f -name "*.py" | head -15
 
 # Phase 3: Key file identification

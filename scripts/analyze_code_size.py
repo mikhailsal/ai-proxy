@@ -7,7 +7,7 @@ Used to track reduction of large files across the project.
 import os
 import sys
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Any, Union, cast
 from dataclasses import dataclass
 
 
@@ -17,6 +17,10 @@ class FileStats:
     lines: int
     functions: int
     classes: int
+
+
+# Type alias for analysis results
+AnalysisResults = Dict[str, Union[List[FileStats], List[Dict[str, Any]]]]
 
 
 class CodeAnalyzer:
@@ -61,14 +65,19 @@ class CodeAnalyzer:
 
         return python_files
 
-    def analyze_project(self) -> Dict[str, List[FileStats]]:
+    def analyze_project(self) -> AnalysisResults:
         """Analyze the entire project"""
         python_files = self.find_python_files()
-        results = {
-            "critical": [],  # > 500 lines
-            "warning": [],  # 300-500 lines
-            "normal": [],  # < 300 lines
-            "summary": [],
+        critical_files: List[FileStats] = []
+        warning_files: List[FileStats] = []
+        normal_files: List[FileStats] = []
+        summary_list: List[Dict[str, Any]] = []
+
+        results: AnalysisResults = {
+            "critical": critical_files,  # > 500 lines
+            "warning": warning_files,  # 300-500 lines
+            "normal": normal_files,  # < 300 lines
+            "summary": summary_list,
         }
 
         total_lines = 0
@@ -82,33 +91,33 @@ class CodeAnalyzer:
             total_classes += stats.classes
 
             if stats.lines > 500:
-                results["critical"].append(stats)
+                critical_files.append(stats)
             elif stats.lines > 300:
-                results["warning"].append(stats)
+                warning_files.append(stats)
             else:
-                results["normal"].append(stats)
+                normal_files.append(stats)
 
-        results["summary"] = [
+        summary_list.append(
             {
                 "total_files": len(python_files),
                 "total_lines": total_lines,
                 "total_functions": total_functions,
                 "total_classes": total_classes,
-                "critical_files": len(results["critical"]),
-                "warning_files": len(results["warning"]),
-                "normal_files": len(results["normal"]),
+                "critical_files": len(critical_files),
+                "warning_files": len(warning_files),
+                "normal_files": len(normal_files),
             }
-        ]
+        )
 
         return results
 
-    def print_report(self, results: Dict[str, List[FileStats]]) -> None:
+    def print_report(self, results: AnalysisResults) -> None:
         """Print the analysis report"""
         print("🚀 AI-PROXY CODE SIZE ANALYSIS")
         print("=" * 60)
 
         # Summary
-        summary = results["summary"][0]
+        summary = cast(Dict[str, Any], results["summary"][0])
         print("📊 SUMMARY:")
         print(f"  Total files: {summary['total_files']}")
         print(f"  Total functions: {summary['total_functions']}")
@@ -116,20 +125,20 @@ class CodeAnalyzer:
         print()
 
         # Critical files
-        if results["critical"]:
+        critical_files = cast(List[FileStats], results["critical"])
+        if critical_files:
             print("🔴 CRITICAL FILES (>500 lines):")
-            for file in sorted(
-                results["critical"], key=lambda x: x.lines, reverse=True
-            ):
+            for file in sorted(critical_files, key=lambda x: x.lines, reverse=True):
                 print(
                     f"  {file.path}: {file.lines} lines, {file.functions} functions, {file.classes} classes"
                 )
             print()
 
         # Warnings
-        if results["warning"]:
+        warning_files = cast(List[FileStats], results["warning"])
+        if warning_files:
             print("🟡 FILES REQUIRING ATTENTION (300-500 lines):")
-            for file in sorted(results["warning"], key=lambda x: x.lines, reverse=True):
+            for file in sorted(warning_files, key=lambda x: x.lines, reverse=True):
                 print(
                     f"  {file.path}: {file.lines} lines, {file.functions} functions, {file.classes} classes"
                 )
@@ -137,15 +146,15 @@ class CodeAnalyzer:
 
         # Recommendations
         print("💡 RECOMMENDATIONS:")
-        if results["critical"]:
+        if critical_files:
             print("  • Split critical files into modules")
             print("  • Extract common logic into separate files")
             print("  • Create test data factories")
-        if results["warning"]:
+        if warning_files:
             print("  • Consider further splitting")
             print("  • Check for duplicated code")
 
-        if not results["critical"] and not results["warning"]:
+        if not critical_files and not warning_files:
             print("  ✅ Great code structure — all files are within size targets.")
 
         print()
@@ -157,11 +166,10 @@ class CodeAnalyzer:
     def check_for_large_files(self) -> bool:
         """Check if there are any files >500 lines, return True if violations found"""
         results = self.analyze_project()
-        if results["critical"]:
+        critical_files = cast(List[FileStats], results["critical"])
+        if critical_files:
             print("❌ Critical files found (>500 lines):")
-            for file in sorted(
-                results["critical"], key=lambda x: x.lines, reverse=True
-            ):
+            for file in sorted(critical_files, key=lambda x: x.lines, reverse=True):
                 print(f"  {file.path}: {file.lines} lines")
             return True
         print("✅ No critical files found")

@@ -1,6 +1,6 @@
 ---
 description: if you need to do a commit
-globs: 
+globs:
 alwaysApply: false
 ---
 You should stage all edited files and make a commit with description of changes we made in chat with you.

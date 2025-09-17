@@ -13,5 +13,4 @@ else
 fi
 
 # Execute the original command
-exec "$@" 
-
+exec "$@"

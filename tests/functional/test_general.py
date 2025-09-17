@@ -237,9 +237,9 @@ class TestModelsEndpoint:
         ]
 
         for expected_model in expected_models:
-            assert expected_model in model_ids, (
-                f"Expected model {expected_model} not found in models list"
-            )
+            assert (
+                expected_model in model_ids
+            ), f"Expected model {expected_model} not found in models list"
 
     async def test_models_endpoint_provider_mapping(self, client):
         """Test that models are correctly mapped to providers."""
@@ -264,9 +264,9 @@ class TestModelsEndpoint:
 
         for model_id, expected_provider in provider_tests:
             if model_id in model_by_id:
-                assert model_by_id[model_id]["owned_by"] == expected_provider, (
-                    f"Model {model_id} should be owned by {expected_provider}"
-                )
+                assert (
+                    model_by_id[model_id]["owned_by"] == expected_provider
+                ), f"Model {model_id} should be owned by {expected_provider}"
 
     async def test_models_endpoint_openai_compatibility(self, client):
         """Test that models endpoint response is OpenAI API compatible."""
@@ -315,9 +315,9 @@ class TestModelsEndpoint:
 
         # Should respond within reasonable time (less than 2 seconds)
         response_time = end_time - start_time
-        assert response_time < 2.0, (
-            f"Models endpoint took {response_time:.2f}s to respond"
-        )
+        assert (
+            response_time < 2.0
+        ), f"Models endpoint took {response_time:.2f}s to respond"
 
 
 # Content format tests are covered by unit tests in test_api_models.py

@@ -91,7 +91,7 @@ chmod 600 certs/acme.json
 # Function to detect public IP
 detect_public_ip() {
     echo -e "${BLUE}🌍 Detecting public IP address...${NC}" >&2
-    
+
     # Try multiple IP detection services
     local ip=""
     local services=(
@@ -100,7 +100,7 @@ detect_public_ip() {
         "curl -s --max-time 5 https://icanhazip.com"
         "curl -s --max-time 5 https://ident.me"
     )
-    
+
     for service in "${services[@]}"; do
         if ip=$(eval "$service" 2>/dev/null | tr -d '\n' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'); then
             if [ -n "$ip" ]; then
@@ -110,7 +110,7 @@ detect_public_ip() {
             fi
         fi
     done
-    
+
     # Try dig as fallback
     if command -v dig >/dev/null 2>&1; then
         if ip=$(dig +short myip.opendns.com @resolver1.opendns.com 2>/dev/null | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'); then
@@ -121,7 +121,7 @@ detect_public_ip() {
             fi
         fi
     fi
-    
+
     echo -e "${RED}❌ Could not detect public IP automatically${NC}" >&2
     return 1
 }
@@ -130,7 +130,7 @@ detect_public_ip() {
 generate_domain() {
     local public_ip="$1"
     local service="$2"
-    
+
     case "$service" in
         "nip.io")
             echo "$SUBDOMAIN.$public_ip.nip.io"
@@ -158,7 +158,7 @@ generate_domain() {
 update_env_file() {
     local domain="$1"
     local email="$2"
-    
+
     # Check if .env file exists
     if [ ! -f .env ]; then
         echo -e "${YELLOW}⚠️  .env file not found. Creating from template...${NC}"
@@ -178,7 +178,7 @@ ACME_EMAIL=$email
 EOF
         fi
     fi
-    
+
     # Update ONLY domain and email fields, preserve everything else
     # Update domain in .env file using grep and temporary file approach
     if grep -q "^DOMAIN=" .env; then
@@ -190,7 +190,7 @@ EOF
         # Add DOMAIN line
         echo "DOMAIN=$domain" >> .env
     fi
-    
+
     # Update or add ACME_EMAIL
     if grep -q "^ACME_EMAIL=" .env; then
         # Update existing ACME_EMAIL line
@@ -200,7 +200,7 @@ EOF
     else
         echo "ACME_EMAIL=$email" >> .env
     fi
-    
+
     # Enforce production ports (80/443) for Let's Encrypt HTTP/ALPN challenges
     if grep -q "^HTTP_PORT=" .env; then
         grep -v "^HTTP_PORT=" .env > .env.tmp
@@ -237,7 +237,7 @@ main() {
         echo -e "${RED}❌ Invalid email format: $ACME_EMAIL${NC}"
         exit 1
     fi
-    
+
     # Detect public IP (only needed for nip.io and sslip.io)
     if [ "$DOMAIN_SERVICE" = "nip.io" ] || [ "$DOMAIN_SERVICE" = "sslip.io" ]; then
         if ! public_ip=$(detect_public_ip); then
@@ -247,17 +247,17 @@ main() {
     else
         public_ip="N/A"
     fi
-    
+
     # Generate domain
     if ! domain=$(generate_domain "$public_ip" "$DOMAIN_SERVICE"); then
         exit 1
     fi
-    
+
     echo -e "${GREEN}✅ Generated domain: $domain${NC}"
-    
+
     # Update .env file
     update_env_file "$domain" "$ACME_EMAIL"
-    
+
     echo ""
     echo -e "${GREEN}🚀 HTTPS setup completed successfully!${NC}"
     echo ""
@@ -282,9 +282,9 @@ main() {
     echo "   - Check certificate status: docker compose logs traefik"
     echo "   - Verify domain accessibility: curl -I http://$domain"
     echo "   - Test HTTPS: curl -I https://$domain"
-    
+
     return 0
 }
 
 # Run main function
-main 
+main

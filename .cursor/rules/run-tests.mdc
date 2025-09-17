@@ -1,6 +1,6 @@
 ---
 description: how to run tests
-globs: 
+globs:
 alwaysApply: false
 ---
 # How to be successful with running tests

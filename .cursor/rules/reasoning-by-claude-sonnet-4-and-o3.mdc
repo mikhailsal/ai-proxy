@@ -235,10 +235,10 @@ from typing import bool
 def validate_email(email: str) -> bool:
     """
     Validate email address using RFC-compliant regex pattern.
-    
+
     Args:
         email: Email string to validate
-        
+
     Returns:
         True if email is valid, False otherwise
     """

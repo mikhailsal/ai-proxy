@@ -36,12 +36,12 @@ log "Container running as $CONTAINER_USER (UID:GID = $CONTAINER_UID:$CONTAINER_G
 fix_mounted_permissions() {
     local directories=(
         "/app/logs"
-        "/app/certs" 
+        "/app/certs"
         "/app/traefik"
         "/app/bundles"
         "/app/tmp"
     )
-    
+
     for dir in "${directories[@]}"; do
         # Create directory if it doesn't exist
         if [[ ! -d "$dir" ]]; then
@@ -51,16 +51,16 @@ fix_mounted_permissions() {
                 continue
             }
         fi
-        
+
         log "Checking write access to $dir..."
-        
+
         # Test write permissions by creating a test file
         if touch "$dir/.write-test" 2>/dev/null; then
             rm -f "$dir/.write-test" 2>/dev/null || true
             success "Write access OK for $dir"
         else
             log "No write access to $dir, attempting to fix..."
-            
+
             # If we're root, we can fix ownership
             if [[ "$CONTAINER_UID" == "0" ]]; then
                 chown -R "$CONTAINER_UID:$CONTAINER_GID" "$dir" 2>/dev/null || true
@@ -74,7 +74,7 @@ fix_mounted_permissions() {
                 }
                 log "Fixed permissions as user for $dir"
             fi
-            
+
             # Test again
             if touch "$dir/.write-test" 2>/dev/null; then
                 rm -f "$dir/.write-test" 2>/dev/null || true
@@ -91,11 +91,11 @@ fix_app_permissions() {
     # Only fix if we're root - non-root users can't change ownership
     if [[ "$CONTAINER_UID" == "0" ]]; then
         log "Running as root - ensuring proper ownership of app files..."
-        
+
         # Fix ownership of key application files
         chown -R root:root /app/ai_proxy /app/ai_proxy_ui 2>/dev/null || true
         chmod -R u+rwX,g+rX,o+rX /app/ai_proxy /app/ai_proxy_ui 2>/dev/null || true
-        
+
         success "Fixed ownership of application files"
     else
         log "Running as non-root user - skipping app file ownership changes"
@@ -105,15 +105,15 @@ fix_app_permissions() {
 # Main execution
 main() {
     log "Starting container entrypoint..."
-    
+
     # Fix permissions for mounted directories
     fix_mounted_permissions
-    
+
     # Fix application file permissions if running as root
     fix_app_permissions
-    
+
     success "Entrypoint setup complete, starting application..."
-    
+
     # Execute the original command
     exec "$@"
 }

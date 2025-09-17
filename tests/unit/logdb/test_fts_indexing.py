@@ -26,7 +26,8 @@ def temp_db_path(tmp_path):
 # Tests for build_partition_fts
 def test_build_partition_fts_success(temp_db_path):
     conn = open_connection_with_pragmas(temp_db_path)
-    conn.executescript("""
+    conn.executescript(
+        """
         CREATE TABLE requests (
             request_id TEXT PRIMARY KEY,
             endpoint TEXT,
@@ -39,7 +40,8 @@ def test_build_partition_fts_success(temp_db_path):
             ('r1', 'chat', 'gpt', 'gpt-m', '{"messages": [{"content": "test"}]}', '{"choices": [{"message": {"content": "response"}}]}'),
             ('r2', 'chat', 'gemini', 'gem-m', '{"contents": [{"parts": [{"text": "q"}]}]}', '{"candidates": [{"content": {"parts": [{"text": "a"}]}}]}'),
             ('r3', '', '', '', '{}', '{}');  -- empty to skip
-    """)
+    """
+    )
     conn.commit()
     conn.close()
 

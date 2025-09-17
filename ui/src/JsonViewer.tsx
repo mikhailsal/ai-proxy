@@ -140,5 +140,3 @@ export default function JsonViewer({ value, label, collapseThreshold = 256 }: Js
     </div>
   )
 }
-
-

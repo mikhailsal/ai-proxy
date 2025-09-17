@@ -76,5 +76,3 @@ test('List → Details → Back navigation (mocked API)', async ({ page }) => {
   await page.getByLabel('close-details').click()
   await expect(page.getByLabel('requests-table')).toBeVisible()
 })
-
-

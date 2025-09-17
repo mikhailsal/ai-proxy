@@ -92,7 +92,8 @@ def test_get_request_details_invalid_json_fallback(tmp_path, monkeypatch):
 
     conn = _sqlite.connect(str(p))
     try:
-        conn.executescript("""
+        conn.executescript(
+            """
             PRAGMA journal_mode=WAL;
             CREATE TABLE IF NOT EXISTS requests (
               request_id TEXT PRIMARY KEY,
@@ -108,7 +109,8 @@ def test_get_request_details_invalid_json_fallback(tmp_path, monkeypatch):
               response_json TEXT NOT NULL,
               dialog_id TEXT
             );
-            """)
+            """
+        )
         with conn:
             conn.execute(
                 "INSERT OR IGNORE INTO requests(request_id, server_id, ts, endpoint, model_original, model_mapped, status_code, latency_ms, api_key_hash, request_json, response_json, dialog_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,NULL)",
@@ -189,7 +191,8 @@ def test_request_details_none_json_returns_none(tmp_path, monkeypatch):
 
     conn = _sqlite.connect(str(p))
     try:
-        conn.executescript("""
+        conn.executescript(
+            """
             PRAGMA journal_mode=WAL;
             CREATE TABLE IF NOT EXISTS requests (
               request_id TEXT PRIMARY KEY,
@@ -205,7 +208,8 @@ def test_request_details_none_json_returns_none(tmp_path, monkeypatch):
               response_json TEXT,
               dialog_id TEXT
             );
-            """)
+            """
+        )
         with conn:
             conn.execute(
                 "INSERT OR IGNORE INTO requests(request_id, server_id, ts, endpoint, model_original, model_mapped, status_code, latency_ms, api_key_hash, request_json, response_json, dialog_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,NULL)",

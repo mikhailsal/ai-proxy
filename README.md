@@ -45,7 +45,7 @@ This guide will walk you through setting up the AI Proxy service with HTTPS.
     # Required for HTTPS
     DOMAIN=your-domain.com
     ACME_EMAIL=your-email@example.com
-    
+
     # Your API configuration
     API_KEYS=your-secret-key-1,your-secret-key-2
     OPENROUTER_API_KEY=your-openrouter-api-key

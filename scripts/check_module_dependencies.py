@@ -11,7 +11,7 @@ import sys
 import ast
 import networkx as nx
 from pathlib import Path
-from typing import Dict, Set, List, Tuple
+from typing import Dict, Set, List
 from collections import defaultdict
 
 
@@ -27,16 +27,16 @@ class ModuleDependencyAnalyzer:
             rel_path = file_path.relative_to(self.root_dir)
             module_parts = []
             for part in rel_path.parts:
-                if part.endswith('.py'):
+                if part.endswith(".py"):
                     module_parts.append(part[:-3])  # Remove .py extension
-                elif part != '__pycache__':
+                elif part != "__pycache__":
                     module_parts.append(part)
 
             # Skip __init__.py files for module naming
-            if module_parts and module_parts[-1] == '__init__':
+            if module_parts and module_parts[-1] == "__init__":
                 module_parts = module_parts[:-1]
 
-            return '.'.join(module_parts)
+            return ".".join(module_parts)
         except ValueError:
             return str(file_path)
 
@@ -44,7 +44,7 @@ class ModuleDependencyAnalyzer:
         """Extract all imports from a Python file."""
         imports = set()
         try:
-            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                 content = f.read()
 
             tree = ast.parse(content, filename=str(file_path))
@@ -52,10 +52,10 @@ class ModuleDependencyAnalyzer:
             for node in ast.walk(tree):
                 if isinstance(node, ast.Import):
                     for alias in node.names:
-                        imports.add(alias.name.split('.')[0])
+                        imports.add(alias.name.split(".")[0])
                 elif isinstance(node, ast.ImportFrom):
                     if node.module:
-                        imports.add(node.module.split('.')[0])
+                        imports.add(node.module.split(".")[0])
 
         except (SyntaxError, UnicodeDecodeError):
             pass
@@ -66,10 +66,14 @@ class ModuleDependencyAnalyzer:
         """Build dependency graph for all Python files."""
         for root, dirs, files in os.walk(self.root_dir):
             # Skip certain directories
-            dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ['__pycache__', 'node_modules']]
+            dirs[:] = [
+                d
+                for d in dirs
+                if not d.startswith(".") and d not in ["__pycache__", "node_modules"]
+            ]
 
             for file in files:
-                if file.endswith('.py'):
+                if file.endswith(".py"):
                     file_path = Path(root) / file
                     module_name = self.extract_module_name(file_path)
 
@@ -79,13 +83,16 @@ class ModuleDependencyAnalyzer:
 
                         # Filter imports to only include our project modules
                         for imp in imports:
-                            if any(imp.startswith(prefix) for prefix in ['ai_proxy', 'tests']):
+                            if any(
+                                imp.startswith(prefix)
+                                for prefix in ["ai_proxy", "tests"]
+                            ):
                                 self.dependencies[module_name].add(imp)
 
     def detect_cycles(self) -> List[List[str]]:
         """Detect circular dependencies in the dependency graph."""
         # Create directed graph
-        G = nx.DiGraph()
+        G: nx.DiGraph = nx.DiGraph()
 
         for module, deps in self.dependencies.items():
             for dep in deps:
@@ -103,11 +110,15 @@ class ModuleDependencyAnalyzer:
     def get_dependency_stats(self) -> Dict[str, int]:
         """Get dependency statistics."""
         stats = {
-            'total_modules': len(self.modules),
-            'modules_with_dependencies': len([m for m, deps in self.dependencies.items() if deps]),
-            'total_dependencies': sum(len(deps) for deps in self.dependencies.values()),
-            'max_dependencies': max((len(deps) for deps in self.dependencies.values()), default=0),
-            'circular_dependencies': len(self.detect_cycles())
+            "total_modules": len(self.modules),
+            "modules_with_dependencies": len(
+                [m for m, deps in self.dependencies.items() if deps]
+            ),
+            "total_dependencies": sum(len(deps) for deps in self.dependencies.values()),
+            "max_dependencies": max(
+                (len(deps) for deps in self.dependencies.values()), default=0
+            ),
+            "circular_dependencies": len(self.detect_cycles()),
         }
         return stats
 
@@ -129,9 +140,7 @@ class ModuleDependencyAnalyzer:
         if self.dependencies:
             print("📈 MODULES WITH MOST DEPENDENCIES:")
             sorted_modules = sorted(
-                self.dependencies.items(),
-                key=lambda x: len(x[1]),
-                reverse=True
+                self.dependencies.items(), key=lambda x: len(x[1]), reverse=True
             )[:10]
 
             for module, deps in sorted_modules:
@@ -155,14 +164,14 @@ class ModuleDependencyAnalyzer:
 
         # Show some key modules
         key_modules = [
-            'ai_proxy.main',
-            'ai_proxy.logdb.ingest',
-            'tests.unit.bundle.test_creation',
-            'tests.unit.bundle.test_verification',
-            'tests.unit.ingest.test_cli',
-            'tests.unit.ingest.test_core',
-            'tests.unit.ingest.test_utils',
-            'tests.unit.ingest.test_parallel'
+            "ai_proxy.main",
+            "ai_proxy.logdb.ingest",
+            "tests.unit.bundle.test_creation",
+            "tests.unit.bundle.test_verification",
+            "tests.unit.ingest.test_cli",
+            "tests.unit.ingest.test_core",
+            "tests.unit.ingest.test_utils",
+            "tests.unit.ingest.test_parallel",
         ]
 
         for module in key_modules:
@@ -175,11 +184,11 @@ class ModuleDependencyAnalyzer:
 
         print()
         print("💡 RECOMMENDATIONS:")
-        if stats['circular_dependencies'] > 0:
+        if stats["circular_dependencies"] > 0:
             print("  • Fix circular dependencies to improve maintainability")
-        if stats['max_dependencies'] > 10:
+        if stats["max_dependencies"] > 10:
             print("  • Consider splitting modules with many dependencies")
-        if stats['modules_with_dependencies'] / stats['total_modules'] < 0.5:
+        if stats["modules_with_dependencies"] / stats["total_modules"] < 0.5:
             print("  • Good modularity - most modules have clear responsibilities")
 
 

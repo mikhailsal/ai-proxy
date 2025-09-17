@@ -6,6 +6,6 @@
 - [x] Split README.md into: README.MD and DEVELOPMENT.MD
 - [x] Create functional tests wich uses real api keys and real data (disabled by default, but could be run with special Makefile target)
 - [x] Create seperate functional tests for different providers (Gemini, OpenRouter, etc.)to avoid cluttering the context
-- [x] Fix "pytest tests/unit/test_main.py" 
+- [x] Fix "pytest tests/unit/test_main.py"
 - [ ] Remove .venv mapping to docker container
 - [ ] fix root owner after docker container

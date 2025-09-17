@@ -233,9 +233,9 @@ class TestGeminiPerformanceAndReliability:
                 successful_responses += 1
 
         # At least 2 out of 3 should succeed (allowing for rate limiting)
-        assert successful_responses >= 2, (
-            f"Only {successful_responses} out of 3 requests succeeded"
-        )
+        assert (
+            successful_responses >= 2
+        ), f"Only {successful_responses} out of 3 requests succeeded"
 
     async def test_gemini_request_timeout_handling(self, client, api_key):
         """Test that Gemini requests don't hang indefinitely."""
