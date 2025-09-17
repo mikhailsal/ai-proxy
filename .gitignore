@@ -91,7 +91,7 @@ venv.bak/
 dmypy.json
 
 # Pyre type checker
-.pyre/ 
+.pyre/
 
 .specstory/
 
@@ -125,3 +125,9 @@ bundles/
 
 **/*/node_modules/
 **/*/coverage
+
+# Test results and coverage
+.coverage
+htmlcov/
+logs/coverage-html/
+ui/test-results/

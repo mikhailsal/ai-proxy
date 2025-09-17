@@ -68,11 +68,11 @@ test-all: test-unit test-integration test-ui test-ui-e2e test-functional ## Run 
 
 test-unit: ## Run unit tests in Docker
 	@echo "Running unit tests in Docker..."
-	@docker compose run --rm -e DOCKER_CONTAINER=true ai-proxy poetry run pytest tests/unit -q --tb=line -n auto
+	@docker compose run --no-TTY --rm -e DOCKER_CONTAINER=true ai-proxy poetry run pytest tests/unit -q --tb=line -n auto
 
 test-integration: ## Run integration tests in Docker
 	@echo "Running integration tests in Docker..."
-	@docker compose run --rm -e DOCKER_CONTAINER=true ai-proxy sh -c "if [ -n \"\$$(find tests/integration -name 'test_*.py' -type f 2>/dev/null)\" ]; then poetry run pytest tests/integration -q --tb=line; else echo 'No integration tests found, skipping...'; fi"
+	@docker compose run --no-TTY --rm -e DOCKER_CONTAINER=true ai-proxy sh -c "if [ -n \"\$$(find tests/integration -name 'test_*.py' -type f 2>/dev/null)\" ]; then poetry run pytest tests/integration -q --tb=line; else echo 'No integration tests found, skipping...'; fi"
 
 test-functional: ## Run all functional tests with real API keys (disabled by default)
 	@echo "⚠️  WARNING: Functional tests use real API keys and may incur costs!"
