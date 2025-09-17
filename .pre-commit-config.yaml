@@ -1,23 +1,54 @@
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
+    rev: v6.0.0
     hooks:
     -   id: trailing-whitespace
     -   id: end-of-file-fixer
     -   id: check-yaml
     -   id: check-added-large-files
 -   repo: https://github.com/psf/black
-    rev: 23.3.0
+    rev: 25.1.0
     hooks:
     -   id: black
 -   repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.1.6
+    rev: v0.13.0
     hooks:
     -   id: ruff
         args: [--fix]
 -   repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.5.1
+    rev: v1.18.1
     hooks:
+    # Disabled in favor of local hook that runs in Poetry env for consistency
     -   id: mypy
-        exclude: ^(docs|tests)/
-        additional_dependencies: [ "types-requests" ] 
+        exclude: ^$  # match nothing
+        additional_dependencies: [ "types-requests", "types-PyYAML" ]
+        pass_filenames: false
+        args: ["--version"]
+
+- repo: local
+  hooks:
+    - id: mypy-poetry
+      name: mypy (Poetry env)
+      description: Run mypy inside Poetry environment to match Makefile
+      entry: poetry run mypy ai_proxy/ ai_proxy_ui/ scripts/
+      language: system
+      pass_filenames: false
+      always_run: true
+    - id: check-file-lines
+      name: Check no Python file exceeds 500 lines
+      description: Ensures all Python files are under 500 lines for maintainability
+      entry: python scripts/analyze_code_size.py --check
+      language: system
+      types: [python]
+      pass_filenames: false
+      always_run: true
+    - id: run-unit-tests
+      name: Run unit tests
+      description: Ensures all unit tests pass before commit
+      entry: make test-unit
+      language: system
+      pass_filenames: false
+      always_run: true
+      verbose: true
+
+# End of config - add more local hooks here for extensibility

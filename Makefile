@@ -189,7 +189,7 @@ lint-fix: ## Format code and fix linting errors with ruff
 type-check: ## Run type checking with mypy
 	@echo "Running type checks..."
 	$(call check_poetry)
-	@poetry run mypy ai_proxy/ ai_proxy_ui/ || echo "Type checking failed - consider fixing type issues or adding type stubs"
+	@poetry run mypy ai_proxy/ ai_proxy_ui/ scripts/
 
 pre-commit: ## Run pre-commit hooks
 	@echo "Running pre-commit hooks..."
@@ -398,4 +398,4 @@ quick-test: lint-fix test-unit ## Quick test cycle for development in Docker
 
 # Production readiness check
 prod-check: lint type-check test test-ui-all coverage ## Check if ready for production in Docker
-	@echo "Production readiness check completed!" 
+	@echo "Production readiness check completed!"
