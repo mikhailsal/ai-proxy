@@ -127,9 +127,9 @@ async def chat_completions(request: Request, api_key: str = Depends(get_api_key)
                                     chunk_data = chunk[6:].strip()
                                     if chunk_data and chunk_data != "[DONE]":
                                         parsed_chunk = json.loads(chunk_data)
-                                        assert isinstance(
-                                            parsed_chunk, dict
-                                        ), "Expected dict from JSON parse"
+                                        assert isinstance(parsed_chunk, dict), (
+                                            "Expected dict from JSON parse"
+                                        )
 
                                         # Check for error in chunk
                                         if "error" in parsed_chunk:
@@ -158,9 +158,9 @@ async def chat_completions(request: Request, api_key: str = Depends(get_api_key)
                                             and parsed_chunk["choices"]
                                         ):
                                             choice = parsed_chunk["choices"][0]
-                                            assert isinstance(
-                                                choice, dict
-                                            ), "Expected dict for choice"
+                                            assert isinstance(choice, dict), (
+                                                "Expected dict for choice"
+                                            )
                                             if (
                                                 "delta" in choice
                                                 and "content" in choice["delta"]

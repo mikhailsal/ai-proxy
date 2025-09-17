@@ -3,8 +3,7 @@ import sqlite3
 from typing import Iterable
 
 
-SCHEMA_DDL: str = (
-    """
+SCHEMA_DDL: str = """
 PRAGMA journal_mode=WAL;
 CREATE TABLE IF NOT EXISTS servers (
   server_id TEXT PRIMARY KEY,
@@ -40,7 +39,6 @@ CREATE INDEX IF NOT EXISTS idx_requests_model_orig ON requests(model_original);
 CREATE INDEX IF NOT EXISTS idx_requests_model_mapped ON requests(model_mapped);
 CREATE INDEX IF NOT EXISTS idx_requests_api ON requests(api_key_hash);
 """.strip()
-)
 
 
 def open_connection_with_pragmas(db_path: str) -> sqlite3.Connection:

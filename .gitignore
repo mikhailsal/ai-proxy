@@ -131,3 +131,12 @@ bundles/
 htmlcov/
 logs/coverage-html/
 ui/test-results/
+
+# CI/CD artifacts
+*.xml
+*-report.txt
+*-report.json
+bandit-report.json
+safety-report.json
+code-analysis-report.txt
+dependency-analysis-report.txt

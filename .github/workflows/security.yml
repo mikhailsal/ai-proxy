@@ -1,0 +1,219 @@
+name: Security and Quality Checks
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  schedule:
+    # Run security checks weekly on Mondays at 02:00 UTC
+    - cron: '0 2 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  # Security scanning with bandit and safety
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Cache Poetry dependencies
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: ${{ runner.os }}-poetry-security-${{ hashFiles('poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-security-
+
+      - name: Install dependencies
+        run: |
+          poetry install --with dev
+          poetry run pip install bandit[toml] safety
+
+      - name: Run bandit security linter (non-blocking)
+        run: |
+          set +e
+          poetry run bandit -r ai_proxy/ ai_proxy_ui/ -f json -o bandit-report.json
+          BANDIT_EXIT=$?
+          poetry run bandit -r ai_proxy/ ai_proxy_ui/ -f txt || true
+          echo "Bandit exit code: $BANDIT_EXIT" || true
+          exit 0
+
+      - name: Run safety dependency checker (non-blocking)
+        run: |
+          set +e
+          poetry run safety check --json --output safety-report.json
+          SAFETY_EXIT=$?
+          poetry run safety check || true
+          echo "Safety exit code: $SAFETY_EXIT" || true
+          exit 0
+
+      - name: Upload security reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-reports
+          path: |
+            bandit-report.json
+            safety-report.json
+
+  # Code quality metrics
+  code-quality:
+    name: Code Quality Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Cache Poetry dependencies
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: ${{ runner.os }}-poetry-quality-${{ hashFiles('poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-quality-
+
+      - name: Install dependencies
+        run: poetry install --with dev
+
+      - name: Run code size analysis
+        run: |
+          poetry run python scripts/analyze_code_size.py > code-analysis-report.txt
+          cat code-analysis-report.txt
+
+      - name: Check module dependencies
+        run: |
+          poetry run python scripts/check_module_dependencies.py > dependency-analysis-report.txt || echo "Dependency analysis failed"
+          cat dependency-analysis-report.txt || true
+
+      - name: Upload quality reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: code-quality-reports
+          path: |
+            code-analysis-report.txt
+            dependency-analysis-report.txt
+
+  # File size and import depth checks
+  architecture-compliance:
+    name: Architecture Compliance
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check file sizes (fail if >500 lines)
+        run: |
+          echo "🔍 Checking for files larger than 500 lines..."
+          large_files=""
+          while IFS= read -r -d '' file; do
+            if [[ "$file" == *.py ]]; then
+              lines=$(wc -l < "$file")
+              if [ "$lines" -gt 500 ]; then
+                echo "❌ File too large: $file ($lines lines)"
+                large_files="$large_files $file"
+              fi
+            fi
+          done < <(find ai_proxy/ ai_proxy_ui/ tests/ -name "*.py" -print0)
+
+          if [ -n "$large_files" ]; then
+            echo "❌ Files exceeding 500 lines found. Please refactor these files:"
+            echo "$large_files"
+            exit 1
+          else
+            echo "✅ All Python files are under 500 lines"
+          fi
+
+      - name: Check import depth (warn if >3 levels)
+        run: |
+          echo "🔍 Checking import depth..."
+          python3 -c "
+          import os
+          import ast
+          import sys
+
+          max_depth = 0
+          violations = []
+
+          for root, dirs, files in os.walk('ai_proxy'):
+              for file in files:
+                  if file.endswith('.py'):
+                      filepath = os.path.join(root, file)
+                      try:
+                          with open(filepath, 'r') as f:
+                              tree = ast.parse(f.read())
+
+                          for node in ast.walk(tree):
+                              if isinstance(node, ast.ImportFrom) and node.module:
+                                  depth = node.module.count('.')
+                                  if depth > max_depth:
+                                      max_depth = depth
+                                  if depth > 3:
+                                      violations.append(f'{filepath}: {node.module} (depth: {depth})')
+                      except Exception as e:
+                          print(f'Warning: Could not parse {filepath}: {e}')
+
+          print(f'Maximum import depth found: {max_depth}')
+          if violations:
+              print('⚠️  Import depth violations (>3 levels):')
+              for v in violations:
+                  print(f'  {v}')
+          else:
+              print('✅ All imports have reasonable depth')
+          "
+
+  # Dependency vulnerability check
+  dependency-check:
+    name: Dependency Vulnerability Check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'

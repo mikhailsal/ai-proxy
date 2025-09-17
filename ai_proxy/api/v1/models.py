@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator, Field
 from typing import List, Dict, Any, Optional, Union
 
 # Based on https://platform.openai.com/docs/api-reference/chat/create
@@ -28,7 +28,7 @@ class ChatMessage(BaseModel):
 
 class ChatCompletionRequest(BaseModel):
     model: str
-    messages: List[ChatMessage]
+    messages: List[ChatMessage] = Field(..., min_length=1)
     temperature: Optional[float] = None
     top_p: Optional[float] = None
     n: Optional[int] = None

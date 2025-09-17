@@ -251,9 +251,9 @@ class TestOpenRouterPerformanceAndReliability:
                 "All concurrent requests rate limited - OpenRouter API quota exceeded"
             )
         else:
-            assert (
-                successful_responses >= 1
-            ), f"Only {successful_responses} out of 3 requests succeeded"
+            assert successful_responses >= 1, (
+                f"Only {successful_responses} out of 3 requests succeeded"
+            )
 
     async def test_openrouter_request_timeout_handling(self, client, api_key):
         """Test that OpenRouter requests don't hang indefinitely."""
