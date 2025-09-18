@@ -354,23 +354,23 @@ Acceptance Criteria (5K)
 This phase establishes repeatable, fast, and secure automation to run tests, checks and releases in the same Dockerized environment used for development and CI.
 
 ### 7.1 CI Pipeline Implementation
-- [ ] Add a CI pipeline that runs inside Docker (GitHub Actions / GitLab CI) and mirrors `make test` targets
-- [ ] Ensure CI invokes Docker-based test runners per `DEVELOPMENT.md` (unit, integration, functional, UI)
-- [ ] Add caching for dependencies and test artifacts to reduce run time
+- [x] Add a CI pipeline that runs inside Docker (GitHub Actions / GitLab CI) and mirrors `make test` targets
+- [x] Ensure CI invokes Docker-based test runners per `DEVELOPMENT.md` (unit, integration, functional, UI)
+- [x] Add caching for dependencies and test artifacts to reduce run time
 
 ### 7.2 Quality and Safety Gates
 - [ ] Enforce coverage gate (>= 95%) as a CI check using the same coverage invocation as local/dev (Dockerized)
-- [ ] Add linting, type-checking, and security scanning (bandit / safety or SCA) into the pipeline
-- [ ] Add file-size and import-depth checks to fail PRs that violate size/import rules
+- [x] Add linting, type-checking, and security scanning (bandit / safety or SCA) into the pipeline
+- [x] Add file-size and import-depth checks to fail PRs that violate size/import rules
 
 ### 7.3 Automation for Releases and Artifacts
 - [ ] Add a reproducible release workflow (versioning, changelog generation, build artifact publishing)
 - [ ] Publish documentation site (e.g., GitHub Pages or CI-hosted artifact) as part of CD
 
 ### Phase 7 Acceptance Criteria
-- [ ] CI pipelines run Dockerized tests and pass on pull requests
+- [x] CI pipelines run Dockerized tests and pass on pull requests
 - [ ] Coverage gate enforced and prevents merge if <95%
-- [ ] Lint, type and security checks run and report actionable results
+- [x] Lint, type and security checks run and report actionable results
 - [ ] Release workflow can produce reproducible artifacts and published docs
 
 ---
