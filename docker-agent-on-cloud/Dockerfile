@@ -43,7 +43,7 @@ ENV POETRY_CACHE_DIR=/opt/.cache
 
 RUN python3 -m venv $POETRY_VENV \
     && $POETRY_VENV/bin/pip install -U pip setuptools \
-    && $POETRY_VENV/bin/pip install poetry==$POETRY_peVERSION
+    && $POETRY_VENV/bin/pip install poetry==$POETRY_VERSION
 
 # Create workspace user with Docker privileges
 RUN groupadd -g 1000 workspace \
