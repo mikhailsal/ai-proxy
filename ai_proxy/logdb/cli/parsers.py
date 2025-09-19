@@ -13,12 +13,13 @@ from .commands import (
     _cmd_dialogs_clear,
     _cmd_bundle_import,
     _cmd_merge,
+    cmd_auto,
 )
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="logdb", description="Log DB utilities")
-    sub = parser.add_subparsers(dest="command", required=True)
+    sub = parser.add_subparsers(dest="command")
 
     p_init = sub.add_parser("init", help="Initialize schema for a partition date")
     p_init.add_argument("--date", help="Partition date YYYY-MM-DD", required=False)
@@ -32,6 +33,26 @@ def build_parser() -> argparse.ArgumentParser:
 
     # Ingest subcommand
     add_ingest_cli(sub)
+
+    # Auto subcommand (default behavior)
+    p_auto = sub.add_parser(
+        "auto",
+        help="Ingest recent logs with defaults and compact completed weeks/months",
+    )
+    p_auto.add_argument(
+        "--from",
+        dest="source",
+        required=False,
+        default="logs",
+        help="Source logs directory",
+    )
+    p_auto.add_argument(
+        "--out",
+        required=False,
+        default="logs/db",
+        help="Base directory for DB partitions",
+    )
+    p_auto.set_defaults(func=cmd_auto)
 
     # FTS subcommands
     p_fts = sub.add_parser("fts", help="FTS index utilities")
@@ -169,5 +190,18 @@ def build_parser() -> argparse.ArgumentParser:
         "--to", dest="dst", required=True, help="Destination SQLite file path"
     )
     p_merge.set_defaults(func=_cmd_merge)
+
+    # When no subcommand is provided, default to auto
+    if not getattr(parser, "default_subparser", None):
+
+        def _set_default_subparser():
+            import sys as _sys
+
+            if len(_sys.argv) > 1:
+                return
+            _sys.argv.append("auto")
+
+        parser.set_defaults(func=cmd_auto)
+        parser._default_handler = _set_default_subparser  # type: ignore[attr-defined]
 
     return parser

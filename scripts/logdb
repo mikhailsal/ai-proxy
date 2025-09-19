@@ -4,6 +4,8 @@
 # Convenient wrapper for logdb commands to reduce typing
 #
 # Usage examples:
+#   ./scripts/logdb            # default: auto ingest + compaction
+#   ./scripts/logdb auto       # explicit auto
 #   ./scripts/logdb init
 #   ./scripts/logdb ingest --from ./logs --since 2025-09-01 --to 2025-09-07
 #   ./scripts/logdb fts build --since 2025-09-01 --to 2025-09-07
@@ -85,11 +87,12 @@ usage() {
     cat << EOF
 ${BLUE}AI Proxy Log Database CLI Wrapper${NC}
 
-${GREEN}Usage:${NC} $0 <command> [options]
+${GREEN}Usage:${NC} $0 [command] [options]
 
 ${GREEN}Available commands:${NC}
 
   ${YELLOW}Core Commands:${NC}
+    auto                 Ingest recent logs and compact completed weeks/months (default)
     init                 Initialize schema for a partition date
     ingest               Ingest structured logs into SQLite partitions
     merge                Merge partitions from a directory into a single SQLite file
@@ -109,6 +112,8 @@ ${GREEN}Available commands:${NC}
     dialogs clear        Clear dialog_id values for a date range
 
 ${GREEN}Examples:${NC}
+  $0                      # default auto
+  $0 auto
   $0 init
   $0 ingest --from ./logs --since 2025-09-01 --to 2025-09-07
   $0 fts build --since 2025-09-01 --to 2025-09-07
@@ -139,7 +144,7 @@ EOF
 
 # Function to check if we're in the right directory
 check_project_dir() {
-    if [[ ! -f "ai_proxy/main.py" ]] || [[ ! -f "ai_proxy/logdb/cli.py" ]]; then
+    if [[ ! -f "ai_proxy/main.py" ]] || [[ ! -f "ai_proxy/logdb/cli/__init__.py" ]]; then
         echo -e "${RED}Error: This script must be run from the AI Proxy project root directory${NC}"
         echo -e "${YELLOW}Current directory: $(pwd)${NC}"
         exit 1
@@ -174,9 +179,15 @@ main() {
     load_dotenv_if_enabled
 
     # Handle help
-    if [[ $# -eq 0 ]] || [[ "$1" == "--help" ]] || [[ "$1" == "-h" ]]; then
+    if [[ "$1" == "--help" ]] || [[ "$1" == "-h" ]]; then
         usage
         exit 0
+    fi
+
+    # No args -> default to auto
+    if [[ $# -eq 0 ]]; then
+        run_command auto
+        exit $?
     fi
 
     # Run the command

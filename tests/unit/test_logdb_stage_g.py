@@ -4,7 +4,7 @@ import sqlite3
 
 from ai_proxy.logdb.bundle import create_bundle, import_bundle
 from ai_proxy.logdb.partitioning import compute_partition_path
-from ai_proxy.logdb.merge import merge_partitions
+from ai_proxy.logdb.merge import merge_partitions, merge_partitions_from_files
 
 
 def _make_partition(base_dir: str, date: dt.date, rows: int, start_id: int = 0) -> str:
@@ -123,6 +123,25 @@ def test_merge_produces_equal_counts_and_ok(tmp_path):
     nsrc2, total2, status2 = merge_partitions(str(src_dir), str(dest))
     assert nsrc2 == 2
     assert total2 == 10
+    assert status2 == "ok"
+
+
+def test_merge_from_files_idempotent(tmp_path):
+    src_dir = tmp_path / "srcdb2"
+    date1 = dt.date(2025, 9, 9)
+    date2 = dt.date(2025, 9, 10)
+    p1 = _make_partition(str(src_dir), date1, 2, 0)
+    p2 = _make_partition(str(src_dir), date2, 3, 100)
+
+    dest = tmp_path / "merge.sqlite3"
+    nsrc, total, status = merge_partitions_from_files([p1, p2], str(dest))
+    assert nsrc == 2
+    assert total == 5
+    assert status == "ok"
+
+    nsrc2, total2, status2 = merge_partitions_from_files([p1, p2], str(dest))
+    assert nsrc2 == 2
+    assert total2 == 5
     assert status2 == "ok"
 
 

@@ -5,7 +5,11 @@ from io import StringIO
 from contextlib import redirect_stdout
 
 from ai_proxy.logdb.ingest import ingest_logs
-from ai_proxy.logdb.partitioning import compute_partition_path
+from ai_proxy.logdb.partitioning import (
+    compute_partition_path,
+    compute_weekly_path,
+    compute_monthly_aggregate_path,
+)
 from ai_proxy.logdb.schema import open_connection_with_pragmas
 
 SAMPLE_TEMPLATE = (
@@ -74,6 +78,19 @@ def test_batch_rows_and_bytes_flush(tmp_path, monkeypatch):
         assert cnt == stats.rows_inserted
     finally:
         conn.close()
+
+
+def test_partition_helpers_paths():
+    import datetime as _dt
+
+    base = "/tmp/x"
+    d = _dt.date(2025, 9, 10)
+    daily = compute_partition_path(base, d)
+    weekly = compute_weekly_path(base, d)
+    monthly = compute_monthly_aggregate_path(base, d)
+    assert daily.endswith("/2025/09/ai_proxy_20250910.sqlite3")
+    assert "/W" in weekly and weekly.endswith("ai_proxy_2025W37.sqlite3")
+    assert "/M09/" in monthly and monthly.endswith("ai_proxy_202509.sqlite3")
 
 
 def test_perf_line_printed(tmp_path, monkeypatch):

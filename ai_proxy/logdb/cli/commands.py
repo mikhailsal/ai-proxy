@@ -6,13 +6,18 @@ from ..schema import open_connection_with_pragmas, run_integrity_check
 from ..fts import build_fts_for_range, drop_fts_table
 from ..bundle import create_bundle, verify_bundle, import_bundle
 from ..transport import copy_with_resume
-from ..merge import merge_partitions
+from ..merge import merge_partitions, merge_partitions_from_files
 from ..dialogs import (
     assign_dialogs_for_range,
     _parse_window_to_seconds,
     clear_dialogs_for_range,
 )
-from ..partitioning import ensure_partition_database
+from ..partitioning import (
+    ensure_partition_database,
+    compute_partition_path,
+    compute_weekly_path,
+    compute_monthly_aggregate_path,
+)
 
 
 def cmd_init(args) -> int:
@@ -192,3 +197,155 @@ def _cmd_merge(args) -> int:
     )
     print(f"sources={nsrc} total_requests={total} integrity={status}")
     return 0 if status == "ok" else 1
+
+
+def _discover_daily_partitions(base_dir: str, since: _dt.date, to: _dt.date):
+    cur = since
+    paths = []
+    while cur <= to:
+        paths.append(compute_partition_path(base_dir, cur))
+        cur = cur + _dt.timedelta(days=1)
+    return [p for p in paths if os.path.isfile(p)]
+
+
+def _discover_weekly_targets(base_dir: str, since: _dt.date, to: _dt.date):
+    cur = since
+    targets: dict[str, str] = {}
+    while cur <= to:
+        tgt = compute_weekly_path(base_dir, cur)
+        key = os.path.dirname(tgt)
+        targets.setdefault(key, tgt)
+        cur = cur + _dt.timedelta(days=1)
+    return list(targets.values())
+
+
+def _discover_monthly_targets(base_dir: str, since: _dt.date, to: _dt.date):
+    cur = since
+    targets: dict[str, str] = {}
+    while cur <= to:
+        tgt = compute_monthly_aggregate_path(base_dir, cur)
+        key = os.path.dirname(tgt)
+        targets.setdefault(key, tgt)
+        cur = cur + _dt.timedelta(days=1)
+    return list(targets.values())
+
+
+def cmd_auto(args) -> int:
+    """Default operation: ingest recent logs into DB, then compact partitions.
+
+    Behavior:
+    - Source logs default: ./logs
+    - DB base dir default: ./logs/db
+    - Date range default: from earliest day seen in raw logs up to today.
+      Practically, we scan all .log files and let checkpoints skip already ingested bytes.
+    - After ingestion, if today is not the last day of its ISO week, no weekly
+      compaction is performed for the open week. Completed weeks are merged into
+      a weekly DB. Similarly for completed months, merge daily or weekly into
+      a monthly DB.
+    """
+    # Gate by feature flag like ingest
+    if os.getenv("LOGDB_ENABLED", "false").lower() != "true":
+        print("Auto disabled by LOGDB_ENABLED")
+        return 2
+
+    source = os.path.abspath(getattr(args, "source", "logs"))
+    base = os.path.abspath(getattr(args, "out", "logs/db"))
+
+    # Stage 1: ingest all log files; checkpoints guarantee idempotence
+    from ..ingest import ingest_logs as _ingest
+
+    stats = _ingest(source, base, None, None)
+    print(
+        f"auto: ingested files={stats.files_ingested} rows={stats.rows_inserted} skipped={stats.rows_skipped}"
+    )
+
+    # Stage 2: compaction
+    today = _dt.date.today()
+
+    # Determine earliest and latest partitions present
+    # We'll scan under base for daily-shaped files YYYY/MM/ai_proxy_YYYYMMDD.sqlite3
+    daily_files = []
+    for root, _dirs, names in os.walk(base):
+        for n in names:
+            if n.startswith("ai_proxy_") and n.endswith(".sqlite3"):
+                # Heuristic: skip weekly (YYYYWNN) and monthly (YYYYMM) aggregates by directory name
+                # Daily live under YYYY/MM, weekly under YYYY/WNN, monthly under YYYY/MNN
+                parts = os.path.normpath(root).split(os.sep)
+                if len(parts) >= 2 and parts[-2].isdigit() and parts[-1].isdigit():
+                    daily_files.append(os.path.join(root, n))
+
+    # Group daily files per ISO week and per month
+    from collections import defaultdict
+
+    week_to_files = defaultdict(list)
+    month_to_files = defaultdict(list)
+    for p in daily_files:
+        # parse date from filename ai_proxy_YYYYMMDD.sqlite3
+        try:
+            base_name = os.path.basename(p)
+            date_str = base_name.replace("ai_proxy_", "").replace(".sqlite3", "")
+            y = int(date_str[0:4])
+            m = int(date_str[4:6])
+            d = int(date_str[6:8])
+            dte = _dt.date(y, m, d)
+        except Exception:
+            continue
+        iso_year, iso_week, iso_weekday = dte.isocalendar()
+        week_key = (iso_year, iso_week)
+        week_to_files[week_key].append(p)
+        month_key = (dte.year, dte.month)
+        month_to_files[month_key].append(p)
+
+    # Merge completed ISO weeks into weekly targets
+    for (wy, ww), files in sorted(week_to_files.items()):
+        # Completed week when the last day is past Sunday (ISO weekday 7)
+        # If current week equals (wy, ww), skip to keep it live
+        t_y, t_w, _ = today.isocalendar()
+        if (wy, ww) == (t_y, t_w):
+            continue
+        target = compute_weekly_path(base, _dt.date.fromisocalendar(wy, ww, 1))
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        nsrc, total, status = merge_partitions_from_files(files, target)
+        print(
+            f"auto: weekly_merge {target} sources={nsrc} total={total} status={status}"
+        )
+        # Optional cleanup of daily sources after successful merge
+        if (
+            status == "ok"
+            and os.getenv("LOGDB_CLEANUP_AFTER_MERGE", "false").lower() == "true"
+        ):
+            for f in files:
+                try:
+                    os.remove(f)
+                except Exception:
+                    pass
+
+    # Merge completed months into monthly targets from daily files
+    cm_y, cm_m = today.year, today.month
+    for (yy, mm), files in sorted(month_to_files.items()):
+        if (yy, mm) == (cm_y, cm_m):
+            continue
+        target = compute_monthly_aggregate_path(base, _dt.date(yy, mm, 1))
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        nsrc, total, status = merge_partitions_from_files(files, target)
+        print(
+            f"auto: monthly_merge {target} sources={nsrc} total={total} status={status}"
+        )
+        # Optional cleanup of daily sources after successful merge
+        if (
+            status == "ok"
+            and os.getenv("LOGDB_CLEANUP_AFTER_MERGE", "false").lower() == "true"
+        ):
+            for f in files:
+                try:
+                    os.remove(f)
+                except Exception:
+                    pass
+
+    # Optionally build FTS for the ingested range when enabled
+    if os.getenv("LOGDB_FTS_ENABLED", "false").lower() == "true":
+        res = build_fts_for_range(base, None, today)
+        for db_path, rows_idx, rows_skip in res:
+            print(f"auto: fts {db_path} indexed={rows_idx} skipped={rows_skip}")
+
+    return 0

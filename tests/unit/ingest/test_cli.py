@@ -25,6 +25,37 @@ def test_cli_gating_env_flags_for_ingest(monkeypatch, tmp_path):
     assert rc2 == 0
 
 
+def test_cli_auto_defaults_and_gating(monkeypatch, tmp_path):
+    logs_dir = tmp_path / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    (logs_dir / "v1_chat_completions.log").write_text(SAMPLE_ENTRY_1, encoding="utf-8")
+
+    # Disabled
+    monkeypatch.setenv("LOGDB_ENABLED", "false")
+    rc = logdb_cli.main(
+        ["auto", "--from", str(logs_dir), "--out", str(tmp_path / "logs" / "db")]
+    )
+    assert rc == 2
+
+    # Enabled
+    monkeypatch.setenv("LOGDB_ENABLED", "true")
+    rc2 = logdb_cli.main(
+        ["auto", "--from", str(logs_dir), "--out", str(tmp_path / "logs" / "db")]
+    )
+    assert rc2 == 0
+
+
+def test_cli_no_args_defaults_to_auto(monkeypatch, tmp_path):
+    logs_dir = tmp_path / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    (logs_dir / "v1_chat_completions.log").write_text(SAMPLE_ENTRY_1, encoding="utf-8")
+    monkeypatch.setenv("LOGDB_ENABLED", "true")
+
+    # No args should default to auto and succeed
+    rc = logdb_cli.main([])
+    assert rc == 0
+
+
 def test_cli_init_error_handling(tmp_path, monkeypatch):
     """Test cmd_init handles database integrity check failures."""
     # Mock run_integrity_check to return "failed"
@@ -193,14 +224,11 @@ def test_cli_main_with_invalid_command():
     assert se.value.code == 2
 
 
-def test_cli_main_with_no_args():
+def test_cli_main_with_no_args(monkeypatch):
     """Test main function with no arguments."""
-    # Mock sys.exit to capture the exit code
-    import pytest
-
-    with pytest.raises(SystemExit) as se2:
-        logdb_cli.main([])
-    assert se2.value.code == 2
+    monkeypatch.setenv("LOGDB_ENABLED", "true")
+    rc = logdb_cli.main([])
+    assert rc == 0
 
 
 def test_cli_main_with_help():
@@ -213,14 +241,11 @@ def test_cli_main_with_help():
     assert se3.value.code == 0
 
 
-def test_cli_main_with_argv_none():
+def test_cli_main_with_argv_none(monkeypatch):
     """Test main function with argv=None."""
-    # Mock sys.exit to capture the exit code
-    import pytest
-
-    with pytest.raises(SystemExit) as se4:
-        logdb_cli.main(None)
-    assert se4.value.code == 2  # Invalid command line from pytest
+    monkeypatch.setenv("LOGDB_ENABLED", "true")
+    rc = logdb_cli.main(None)
+    assert rc == 0
 
 
 def test_cli_build_parser_structure():

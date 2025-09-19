@@ -51,3 +51,26 @@ def ensure_control_database(base_dir: str) -> str:
     os.makedirs(os.path.dirname(path), exist_ok=True)
     ensure_schema(path)
     return path
+
+
+def compute_weekly_path(base_dir: str, date: _dt.date) -> str:
+    """Return the weekly aggregate path for the ISO week containing date.
+
+    Path shape: base/YYYY/WNN/ai_proxy_YYYYWNN.sqlite3
+    """
+    iso_year, iso_week, _ = date.isocalendar()
+    year_dir = os.path.join(base_dir, f"{iso_year:04d}")
+    week_dir = os.path.join(year_dir, f"W{iso_week:02d}")
+    filename = f"ai_proxy_{iso_year:04d}W{iso_week:02d}.sqlite3"
+    return os.path.join(week_dir, filename)
+
+
+def compute_monthly_aggregate_path(base_dir: str, date: _dt.date) -> str:
+    """Return the monthly aggregate path for the month containing date.
+
+    Path shape: base/YYYY/MNN/ai_proxy_YYYYMM.sqlite3 (MNN distinguishes from daily 'MM')
+    """
+    year_dir = os.path.join(base_dir, f"{date.year:04d}")
+    month_dir = os.path.join(year_dir, f"M{date.month:02d}")
+    filename = f"ai_proxy_{date.year:04d}{date.month:02d}.sqlite3"
+    return os.path.join(month_dir, filename)

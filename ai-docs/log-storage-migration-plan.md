@@ -21,6 +21,10 @@
 - `LOGDB_BUNDLE_INCLUDE_RAW` (default: `false`) — include raw `.log` files in bundles.
 - `LOGDB_IMPORT_PARALLELISM` (default: `2`) — concurrent file parses.
 
+- `LOGDB_CLEANUP_AFTER_MERGE` (default: `false`) — when `true`, remove source
+  daily partition files after successful weekly/monthly merges performed by
+  `logdb auto` or programmatic merge helpers.
+
 All flags must be read only by tooling/cron, not by the running API, to avoid runtime coupling.
 
 ## Staged Plan (independently testable; can be paused safely)
@@ -53,6 +57,8 @@ All flags must be read only by tooling/cron, not by the running API, to avoid ru
 - Deliverables:
   - [x] CLI `logdb ingest --from logs/ --since YYYY-MM-DD --to YYYY-MM-DD`.
   - [x] Incremental ingestion using `ingest_sources` checkpoints.
+  - [x] `logdb auto` convenience command that ingests recent logs and compacts
+    completed weeks/months when run without subcommand.
 - Implementation outline:
   - Parse existing endpoint/model logs under `logs/` line‑by‑line.
   - Extract JSON payload after the `asctime - level -` prefix; validate fields.
@@ -62,6 +68,8 @@ All flags must be read only by tooling/cron, not by the running API, to avoid ru
   - [x] First run ingests sample files and reports counters.
   - [x] Second run ingests 0 new rows (idempotent).
   - [x] Checkpoint in `ingest_sources` reflects `bytes_ingested` and `mtime`.
+  - [x] `logdb auto` is gated by `LOGDB_ENABLED` and is idempotent via
+    `ingest_sources` checkpoints; repeated runs ingest only new bytes.
 - Tests:
   - [x] Unit: parser tolerates minor noise/rotation.
   - [x] Integration: ingest two rotated files; resume after interruption.
@@ -125,10 +133,20 @@ All flags must be read only by tooling/cron, not by the running API, to avoid ru
  - Deliverables:
   - `logdb bundle import bundle.tgz --dest logs/db/` (copy new partitions, skip existing).
   - Optional merge CLI: `logdb merge --from logs/db/2025/09 --to logs/db/monthly/2025-09.sqlite3`.
+  - Programmatic API: `merge_partitions_from_files(source_files, dest_path)` for
+    merging an explicit list of partition files (idempotent, reports integrity).
  - Acceptance checklist:
   - [x] Import is idempotent; re‑import does nothing.
   - [x] Attached multi‑DB queries across partitions work.
   - [x] Merge produces a compact file with same row counts (`INSERT OR IGNORE`).
+  - [x] `logdb auto` discovers daily partitions and creates weekly/monthly
+    aggregates at `logs/db/YYYY/WNN/ai_proxy_YYYYWNN.sqlite3` and
+    `logs/db/YYYY/MNN/ai_proxy_YYYYMM.sqlite3` respectively (new layout).
+  - [x] Optional cleanup of source daily partitions after successful merge is
+    available and controlled via `LOGDB_CLEANUP_AFTER_MERGE=true`.
+  - [x] UI integration: routes updated to prefer merged aggregates and fall
+    back to legacy `logs/db/monthly` and `logs/db/weekly` paths where present.
+  - [x] Unit, integration and UI tests pass in Docker (verified locally).
  - Tests:
   - [x] Integration: ATTACH multiple partitions and run a cross‑range query.
   - [x] Integration: pre/post merge counts equal; `integrity_check=ok`.
@@ -183,6 +201,10 @@ All flags must be read only by tooling/cron, not by the running API, to avoid ru
 - Verify bundle: `logdb bundle verify ./bundles/b-2025-09-01_10.tgz`
 - Import bundle: `logdb bundle import ./bundles/b-2025-09-01_10.tgz --dest ./logs/db/`
 - Merge: `logdb merge --from ./logs/db/2025/09 --to ./logs/db/monthly/2025-09.sqlite3`
+
+- Auto (default): `logdb auto` — run without args (or explicitly) to ingest recent
+  logs, compact completed weeks/months, optionally build FTS, and optionally
+  clean up source partitions (`LOGDB_CLEANUP_AFTER_MERGE=true`).
 
 ## Appendix A — DB Schema (DDL sketch)
 ```sql

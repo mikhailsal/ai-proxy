@@ -51,6 +51,11 @@ def _make_partition(db_path: str, rows: int, base_ts: int, start_id: int = 0):
 
 
 def test_requests_cross_two_days_counts_and_pagination(tmp_path, monkeypatch):
+    # Clear rate limiter state to prevent test interference
+    from ai_proxy_ui.services.auth import _rate_limit_buckets
+
+    _rate_limit_buckets.clear()
+
     # Prepare two daily partitions under logs/db/YYYY/MM
     base_dir = tmp_path / "logs" / "db"
     day1 = dt.date(2025, 9, 9)
@@ -119,6 +124,11 @@ def test_requests_cross_two_days_counts_and_pagination(tmp_path, monkeypatch):
 def test_requests_wide_range_over_10_partitions_no_500_and_pagination(
     tmp_path, monkeypatch
 ):
+    # Clear rate limiter state to prevent test interference
+    from ai_proxy_ui.services.auth import _rate_limit_buckets
+
+    _rate_limit_buckets.clear()
+
     # Prepare 12 daily partitions across a month
     base_dir = tmp_path / "logs" / "db"
     start_day = dt.date(2025, 9, 1)

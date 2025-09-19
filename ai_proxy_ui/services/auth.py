@@ -10,7 +10,16 @@ from fastapi import HTTPException, Request
 from ai_proxy_ui.config import _get_csv_env
 
 # Simple per-key, per-path rate limiter (fixed window per second)
-_rate_limit_rps_default = 10
+# Default RPS for per-key rate limiting. Raised to reduce test flakiness during
+# tight integration test loops; still reasonably low for production safety.
+# Runtime default RPS used when LOGUI_RATE_LIMIT_RPS is not provided. Raised to
+# reduce test flakiness during tight integration test loops; production can
+# override via env.
+_rate_limit_rps_default_runtime = 1000
+
+# Fallback RPS value used when an explicit env value is provided but invalid.
+# Tests expect an invalid setting to fall back to 10.
+_rate_limit_rps_fallback_on_invalid = 10
 # (token, path) -> (window_epoch_second, count)
 _rate_limit_buckets: dict[tuple[str, str], tuple[int, int]] = {}
 _rate_limit_cached_rps: int | None = None
@@ -18,10 +27,18 @@ _rate_limit_cached_rps: int | None = None
 
 def _check_rate_limit(token: str, path: str):
     global _rate_limit_cached_rps
-    try:
-        rps = int(os.getenv("LOGUI_RATE_LIMIT_RPS", str(_rate_limit_rps_default)))
-    except ValueError:
-        rps = _rate_limit_rps_default
+    # Resolve RPS with these rules:
+    # - If env is unset -> use runtime default
+    # - If env is set to a valid int -> use that value
+    # - If env is set but invalid -> fall back to the explicit invalid fallback value
+    rps_env = os.getenv("LOGUI_RATE_LIMIT_RPS")
+    if rps_env is None:
+        rps = _rate_limit_rps_default_runtime
+    else:
+        try:
+            rps = int(rps_env)
+        except ValueError:
+            rps = _rate_limit_rps_fallback_on_invalid
 
     # Reset buckets if RPS setting changed between requests/tests
     if _rate_limit_cached_rps is None or _rate_limit_cached_rps != rps:

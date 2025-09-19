@@ -217,8 +217,7 @@ def _iter_range_with_merged(base_dir: str, since: _dt.date, to: _dt.date) -> Lis
     covered_days: set[_dt.date] = set()
     selected: List[str] = []
 
-    # Monthly merged preference
-    monthly_root = os.path.join(base_dir, "monthly")
+    # Monthly merged preference (new aggregate layout under base/YYYY/MNN/ai_proxy_YYYYMM.sqlite3)
     m_cursor = _dt.date(since.year, since.month, 1)
     last_m = _dt.date(to.year, to.month, 1)
     months: List[tuple[int, int]] = []
@@ -239,7 +238,14 @@ def _iter_range_with_merged(base_dir: str, since: _dt.date, to: _dt.date) -> Lis
         # Only if month fully inside [since, to]
         if not (start_m >= since and end_m <= to):
             continue
-        merged_path = os.path.join(monthly_root, f"{y:04d}-{m:02d}.sqlite3")
+        # Prefer new merged monthly aggregate path
+        try:
+            from ai_proxy.logdb.partitioning import compute_monthly_aggregate_path
+
+            merged_path = compute_monthly_aggregate_path(base_dir, start_m)
+        except Exception:
+            # Fallback to legacy monthly path if helper unavailable
+            merged_path = os.path.join(base_dir, "monthly", f"{y:04d}-{m:02d}.sqlite3")
         if os.path.isfile(merged_path):
             selected.append(merged_path)
             d = start_m
@@ -248,8 +254,7 @@ def _iter_range_with_merged(base_dir: str, since: _dt.date, to: _dt.date) -> Lis
                     covered_days.add(d)
                 d += _dt.timedelta(days=1)
 
-    # Weekly merged preference (ISO weeks)
-    weekly_root = os.path.join(base_dir, "weekly")
+    # Weekly merged preference (ISO weeks) using new aggregate layout base/YYYY/WNN/ai_proxy_YYYYWNN.sqlite3
 
     # Iterate weeks spanned by [since, to]
     def week_start_end(d: _dt.date) -> tuple[_dt.date, _dt.date, tuple[int, int]]:
@@ -272,17 +277,22 @@ def _iter_range_with_merged(base_dir: str, since: _dt.date, to: _dt.date) -> Lis
     # newest first by iso-year-week
     for wy, ww in sorted(weeks, reverse=True):
         # compute week start/end from Monday of given iso-year/week
-        # Reconstruct a date for given ISO year/week: use Thursday of that week (ISO rule)
         jan4 = _dt.date(wy, 1, 4)
         jan4_iso_year, jan4_week, jan4_wd = jan4.isocalendar()
-        # shift to Monday of week 1
         week1_monday = jan4 - _dt.timedelta(days=jan4_wd - 1)
         start = week1_monday + _dt.timedelta(days=(ww - 1) * 7)
         end = start + _dt.timedelta(days=6)
         # Only fully inside [since, to] and not already covered by monthly
         if not (start >= since and end <= to):
             continue
-        merged_path = os.path.join(weekly_root, f"{wy:04d}-W{ww:02d}.sqlite3")
+        try:
+            from ai_proxy.logdb.partitioning import compute_weekly_path
+
+            merged_path = compute_weekly_path(base_dir, start)
+        except Exception:
+            merged_path = os.path.join(
+                base_dir, "weekly", f"{wy:04d}-W{ww:02d}.sqlite3"
+            )
         if os.path.isfile(merged_path):
             selected.append(merged_path)
             d = start
