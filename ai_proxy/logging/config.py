@@ -83,6 +83,13 @@ endpoint_handler = EndpointFileHandler()
 model_handler = ModelFileHandler()
 
 
+class FileJSONRenderer:
+    """JSON renderer for file output without ANSI color codes."""
+
+    def __call__(self, logger, method_name, event_dict):
+        return json.dumps(event_dict, indent=2, ensure_ascii=False, default=str)
+
+
 def setup_logging(log_level: str = "INFO", enable_file_logging: bool = True):
     """
     Configure structured logging with file output support.
@@ -127,8 +134,8 @@ def setup_logging(log_level: str = "INFO", enable_file_logging: bool = True):
             level=log_level_obj, handlers=[console_handler], format="%(message)s"
         )
 
-    # Configure structlog
-    processors: List[Callable[..., Any]] = [
+    # Configure structlog with different processors for console vs file
+    shared_processors: List[Callable[..., Any]] = [
         structlog.stdlib.add_log_level,
         structlog.stdlib.add_logger_name,
         structlog.processors.TimeStamper(fmt="iso"),
@@ -136,13 +143,12 @@ def setup_logging(log_level: str = "INFO", enable_file_logging: bool = True):
         structlog.processors.format_exc_info,
     ]
 
-    # Use different renderer based on log level
-    if log_level_obj >= logging.WARNING:
-        # For tests/high log levels, use simpler output
-        processors.append(structlog.dev.ConsoleRenderer())
-    else:
-        # Use pretty JSON renderer for better readability in development
-        processors.append(PrettyJSONRenderer())
+    # File renderer without colors for clean file logs
+    file_renderer = FileJSONRenderer()
+
+    # Configure structlog to use file-safe renderer by default
+    # Console output will be handled by the console handler with colors
+    processors = shared_processors + [file_renderer]
 
     structlog.configure(
         processors=processors,
