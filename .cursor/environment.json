@@ -6,7 +6,7 @@
     "context": "../docker-agent-on-cloud"
   },
   "install": "pip install -e . && echo 'AI_PROXY_INSTALLED=$(date)' > /tmp/ai_proxy_install.marker",
-  "start": "echo 'AI_PROXY_STARTED=$(date)' > /tmp/ai_proxy_start.marker",
+  "start": "make copy-env-example >/dev/null 2>&1 || true && make setup-hooks >/dev/null 2>&1 || true && echo 'AI_PROXY_STARTED=$(date)' > /tmp/ai_proxy_start.marker",
   "repositoryDependencies": [],
   "ports": [
     {
