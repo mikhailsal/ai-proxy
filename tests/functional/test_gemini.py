@@ -110,15 +110,75 @@ class TestGeminiFunctionality:
 
         # Collect streaming chunks
         chunks = []
+        streaming_data_chunks = []
+        done_received = False
+
         async for chunk in response.aiter_lines():
             if chunk.strip():
                 chunks.append(chunk)
+
+                # Parse SSE format: should start with "data: "
+                if chunk.startswith("data: "):
+                    data_content = chunk[6:]  # Remove "data: " prefix
+
+                    # Check for [DONE] marker
+                    if data_content.strip() == "[DONE]":
+                        done_received = True
+                        continue
+
+                    # Try to parse JSON data
+                    try:
+                        import json
+
+                        chunk_data = json.loads(data_content)
+                        streaming_data_chunks.append(chunk_data)
+
+                        # Validate streaming chunk structure
+                        assert "object" in chunk_data, (
+                            f"Missing 'object' field in chunk: {chunk_data}"
+                        )
+                        assert chunk_data["object"] == "chat.completion.chunk", (
+                            f"Expected 'chat.completion.chunk', got '{chunk_data.get('object')}'"
+                        )
+
+                        assert "choices" in chunk_data, (
+                            f"Missing 'choices' field in chunk: {chunk_data}"
+                        )
+                        assert len(chunk_data["choices"]) > 0, (
+                            f"Empty choices array in chunk: {chunk_data}"
+                        )
+
+                        choice = chunk_data["choices"][0]
+                        assert "delta" in choice, (
+                            f"Missing 'delta' field in choice: {choice}"
+                        )
+
+                    except json.JSONDecodeError as e:
+                        pytest.fail(
+                            f"Invalid JSON in streaming chunk: {data_content}, error: {e}"
+                        )
+
                 # Limit chunks to avoid infinite streams
-                if len(chunks) > 20:
+                if len(chunks) > 50:
                     break
 
-        # Verify we received streaming data
+        # Verify we received proper streaming data
         assert len(chunks) > 0, "Should receive streaming chunks"
+        assert len(streaming_data_chunks) > 0, (
+            f"Should receive at least one valid streaming data chunk, got chunks: {chunks[:5]}..."
+        )
+
+        # Verify [DONE] marker was received
+        assert done_received, "Should receive [DONE] marker at the end of stream"
+
+        # Verify streaming chunks contain actual content
+        has_content = any(
+            chunk.get("choices", [{}])[0].get("delta", {}).get("content")
+            for chunk in streaming_data_chunks
+        )
+        assert has_content, (
+            f"Should receive chunks with content, got: {streaming_data_chunks[:3]}..."
+        )
 
 
 class TestGeminiEdgeCases:

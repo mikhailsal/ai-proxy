@@ -117,69 +117,84 @@ async def chat_completions(request: Request, api_key: str = Depends(get_api_key)
                             "Expected async generator for streaming response"
                         )
                     async for chunk in provider_response:
+                        # Log raw incoming SSE chunk for debugging (helps verify provider output)
+                        try:
+                            log.info("Streaming chunk received (raw)", raw_chunk=chunk)
+                        except Exception:
+                            # Ensure logging failure doesn't break streaming
+                            pass
+
+                        # Stream out exactly what we receive (already SSE-formatted)
                         yield chunk
 
-                        # Parse chunk to collect response data for logging
-                        if chunk.strip() and not chunk.strip() == "data: [DONE]":
-                            try:
-                                # Extract JSON from SSE format
-                                if chunk.startswith("data: "):
-                                    chunk_data = chunk[6:].strip()
-                                    if chunk_data and chunk_data != "[DONE]":
-                                        parsed_chunk = json.loads(chunk_data)
-                                        assert isinstance(parsed_chunk, dict), (
-                                            "Expected dict from JSON parse"
-                                        )
+                        # Parse SSE lines to collect response data for logging
+                        if not chunk:
+                            continue
 
-                                        # Check for error in chunk
-                                        if "error" in parsed_chunk:
-                                            error_occurred = True
-                                            error_response = parsed_chunk
-                                            break
+                        try:
+                            # An httpx stream "chunk" may contain multiple SSE events.
+                            # We must split by lines and handle each 'data: ' entry.
+                            for line in chunk.split("\n"):
+                                if not line:
+                                    continue
 
-                                        # Update collected response with chunk data
-                                        if "id" in parsed_chunk:
-                                            collected_response["id"] = parsed_chunk[
-                                                "id"
-                                            ]
-                                        if "created" in parsed_chunk:
-                                            collected_response["created"] = (
-                                                parsed_chunk["created"]
-                                            )
-                                        if "model" in parsed_chunk:
-                                            collected_response["model"] = parsed_chunk[
-                                                "model"
-                                            ]
-                                            current_mapped_model = parsed_chunk["model"]
+                                if not line.startswith("data: "):
+                                    continue
 
-                                        # Collect content from delta
-                                        if (
-                                            "choices" in parsed_chunk
-                                            and parsed_chunk["choices"]
-                                        ):
-                                            choice = parsed_chunk["choices"][0]
-                                            assert isinstance(choice, dict), (
-                                                "Expected dict for choice"
-                                            )
-                                            if (
-                                                "delta" in choice
-                                                and "content" in choice["delta"]
-                                            ):
-                                                collected_response["choices"][0][
-                                                    "message"
-                                                ]["content"] += choice["delta"][
-                                                    "content"
-                                                ]
-                                            if (
-                                                "finish_reason" in choice
-                                                and choice["finish_reason"]
-                                            ):
-                                                collected_response["choices"][0][
-                                                    "finish_reason"
-                                                ] = choice["finish_reason"]
-                            except (json.JSONDecodeError, KeyError, IndexError):
-                                # Skip malformed chunks
-                                pass
+                                data_content = line[6:].strip()
+
+                                # Handle [DONE]
+                                if data_content == "[DONE]":
+                                    continue
+
+                                # Try to parse JSON for a completion chunk
+                                parsed_chunk = json.loads(data_content)
+                                if not isinstance(parsed_chunk, dict):
+                                    continue
+
+                                # Provider-side error chunk passthrough
+                                if "error" in parsed_chunk:
+                                    error_occurred = True
+                                    error_response = parsed_chunk
+                                    # Stop collecting further
+                                    break
+
+                                # Update collected response meta
+                                if "id" in parsed_chunk:
+                                    collected_response["id"] = parsed_chunk["id"]
+                                if "created" in parsed_chunk:
+                                    collected_response["created"] = parsed_chunk[
+                                        "created"
+                                    ]
+                                if "model" in parsed_chunk:
+                                    collected_response["model"] = parsed_chunk["model"]
+                                    current_mapped_model = parsed_chunk["model"]
+
+                                # Accumulate content from choices[*].delta.content
+                                choices = parsed_chunk.get("choices") or []
+                                if choices and isinstance(choices, list):
+                                    first_choice = choices[0]
+                                    if isinstance(first_choice, dict):
+                                        delta = first_choice.get("delta") or {}
+                                        # Some providers may stream role first; ignore if no content
+                                        content_piece = delta.get("content")
+                                        if isinstance(content_piece, str):
+                                            collected_response["choices"][0]["message"][
+                                                "content"
+                                            ] += content_piece
+
+                                        if first_choice.get("finish_reason"):
+                                            collected_response["choices"][0][
+                                                "finish_reason"
+                                            ] = first_choice["finish_reason"]
+                        except (
+                            json.JSONDecodeError,
+                            KeyError,
+                            IndexError,
+                            AssertionError,
+                        ):
+                            # Ignore malformed or partial lines; continue streaming
+                            continue
 
                     # Determine final status and response
                     if error_occurred and error_response:
