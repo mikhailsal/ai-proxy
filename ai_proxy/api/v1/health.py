@@ -6,7 +6,7 @@ from fastapi import APIRouter
 from ai_proxy.logging.config import logger
 
 # Path to the deployment timestamp file
-DEPLOYMENT_TIMESTAMP_FILE = "/app/deployment-timestamp.txt"
+DEPLOYMENT_TIMESTAMP_FILE = "/workspace/deployment-timestamp.txt"
 
 router = APIRouter(tags=["Admin"])
 
