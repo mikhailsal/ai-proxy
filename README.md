@@ -136,6 +136,10 @@ LOGDB_IMPORT_PARALLELISM=2
 
 # Memory limit for processing (default: 256)
 LOGDB_MEMORY_CAP_MB=256
+
+# When true, delete daily source partitions after successful weekly/monthly merges
+# performed by `logdb auto` or programmatic merges. Default: false
+LOGDB_CLEANUP_AFTER_MERGE=false
 ```
 
 ### Basic Operations
@@ -143,6 +147,9 @@ LOGDB_MEMORY_CAP_MB=256
 **Use the convenient bash script `./scripts/logdb` instead of long commands:**
 
 ```bash
+# Run auto ingest and compaction (default when no args supplied)
+./scripts/logdb
+
 # Initialize database for today
 ./scripts/logdb init
 
