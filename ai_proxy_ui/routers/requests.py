@@ -82,7 +82,7 @@ async def list_requests(
             status_code=400, detail="'to' date must be on/after 'since'"
         )
 
-    db_files = _iter_partition_paths(base_dir, start_date, end_date)
+    db_files = _iter_range_with_merged(base_dir, start_date, end_date)
     if not db_files:
         return {"items": [], "nextCursor": None}
 
@@ -94,57 +94,61 @@ async def list_requests(
         where_clauses.append("(ts < ?) OR (ts = ? AND request_id < ?)")
         params.extend([c_ts, c_ts, c_rid])
 
-    union_sql_parts: List[str] = []
-    for i in range(len(db_files)):
-        alias = f"db{i}"
-        union_sql_parts.append(
-            f"SELECT request_id, ts, endpoint, COALESCE(model_mapped, model_original) AS model, status_code, latency_ms FROM {alias}.requests"
-        )
-    union_sql = " UNION ALL ".join(union_sql_parts)
+    # Attach-free querying: read each DB independently and merge results
+    # Fetch limit+1 from each partition to correctly detect existence of next page
+    per_db_limit = limit + 1
+    cols = "request_id, ts, endpoint, COALESCE(model_mapped, model_original) AS model, status_code, latency_ms"
+    where_sql = " AND ".join(where_clauses)
     sql = (
-        "WITH allreq AS ("
-        + union_sql
-        + ") SELECT request_id, ts, endpoint, model, status_code, latency_ms FROM allreq WHERE "
-        + " AND ".join(where_clauses)
+        f"SELECT {cols} FROM requests WHERE "
+        + where_sql
         + " ORDER BY ts DESC, request_id DESC LIMIT ?"
     )
-    params.append(limit + 1)
 
-    conn = sqlite3.connect("file::memory:?cache=shared", uri=True)
-    try:
-        conn.execute("PRAGMA query_only=ON;")
-        for i, path in enumerate(db_files):
-            alias = f"db{i}"
-            uri_path = f"file:{os.path.abspath(path)}?mode=ro&immutable=1"
-            conn.execute("ATTACH DATABASE ? AS " + alias, (uri_path,))
+    aggregate: List[tuple] = []
+    for path in db_files:
+        uri = f"file:{os.path.abspath(path)}?mode=ro&immutable=1"
+        try:
+            conn = sqlite3.connect(uri, uri=True)
+            try:
+                cur = conn.execute(sql, list(params) + [per_db_limit])
+                aggregate.extend(cur.fetchall())
+            finally:
+                conn.close()
+        except sqlite3.OperationalError:
+            continue
 
-        cur = conn.execute(sql, params)
-        rows = cur.fetchall()
-        items = [
-            {
-                "request_id": r[0],
-                "ts": int(r[1]),
-                "endpoint": r[2],
-                "model": r[3],
-                "status_code": int(r[4]) if r[4] is not None else None,
-                "latency_ms": float(r[5]) if r[5] is not None else None,
-            }
-            for r in rows[:limit]
-        ]
-        next_cursor = None
-        if len(rows) > limit:
-            last = rows[limit - 1]
-            next_cursor = _encode_cursor(int(last[1]), str(last[0]))
-        return {"items": items, "nextCursor": next_cursor}
-    finally:
-        conn.close()
+    if not aggregate:
+        return {"items": [], "nextCursor": None}
+
+    aggregate.sort(key=lambda r: (int(r[1]), str(r[0])), reverse=True)
+    rows = aggregate[: limit + 1]
+    items = [
+        {
+            "request_id": r[0],
+            "ts": int(r[1]),
+            "endpoint": r[2],
+            "model": r[3],
+            "status_code": int(r[4]) if r[4] is not None else None,
+            "latency_ms": float(r[5]) if r[5] is not None else None,
+        }
+        for r in rows[:limit]
+    ]
+    next_cursor = None
+    if len(rows) > limit:
+        last = rows[limit - 1]
+        next_cursor = _encode_cursor(int(last[1]), str(last[0]))
+    return {"items": items, "nextCursor": next_cursor}
 
 
 @router.get("/requests/{request_id}")
 async def get_request_details(request_id: str):
     base_dir = os.getenv("LOGUI_DB_ROOT", os.path.join(".", "logs", "db"))
 
-    db_files = _iter_all_partitions(base_dir)
+    # Search newest-first across available merged and daily partitions
+    today = _dt.date.today()
+    oldest = _dt.date(1970, 1, 1)
+    db_files = _iter_range_with_merged(base_dir, oldest, today)
     if not db_files:
         raise HTTPException(status_code=404, detail="Request not found")
 
@@ -152,54 +156,148 @@ async def get_request_details(request_id: str):
         "request_id, server_id, ts, endpoint, model_original, model_mapped, "
         "status_code, latency_ms, api_key_hash, request_json, response_json, dialog_id"
     )
-    union_sql_parts: List[str] = []
-    for i in range(len(db_files)):
-        alias = f"db{i}"
-        union_sql_parts.append(
-            f"SELECT {select_cols} FROM {alias}.requests WHERE request_id = ?"
-        )
-    union_sql = " UNION ALL ".join(union_sql_parts)
-    sql = f"SELECT {select_cols} FROM (" + union_sql + ") LIMIT 1"
+    sql = f"SELECT {select_cols} FROM requests WHERE request_id = ? LIMIT 1"
 
-    conn = sqlite3.connect("file::memory:?cache=shared", uri=True)
-    try:
-        conn.execute("PRAGMA query_only=ON;")
-        for i, path in enumerate(db_files):
-            alias = f"db{i}"
-            uri_path = f"file:{os.path.abspath(path)}?mode=ro&immutable=1"
-            conn.execute("ATTACH DATABASE ? AS " + alias, (uri_path,))
-
-        params: List[object] = [request_id] * len(db_files)
-        cur = conn.execute(sql, params)
-        row = cur.fetchone()
-        if not row:
-            raise HTTPException(status_code=404, detail="Request not found")
-
-        def _safe_json_loads(text: Optional[str]):
-            if text is None:
-                return None
+    for path in db_files:
+        uri = f"file:{os.path.abspath(path)}?mode=ro&immutable=1"
+        try:
+            conn = sqlite3.connect(uri, uri=True)
             try:
-                return json.loads(text)
-            except Exception:
-                return text
+                cur = conn.execute(sql, (request_id,))
+                row = cur.fetchone()
+                if row:
 
-        body = {
-            "request_id": row[0],
-            "server_id": row[1],
-            "ts": int(row[2]),
-            "endpoint": row[3],
-            "model_original": row[4],
-            "model_mapped": row[5],
-            "status_code": int(row[6]) if row[6] is not None else None,
-            "latency_ms": float(row[7]) if row[7] is not None else None,
-            "api_key_hash": row[8],
-            "request_json": _safe_json_loads(row[9]),
-            "response_json": _safe_json_loads(row[10]),
-            "dialog_id": row[11],
-        }
-        return body
-    finally:
-        conn.close()
+                    def _safe_json_loads(text: Optional[str]):
+                        if text is None:
+                            return None
+                        try:
+                            return json.loads(text)
+                        except Exception:
+                            return text
+
+                    body = {
+                        "request_id": row[0],
+                        "server_id": row[1],
+                        "ts": int(row[2]),
+                        "endpoint": row[3],
+                        "model_original": row[4],
+                        "model_mapped": row[5],
+                        "status_code": int(row[6]) if row[6] is not None else None,
+                        "latency_ms": float(row[7]) if row[7] is not None else None,
+                        "api_key_hash": row[8],
+                        "request_json": _safe_json_loads(row[9]),
+                        "response_json": _safe_json_loads(row[10]),
+                        "dialog_id": row[11],
+                    }
+                    return body
+            finally:
+                conn.close()
+        except sqlite3.OperationalError:
+            continue
+
+    raise HTTPException(status_code=404, detail="Request not found")
+
+
+def _iter_range_with_merged(base_dir: str, since: _dt.date, to: _dt.date) -> List[str]:
+    """Resolve DB files for [since, to] preferring merged monthly/weekly DBs when present,
+    and falling back to daily partitions for partial edges or when merged files are missing.
+    Newest-first ordering to help short-circuit scans.
+    """
+    from ai_proxy.logdb.partitioning import compute_partition_path
+
+    # Collect daily partitions in range
+    day_to_path: dict[_dt.date, str] = {}
+    cur = since
+    while cur <= to:
+        p = compute_partition_path(base_dir, cur)
+        if os.path.isfile(p):
+            day_to_path[cur] = p
+        cur += _dt.timedelta(days=1)
+
+    covered_days: set[_dt.date] = set()
+    selected: List[str] = []
+
+    # Monthly merged preference
+    monthly_root = os.path.join(base_dir, "monthly")
+    m_cursor = _dt.date(since.year, since.month, 1)
+    last_m = _dt.date(to.year, to.month, 1)
+    months: List[tuple[int, int]] = []
+    while m_cursor <= last_m:
+        months.append((m_cursor.year, m_cursor.month))
+        if m_cursor.month == 12:
+            m_cursor = _dt.date(m_cursor.year + 1, 1, 1)
+        else:
+            m_cursor = _dt.date(m_cursor.year, m_cursor.month + 1, 1)
+    # newest first
+    for y, m in sorted(months, reverse=True):
+        # compute month range
+        start_m = _dt.date(y, m, 1)
+        if m == 12:
+            end_m = _dt.date(y, 12, 31)
+        else:
+            end_m = _dt.date(y, m + 1, 1) - _dt.timedelta(days=1)
+        # Only if month fully inside [since, to]
+        if not (start_m >= since and end_m <= to):
+            continue
+        merged_path = os.path.join(monthly_root, f"{y:04d}-{m:02d}.sqlite3")
+        if os.path.isfile(merged_path):
+            selected.append(merged_path)
+            d = start_m
+            while d <= end_m:
+                if d in day_to_path:
+                    covered_days.add(d)
+                d += _dt.timedelta(days=1)
+
+    # Weekly merged preference (ISO weeks)
+    weekly_root = os.path.join(base_dir, "weekly")
+
+    # Iterate weeks spanned by [since, to]
+    def week_start_end(d: _dt.date) -> tuple[_dt.date, _dt.date, tuple[int, int]]:
+        iso_year, iso_week, iso_weekday = d.isocalendar()
+        # Monday=1 ... Sunday=7; compute Monday as start
+        start = d - _dt.timedelta(days=iso_weekday - 1)
+        end = start + _dt.timedelta(days=6)
+        return start, end, (iso_year, iso_week)
+
+    # Build unique weeks inside range
+    weeks: List[tuple[int, int]] = []
+    seen_weeks: set[tuple[int, int]] = set()
+    c = since
+    while c <= to:
+        _ws, _we, key = week_start_end(c)
+        if key not in seen_weeks:
+            seen_weeks.add(key)
+            weeks.append(key)
+        c += _dt.timedelta(days=1)
+    # newest first by iso-year-week
+    for wy, ww in sorted(weeks, reverse=True):
+        # compute week start/end from Monday of given iso-year/week
+        # Reconstruct a date for given ISO year/week: use Thursday of that week (ISO rule)
+        jan4 = _dt.date(wy, 1, 4)
+        jan4_iso_year, jan4_week, jan4_wd = jan4.isocalendar()
+        # shift to Monday of week 1
+        week1_monday = jan4 - _dt.timedelta(days=jan4_wd - 1)
+        start = week1_monday + _dt.timedelta(days=(ww - 1) * 7)
+        end = start + _dt.timedelta(days=6)
+        # Only fully inside [since, to] and not already covered by monthly
+        if not (start >= since and end <= to):
+            continue
+        merged_path = os.path.join(weekly_root, f"{wy:04d}-W{ww:02d}.sqlite3")
+        if os.path.isfile(merged_path):
+            selected.append(merged_path)
+            d = start
+            while d <= end:
+                if d in day_to_path:
+                    covered_days.add(d)
+                d += _dt.timedelta(days=1)
+
+    # Remaining daily partitions, newest first
+    for d in sorted(day_to_path.keys(), reverse=True):
+        if d in covered_days:
+            continue
+        selected.append(day_to_path[d])
+
+    return selected
 
 
 def _iter_all_partitions(base_dir: str) -> List[str]:

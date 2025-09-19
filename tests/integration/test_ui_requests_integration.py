@@ -114,3 +114,64 @@ def test_requests_cross_two_days_counts_and_pagination(tmp_path, monkeypatch):
 
     # Verify total count across pages matches expected
     assert len(collected) == total_expected
+
+
+def test_requests_wide_range_over_10_partitions_no_500_and_pagination(
+    tmp_path, monkeypatch
+):
+    # Prepare 12 daily partitions across a month
+    base_dir = tmp_path / "logs" / "db"
+    start_day = dt.date(2025, 9, 1)
+    days = [start_day + dt.timedelta(days=i) for i in range(12)]
+    base_ts = int(
+        dt.datetime(start_day.year, start_day.month, start_day.day, 8, 0).timestamp()
+    )
+
+    total_rows = 0
+    for idx, d in enumerate(days):
+        p = (
+            base_dir
+            / f"{d.year:04d}"
+            / f"{d.month:02d}"
+            / f"ai_proxy_{d.strftime('%Y%m%d')}.sqlite3"
+        )
+        rows = 3  # small per day
+        _make_partition(
+            str(p), rows=rows, base_ts=base_ts + idx * 1000, start_id=idx * 100
+        )
+        total_rows += rows
+
+    monkeypatch.setenv("LOGUI_API_KEYS", "user-int-key")
+    monkeypatch.setenv("LOGUI_DB_ROOT", str(base_dir))
+
+    from ai_proxy_ui.main import app
+
+    client = TestClient(app)
+
+    collected = []
+    next_cursor = None
+    page_limit = 5
+    for _ in range(100):  # generous safety bound
+        params = {
+            "since": str(days[0]),
+            "to": str(days[-1]),
+            "limit": page_limit,
+        }
+        if next_cursor:
+            params["cursor"] = next_cursor
+        r = client.get(
+            "/ui/v1/requests",
+            params=params,
+            headers={"Authorization": "Bearer user-int-key"},
+        )
+        assert r.status_code == 200
+        data = r.json()
+        collected.extend(data["items"])
+        next_cursor = data["nextCursor"]
+        # page ordering
+        page_ts = [it["ts"] for it in data["items"]]
+        assert page_ts == sorted(page_ts, reverse=True)
+        if not next_cursor:
+            break
+
+    assert len(collected) == total_rows
