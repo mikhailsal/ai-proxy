@@ -85,8 +85,11 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=8124
-    command: ["./scripts/container-entrypoint.sh", "./scripts/ensure-deployment-timestamp.sh", "uvicorn", "ai_proxy_ui.main:app", "--host", "0.0.0.0", "--port", "8124"]
+    # Use --reload in dev for fast code iteration; safe for localhost-only
+    command: ["./scripts/container-entrypoint.sh", "./scripts/ensure-deployment-timestamp.sh", "uvicorn", "ai_proxy_ui.main:app", "--host", "0.0.0.0", "--port", "8124", "--reload"]
     volumes:
+      - ./ai_proxy_ui:/app/ai_proxy_ui:ro
+      - ./ai_proxy:/app/ai_proxy:ro
       - ./logs/db:/app/logs/db:ro
       - ./scripts:/app/scripts:ro
     labels:
