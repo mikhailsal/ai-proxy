@@ -36,7 +36,7 @@ RUN apt-get update && apt-get install -y \
     && ln -sf python3 /usr/bin/python
 
 # Install Poetry
-ENV POETRY_VERSION=1.8.3
+ENV POETRY_VERSION=2.1.4
 ENV POETRY_HOME=/opt/poetry
 ENV POETRY_VENV=/opt/poetry-venv
 ENV POETRY_CACHE_DIR=/opt/.cache
