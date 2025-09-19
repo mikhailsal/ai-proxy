@@ -1,7 +1,32 @@
 {
+  "name": "AI Proxy Development Environment",
+  "user": "root",
   "build": {
     "dockerfile": "../docker-agent-on-cloud/Dockerfile",
     "context": "../docker-agent-on-cloud"
   },
-  "terminals": []
+  "install": "pip install -e . && echo 'AI_PROXY_INSTALLED=$(date)' > /tmp/ai_proxy_install.marker",
+  "start": "python -m ai_proxy.main && echo 'AI_PROXY_STARTED=$(date)' > /tmp/ai_proxy_start.marker",
+  "repositoryDependencies": [],
+  "ports": [
+    {
+      "name": "AI Proxy API",
+      "port": 8000
+    },
+    {
+      "name": "AI Proxy UI",
+      "port": 3000
+    },
+    {
+      "name": "Health Check",
+      "port": 8080
+    }
+  ],
+  "terminals": [
+    {
+      "name": "Development Shell",
+      "command": "bash",
+      "description": "Interactive shell for development tasks and debugging"
+    }
+  ]
 }
