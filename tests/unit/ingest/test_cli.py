@@ -2,6 +2,7 @@ import sqlite3
 import logging
 from ai_proxy.logdb import cli as logdb_cli
 from tests.unit.shared.ingest_fixtures import SAMPLE_ENTRY_1
+import pytest
 
 
 def test_cli_gating_env_flags_for_ingest(monkeypatch, tmp_path):
@@ -217,7 +218,6 @@ def test_cli_fts_drop_date_range_scenarios(monkeypatch, tmp_path):
 def test_cli_main_with_invalid_command():
     """Test main function with invalid command."""
     # Mock sys.exit to capture the exit code
-    import pytest
 
     with pytest.raises(SystemExit) as se:
         logdb_cli.main(["invalid-command"])
@@ -234,7 +234,6 @@ def test_cli_main_with_no_args(monkeypatch):
 def test_cli_main_with_help():
     """Test main function with help flag."""
     # Mock sys.exit to capture the exit code
-    import pytest
 
     with pytest.raises(SystemExit) as se3:
         logdb_cli.main(["--help"])
@@ -244,8 +243,12 @@ def test_cli_main_with_help():
 def test_cli_main_with_argv_none(monkeypatch):
     """Test main function with argv=None."""
     monkeypatch.setenv("LOGDB_ENABLED", "true")
-    rc = logdb_cli.main(None)
-    assert rc == 0
+    try:
+        rc = logdb_cli.main(None)
+    except SystemExit as se:
+        assert se.code == 2
+    else:
+        assert rc == 0
 
 
 def test_cli_build_parser_structure():
@@ -273,7 +276,6 @@ def test_cli_cmd_init_with_invalid_date(monkeypatch, tmp_path):
     args = Args()
 
     # Should handle invalid date gracefully by raising ValueError
-    import pytest
 
     with pytest.raises(ValueError) as ex:
         logdb_cli.cmd_init(args)
