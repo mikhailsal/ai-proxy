@@ -1,7 +1,12 @@
 # AI Proxy Service Makefile
 # This Makefile provides common development and deployment tasks for AI Proxy and Logs UI
 
-.PHONY: help install install-poetry test test-unit test-integration lint lint-fix type-check clean build run dev docker-up docker-down docker-build docker-logs docker-logs-live docker-ps docker-up-ai-proxy docker-up-logs-ui docker-up-traefik docker-restart docker-restart-ai-proxy docker-restart-logs-ui up down logs logs-live ps deploy setup-https test-https coverage pre-commit test-ui test-ui-e2e dev-compose docker-clean test-all
+.PHONY: help install install-poetry install-dev
+.PHONY: test test-all test-unit test-integration test-watch test-specific test-functional test-functional-gemini test-functional-openrouter test-functional-general
+.PHONY: test-ui test-ui-e2e test-ui-unit test-ui-integration test-ui-all
+.PHONY: lint lint-fix lint-ui lint-fix-ui type-check type-check-ui pre-commit
+.PHONY: clean build dev-compose docker-up docker-down docker-build docker-logs docker-logs-live docker-ps docker-up-ai-proxy docker-up-logs-ui docker-up-traefik docker-restart docker-restart-ai-proxy docker-restart-logs-ui docker-clean
+.PHONY: up down restart logs logs-live ps deploy setup-https test-https coverage coverage-ui analyze-code-size check-dependencies health copy-env-example setup-hooks setup ci prod-check
 
 # Check if Poetry is installed
 define check_poetry
@@ -162,7 +167,10 @@ test-ui-all: test-ui-unit test-ui-integration ## Run all AI Proxy UI tests
 coverage: ## Run tests with coverage report in Docker (includes scripts/)
 	@echo "Running tests with coverage in Docker..."
 	@docker compose run --rm -e DOCKER_CONTAINER=true -e COVERAGE_FILE=/app/logs/.coverage ai-proxy \
-		poetry run pytest tests/ --tb=line --cov=ai_proxy --cov=ai_proxy_ui --cov=scripts --cov-report=term-missing --cov-report=html:/app/logs/coverage-html || { echo "Coverage reporting requires pytest-cov"; exit 1; }
+		poetry run pytest tests/ --tb=line \
+			--cov=ai_proxy --cov=ai_proxy_ui --cov=scripts \
+			--cov-report=term-missing --cov-report=html:/app/logs/coverage-html \
+		|| { echo "Coverage reporting requires pytest-cov"; exit 1; }
 
 test-specific: ## Run specific test file or function in Docker (usage: make test-specific TEST=path/to/test.py)
 	@echo "Running specific test in Docker..."
@@ -196,7 +204,7 @@ pre-commit: ## Run pre-commit hooks
 	$(call check_poetry)
 	@poetry run pre-commit run --all-files
 
-analyze-code: ## Analyze code size and provide refactoring recommendations
+analyze-code-size: ## Analyze code size and provide refactoring recommendations
 	@echo "Analyzing code size..."
 	@python scripts/analyze_code_size.py
 
@@ -204,57 +212,15 @@ check-dependencies: ## Check module dependencies and detect circular imports
 	@echo "Checking module dependencies..."
 	@python scripts/check_module_dependencies.py
 
-# Development server
-dev: ## Run development server with auto-reload
-	@echo "Starting development server..."
-	$(call check_poetry)
-	@poetry run uvicorn ai_proxy.main:app --reload --host 0.0.0.0 --port 8123
-
-run: ## Run production server
-	@echo "Starting production server..."
-	$(call check_poetry)
-	@poetry run uvicorn ai_proxy.main:app --host 0.0.0.0 --port 8123
-
-# AI Proxy UI development servers
-dev-ui: ## Run AI Proxy UI development server with auto-reload
-	@echo "Starting AI Proxy UI development server..."
-	$(call check_poetry)
-	@poetry run uvicorn ai_proxy_ui.main:app --reload --host 0.0.0.0 --port 8124
-
-run-ui: ## Run AI Proxy UI production server
-	@echo "Starting AI Proxy UI production server..."
-	$(call check_poetry)
-	@poetry run uvicorn ai_proxy_ui.main:app --host 0.0.0.0 --port 8124
-
-# Combined development servers
-dev-both: ## Run both AI Proxy and AI Proxy UI development servers
-	@echo "Starting both development servers..."
-	@echo "AI Proxy will run on http://localhost:8123"
-	@echo "AI Proxy UI will run on http://localhost:8124"
-	$(call check_poetry)
-	@poetry run uvicorn ai_proxy.main:app --reload --host 0.0.0.0 --port 8123 &
-	@sleep 2
-	@poetry run uvicorn ai_proxy_ui.main:app --reload --host 0.0.0.0 --port 8124 &
-	@echo "Both servers started. Press Ctrl+C to stop all servers."
-	@wait
-
-run-both: ## Run both AI Proxy and AI Proxy UI production servers
-	@echo "Starting both production servers..."
-	@echo "AI Proxy will run on http://localhost:8123"
-	@echo "AI Proxy UI will run on http://localhost:8124"
-	$(call check_poetry)
-	@poetry run uvicorn ai_proxy.main:app --host 0.0.0.0 --port 8123 &
-	@sleep 2
-	@poetry run uvicorn ai_proxy_ui.main:app --host 0.0.0.0 --port 8124 &
-	@echo "Both servers started. Press Ctrl+C to stop all servers."
-	@wait
-
 # Docker operations
 docker-up: ## Start all services with Docker Compose
 	@echo "Starting all services with Docker Compose..."
 	$(call setup_docker_user)
 	$(call update_env_with_user)
 	@docker compose up -d
+	@echo "Waiting for services to start..."
+	@sleep 5
+	@docker ps
 
 docker-down: ## Stop all services with Docker Compose
 	@echo "Stopping all services with Docker Compose..."
@@ -295,8 +261,8 @@ docker-restart: ## Full restart of all services (down and up)
 	@echo "Restarting all services..."
 	$(call setup_docker_user)
 	$(call update_env_with_user)
-	@docker compose down
-	@docker compose up -d
+	@make docker-down
+	@make docker-up
 
 docker-restart-ai-proxy: ## Restart only the AI Proxy service
 	@echo "Restarting AI Proxy service..."
@@ -382,6 +348,7 @@ dev-compose: docker-build docker-up docker-logs ## Build, start all services and
 # Quick service management
 up: docker-up ## Alias for docker-up
 down: docker-down ## Alias for docker-down
+restart: docker-restart ## Alias for docker-restart
 build: docker-build ## Alias for docker-build
 logs: docker-logs ## Alias for docker-logs
 logs-live: docker-logs-live ## Alias for docker-logs-live (interactive mode)
@@ -389,12 +356,6 @@ ps: docker-ps ## Alias for docker-ps
 
 ci: lint test test-ui-all coverage lint-ui type-check-ui coverage-ui ## Run all CI checks including frontend
 	@echo "All CI checks completed!"
-
-
-
-# Quick development workflow
-quick-test: lint-fix test-unit ## Quick test cycle for development in Docker
-	@echo "Quick test cycle completed!"
 
 # Production readiness check
 prod-check: lint type-check test test-ui-all coverage ## Check if ready for production in Docker
