@@ -334,6 +334,8 @@ jobs:
           cp .env.example .env || touch .env
           echo "HOST_UID=$(id -u)" >> .env
           echo "HOST_GID=$(id -g)" >> .env
+          mkdir -p logs
+          chmod -R 777 logs
 
       - name: Run general functional tests (no external API costs)
         run: |
