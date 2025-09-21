@@ -200,8 +200,12 @@ def test_iter_text_from_response_invalid():
         list(_iter_text_from_response({"candidates": [{"content": {"parts": [123]}}]}))
         == []
     )
-    with mock.patch("builtins.isinstance", side_effect=Exception("mock error")):
-        assert list(_iter_text_from_response({})) == []
+
+    class BadDict(dict):
+        def get(self, *args, **kwargs):
+            raise Exception("mock error")
+
+    assert list(_iter_text_from_response(BadDict())) == []
 
 
 def test_iter_text_from_response_empty():
