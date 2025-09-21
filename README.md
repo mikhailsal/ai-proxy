@@ -1,8 +1,10 @@
 # AI Proxy Service
 
-This service acts as a drop-in replacement for the OpenAI API, providing a unified interface to route requests to various Large Language Model (LLM) providers like OpenRouter and Google Gemini.
+This service acts as a drop-in replacement for the OpenAI API (and others in the future), providing a unified interface to route requests to various Large Language Model (LLM) providers like OpenRouter and Google Gemini.
 
 It is built with Python and FastAPI and is designed to be lightweight, fast, and easy to deploy with **HTTPS support** and automatic SSL certificate management.
+
+Also we have a Logs UI and Analysis System that allows you to view and analyze the logs in a more user-friendly way (written in React)
 
 ## Features
 
@@ -14,6 +16,7 @@ It is built with Python and FastAPI and is designed to be lightweight, fast, and
 *   **Advanced Log Storage System**: SQLite-based log storage with full-text search, dialog grouping, and portable bundles for easy transfer and backup.
 *   **Structured Logging**: JSON-formatted logs for easy parsing and monitoring.
 *   **Containerized**: Ready to deploy with Docker and Docker Compose.
+*   **Logs UI and Analysis System**: A React-based UI and analysis system for the logs.
 
 ## Getting Started
 
@@ -29,7 +32,7 @@ This guide will walk you through setting up the AI Proxy service with HTTPS.
 
 1.  **Clone the repository:**
     ```bash
-    git clone <repository-url>
+    git clone https://github.com/mihsal/ai-proxy.git
     cd ai-proxy
     ```
 
@@ -74,8 +77,9 @@ Your service will be available at:
 
 ### Domain Options
 
-*   **Free Temporary Domains**: For quick testing, you can use services like `nip.io` or `sslip.io`. Set `DOMAIN=myapp.YOUR-SERVER-IP.nip.io`.
-*   **Real Domain**: For production, point an A record from your domain registrar to your server's IP address.
+*   **Free Temporary Domains**: Use `nip.io` or `sslip.io` with your public IP (e.g., `ai-proxy.192.168.1.100.nip.io`). The setup script detects your IP automatically.
+*   **Real Domain**: Purchase from any registrar and point A record to your server IP. Use `./scripts/setup-https.sh -s custom -d your-domain.com`
+*   **Ngrok Tunnel**: For development, install ngrok and use `./scripts/setup-https.sh -s ngrok -d your-ngrok-url`
 
 ## Usage
 
@@ -169,59 +173,12 @@ LOGDB_CLEANUP_AFTER_MERGE=false
 ./scripts/logdb bundle import ./backup-2025-09-01.tgz --dest ./logs/db
 ```
 
-**Or use full Python commands (if script is not available):**
-
-```bash
-# Initialize database for today
-python3 -m ai_proxy.logdb.cli init
-
-# Ingest logs from the last 7 days
-python3 -m ai_proxy.logdb.cli ingest --from ./logs --since 2025-09-01 --to 2025-09-07
-
-# Build full-text search index
-python3 -m ai_proxy.logdb.cli fts build --since 2025-09-01 --to 2025-09-07
-
-# Create a portable bundle for backup/transfer
-python3 -m ai_proxy.logdb.cli bundle create --since 2025-09-01 --to 2025-09-07 --out ./backup-2025-09-01.tgz
-
-# Transfer bundle to another server
-python3 -m ai_proxy.logdb.cli bundle transfer ./backup-2025-09-01.tgz /path/to/destination/
-
-# Import bundle on destination server
-python3 -m ai_proxy.logdb.cli bundle import ./backup-2025-09-01.tgz --dest ./logs/db
-```
-
-### Search Examples
-
-Once your logs are indexed, you can perform advanced searches:
-
-```sql
--- Find conversations about specific topics
-SELECT * FROM request_text_index WHERE request_text_index MATCH 'machine learning OR AI';
-
--- Find error patterns with proximity search
-SELECT * FROM request_text_index WHERE request_text_index MATCH 'error NEAR/5 timeout';
-
--- Find conversations by model
-SELECT r.* FROM requests r
-JOIN request_text_index fts ON r.request_id = fts.request_id
-WHERE fts.model_original LIKE '%gpt-4%';
-
--- Group conversations by API key and time window
-SELECT dialog_id, COUNT(*) as message_count,
-       MIN(ts) as start_time, MAX(ts) as end_time
-FROM requests
-WHERE dialog_id IS NOT NULL
-GROUP BY dialog_id
-ORDER BY start_time DESC;
-```
-
 ## Production Deployment
 
 The project includes a safe production deployment script that preserves important files while updating the application code.
 
 ```bash
-# Deploy latest changes to production
+# Deploy from scratch or upload latest changes to production
 DEPLOY_HOST=your-server ./scripts/deploy-production.sh
 ```
 
@@ -267,7 +224,17 @@ LOGUI_ENABLE_TEXT_LOGS=false
 LOGUI_SSE_HEARTBEAT_MS=15000
 ```
 
-Both services are routed via Traefik:
+## Quick commands
 
-- Web: `logs.$DOMAIN`
-- API: `logs-api.$DOMAIN`
+Use these minimal commands to run and manage the project (from the repository root):
+
+```bash
+# Start services in background (build if needed)
+make up
+
+# Stop all services
+make down
+
+# Install Python deps with Poetry
+make install
+```
