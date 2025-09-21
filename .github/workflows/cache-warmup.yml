@@ -93,7 +93,7 @@ jobs:
       - name: Install Node dependencies
         run: |
           docker run --rm \
-            -v $(PWD)/ui:/app \
+            -v $PWD/ui:/app \
             -w /app \
             node:20 \
             npm ci --no-audit --fund=false --loglevel=error
