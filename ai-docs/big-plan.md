@@ -8,4 +8,6 @@
 - [x] Create seperate functional tests for different providers (Gemini, OpenRouter, etc.)to avoid cluttering the context
 - [x] Fix "pytest tests/unit/test_main.py"
 - [ ] Remove .venv mapping to docker container
-- [ ] fix root owner after docker container
+- [x] fix root owner after docker container
+- [ ] add ui test coverage calculation and checks in our hooks
+- [ ] add ui type check and lint checks in our hooks

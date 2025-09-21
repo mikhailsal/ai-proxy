@@ -2,6 +2,7 @@ services:
   ai-proxy:
     build: .
     container_name: ai-proxy-test-app
+    user: "${HOST_UID:-9999}:${HOST_GID:-9999}"
     env_file:
       - .env
     environment:
@@ -22,6 +23,7 @@ services:
       - ai-proxy
     env_file:
       - .env
+    user: "${HOST_UID:-9999}:${HOST_GID:-9999}"
     environment:
       - FUNCTIONAL_TEST_BASE_URL=http://ai-proxy:8123
       - ENABLE_FUNCTIONAL_TESTS=true
