@@ -117,6 +117,8 @@ async def list_requests(
                 conn.close()
         except sqlite3.OperationalError:
             continue
+        except sqlite3.DatabaseError:
+            continue
 
     if not aggregate:
         return {"items": [], "nextCursor": None}
@@ -141,14 +143,30 @@ async def list_requests(
     return {"items": items, "nextCursor": next_cursor}
 
 
+def _iter_all_partitions_optimized(base_dir: str) -> List[str]:
+    """Efficiently discover all partition files using filesystem scanning,
+    ordered newest first for optimal short-circuiting in request searches."""
+    paths: List[str] = []
+    for root, _dirs, files in os.walk(base_dir):
+        for fname in files:
+            if not fname.endswith(".sqlite3"):
+                continue
+            if not fname.startswith("ai_proxy_"):
+                continue
+            paths.append(os.path.join(root, fname))
+
+    # Sort newest first by modification time for better performance
+    # (most recent requests are more likely to be searched)
+    paths.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+    return paths
+
+
 @router.get("/requests/{request_id}")
 async def get_request_details(request_id: str):
     base_dir = os.getenv("LOGUI_DB_ROOT", os.path.join(".", "logs", "db"))
 
-    # Search newest-first across available merged and daily partitions
-    today = _dt.date.today()
-    oldest = _dt.date(1970, 1, 1)
-    db_files = _iter_range_with_merged(base_dir, oldest, today)
+    # Use efficient filesystem scanning instead of slow date-range iteration
+    db_files = _iter_all_partitions_optimized(base_dir)
     if not db_files:
         raise HTTPException(status_code=404, detail="Request not found")
 
@@ -193,6 +211,8 @@ async def get_request_details(request_id: str):
             finally:
                 conn.close()
         except sqlite3.OperationalError:
+            continue
+        except sqlite3.DatabaseError:
             continue
 
     raise HTTPException(status_code=404, detail="Request not found")
