@@ -42,6 +42,9 @@ export default function App() {
     latency_ms: number
   }> | null>(null)
   const [nextCursor, setNextCursor] = React.useState<string | null>(null)
+  const [prevCursors, setPrevCursors] = React.useState<string[]>([])
+  const [currentPage, setCurrentPage] = React.useState<number>(1)
+  const [paginationMode, setPaginationMode] = React.useState<'pages' | 'loadMore'>('pages')
   const [selected, setSelected] = React.useState<{
     request_id: string
     endpoint: string
@@ -87,14 +90,28 @@ export default function App() {
     setState({ status: 'disconnected' })
   }
 
-  async function loadRequests(reset: boolean = false) {
+  async function loadRequests(reset: boolean = false, direction: 'next' | 'prev' | 'initial' = 'initial') {
     if (state.status !== 'connected') return
     const base = state.baseUrl.replace(/\/$/, '')
     const url = new URL(`${base}/ui/v1/requests`)
     url.searchParams.set('since', dateRange.since)
     url.searchParams.set('to', dateRange.to)
     url.searchParams.set('limit', '10')
-    if (!reset && nextCursor) url.searchParams.set('cursor', nextCursor)
+
+    let cursor: string | null = null
+
+    if (!reset) {
+      if (direction === 'next' && nextCursor) {
+        cursor = nextCursor
+      } else if (direction === 'prev' && prevCursors.length > 0) {
+        cursor = prevCursors[prevCursors.length - 1]
+      }
+    }
+
+    if (cursor) {
+      url.searchParams.set('cursor', cursor)
+    }
+
     const res = await fetch(url.toString(), {
       headers: { Authorization: `Bearer ${localStorage.getItem('aiProxyLogs.apiKey') || apiKey}` },
     })
@@ -110,8 +127,52 @@ export default function App() {
       }>
       nextCursor: string | null
     }
-    setRequests((prev) => (reset || !prev ? data.items : [...prev, ...data.items]))
+
+    // Handle pagination logic based on mode
+    if (paginationMode === 'pages') {
+      // Pages mode: replace data and track cursors for navigation
+      setRequests(data.items)
+
+      if (direction === 'next') {
+        // Store the current cursor before moving to next page
+        if (nextCursor) {
+          setPrevCursors(prev => [...prev, nextCursor])
+        }
+        setCurrentPage(prev => prev + 1)
+      } else if (direction === 'prev') {
+        setPrevCursors(prev => prev.slice(0, -1))
+        setCurrentPage(prev => prev - 1)
+      } else if (reset || direction === 'initial') {
+        setPrevCursors([])
+        setCurrentPage(1)
+      }
+    } else {
+      // Load more mode: append data (original behavior)
+      setRequests((prev) => (reset || !prev ? data.items : [...prev, ...data.items]))
+    }
+
     setNextCursor(data.nextCursor || null)
+  }
+
+  function goToNextPage() {
+    if (nextCursor) {
+      loadRequests(false, 'next')
+    }
+  }
+
+  function goToPrevPage() {
+    if (prevCursors.length > 0) {
+      loadRequests(false, 'prev')
+    }
+  }
+
+  function togglePaginationMode() {
+    const newMode = paginationMode === 'pages' ? 'loadMore' : 'pages'
+    setPaginationMode(newMode)
+    // Reset pagination state when switching modes
+    setPrevCursors([])
+    setCurrentPage(1)
+    setRequests(null)
   }
 
   async function loadRequestDetails(requestId: string) {
@@ -236,10 +297,53 @@ export default function App() {
               )}
             </tbody>
           </table>
-          <div style={{ marginTop: 8 }}>
-            <button aria-label="load-more" disabled={!nextCursor} onClick={() => loadRequests(false)}>
-              Next
-            </button>
+          <div style={{ marginTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <label style={{ fontSize: '14px', color: '#666' }}>
+                View mode:
+                <select
+                  value={paginationMode}
+                  onChange={(e) => setPaginationMode(e.target.value as 'pages' | 'loadMore')}
+                  style={{ marginLeft: 4 }}
+                >
+                  <option value="pages">Pages</option>
+                  <option value="loadMore">Load More</option>
+                </select>
+              </label>
+            </div>
+
+            {paginationMode === 'pages' ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  aria-label="prev-page"
+                  disabled={prevCursors.length === 0}
+                  onClick={goToPrevPage}
+                  style={{ padding: '4px 8px' }}
+                >
+                  Previous
+                </button>
+                <span style={{ fontSize: '14px', color: '#666', padding: '0 8px' }}>
+                  Page {currentPage}
+                </span>
+                <button
+                  aria-label="next-page"
+                  disabled={!nextCursor}
+                  onClick={goToNextPage}
+                  style={{ padding: '4px 8px' }}
+                >
+                  Next
+                </button>
+              </div>
+            ) : (
+              <button
+                aria-label="load-more"
+                disabled={!nextCursor}
+                onClick={() => loadRequests(false, 'next')}
+                style={{ padding: '4px 8px' }}
+              >
+                Load More
+              </button>
+            )}
           </div>
         </div>
       )}
