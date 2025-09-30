@@ -122,6 +122,23 @@ The development environment is designed to be separate from production while mai
 - ✅ Switch between modes without data loss
 - ✅ Same Docker network for both environments
 
+### Dev Traefik note
+
+When running `make dev`, a lightweight Traefik instance is started from `docker-compose.dev.yml`.
+- Dev Traefik uses `traefik/traefik.dev.yml` and `traefik/dynamic.dev.yml` (file provider).
+- It does not request Let's Encrypt certificates; TLS is disabled for dev routing.
+- Recommended /etc/hosts entries for local testing:
+  - `127.0.0.1 localhost`
+  - `127.0.0.1 logs.localhost`
+  - `127.0.0.1 logs-api.localhost`
+  - `127.0.0.1 traefik.localhost`
+
+Access via Traefik in dev:
+- `http://logs.localhost/` -> Vite dev server (5174)
+- `http://logs-api.localhost/ui/health` -> Logs UI API (8124)
+- `http://localhost/health` -> AI Proxy (8123)
+-- Traefik dashboard (dev only): `http://127.0.0.1:51999` (or `http://traefik.localhost` with host header)
+
 ---
 
 ## Testing
@@ -664,14 +681,14 @@ docker run --rm -v $(PWD)/logs/db:/work alpine sh -c "chown -R $(id -u):$(id -g)
 **Solutions:**
 1. Check if Vite dev server is running:
    ```bash
-   docker compose -f docker-compose.yml -f docker-compose.dev.yml logs logs-ui-web
+   docker compose -f docker-compose.dev.yml logs logs-ui-web
    ```
    You should see: `VITE v5.x.x ready in XXX ms`
 
 2. Verify file watching is enabled:
    ```bash
    # Should show usePolling: true in config
-   docker compose -f docker-compose.yml -f docker-compose.dev.yml exec logs-ui-web cat /app/vite.config.ts
+   docker compose -f docker-compose.dev.yml exec logs-ui-web cat /app/vite.config.ts
    ```
 
 3. Restart dev container:
@@ -719,7 +736,7 @@ docker ps | grep logs-ui-web
 **Solution:**
 1. Check that `index.html` and source files are mounted:
    ```bash
-   docker compose -f docker-compose.yml -f docker-compose.dev.yml exec logs-ui-web ls -la /app/src
+   docker compose -f docker-compose.dev.yml exec logs-ui-web ls -la /app/src
    ```
 
 2. Rebuild dev container:

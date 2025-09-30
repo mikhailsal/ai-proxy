@@ -1,45 +1,90 @@
-# Development environment overrides for docker-compose.yml
-# Usage: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
-# Or use: make dev
+version: "3.9"
 
 services:
-  # Override logs-ui-web to use Vite dev server instead of nginx
+  traefik:
+    image: traefik:v3.0
+    container_name: ai-proxy-traefik-dev
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:51999:51999"
+    volumes:
+      - ./traefik/traefik.dev.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/dynamic.dev.yml:/etc/traefik/dynamic.yml:ro
+    command:
+      - "--configFile=/etc/traefik/traefik.yml"
+      - "--entrypoints.web.address=:51999"
+      - "--api.insecure=true"
+
+  ai-proxy:
+    build: .
+    container_name: ai-proxy-app
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8123:8123"
+    env_file:
+      - .env
+    volumes:
+      - ./ai_proxy:/app/ai_proxy
+      - ./ai_proxy_ui:/app/ai_proxy_ui
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./poetry.lock:/app/poetry.lock
+      - ./config.yml:/app/config.yml
+      - ./logs:/app/logs
+      - ./scripts:/app/scripts
+      - ./deployment-timestamp.txt:/app/deployment-timestamp.txt:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ai-proxy.rule=Host(`localhost`)"
+      - "traefik.http.routers.ai-proxy.entrypoints=web"
+      - "traefik.http.services.ai-proxy.loadbalancer.server.port=8123"
+
+  logs-ui-api:
+    build: ./ai_proxy_ui
+    container_name: logs-ui-api
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8124:8124"
+    env_file:
+      - .env
+    volumes:
+      - ./ai_proxy_ui:/app/ai_proxy_ui
+      - ./ai_proxy:/app/ai_proxy
+      - ./logs/db:/app/logs/db:ro
+      - ./scripts:/app/scripts:ro
+    command: ["./scripts/container-entrypoint.sh", "./scripts/ensure-deployment-timestamp.sh", "uvicorn", "ai_proxy_ui.main:app", "--host", "0.0.0.0", "--port", "8124", "--reload"]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.logs-ui-api.rule=Host(`logs-api.localhost`)"
+      - "traefik.http.routers.logs-ui-api.entrypoints=web"
+      - "traefik.http.services.logs-ui-api.loadbalancer.server.port=8124"
+
   logs-ui-web:
     image: logs-ui-web:dev
     build:
       context: ./ui
       dockerfile: Dockerfile.dev
     container_name: logs-ui-web-dev
+    restart: unless-stopped
     ports:
-      - "127.0.0.1:5174:5174"  # Vite dev server port (localhost-only, using 5174 to avoid conflict with production)
+      - "127.0.0.1:5174:5174"
     volumes:
-      # Mount source code for hot reload
       - ./ui/src:/app/src:ro
       - ./ui/index.html:/app/index.html:ro
       - ./ui/vite.config.ts:/app/vite.config.ts:ro
       - ./ui/tsconfig.json:/app/tsconfig.json:ro
       - ./ui/package.json:/app/package.json:ro
       - ./ui/package-lock.json:/app/package-lock.json:ro
-      # Keep node_modules in container (not synced from host)
       - /app/node_modules
     environment:
       - NODE_ENV=development
       - VITE_API_BASE_URL=http://logs-ui-api:8124
     command: npm run dev
     labels:
-      # Update Traefik labels for dev server
       - "traefik.enable=true"
-      - "traefik.http.routers.logs-ui-web.rule=Host(`logs.${BASE_DOMAIN:-${DOMAIN:-localhost}}`)"
-      - "traefik.http.routers.logs-ui-web.entrypoints=websecure"
-      - "traefik.http.routers.logs-ui-web.tls=true"
-      - "traefik.http.routers.logs-ui-web.tls.certresolver=letsencrypt"
-      - "traefik.http.services.logs-ui-web-dev.loadbalancer.server.port=5173"
+      - "traefik.http.routers.logs-ui-web.rule=Host(`logs.localhost`)"
+      - "traefik.http.routers.logs-ui-web.entrypoints=web"
+      - "traefik.http.services.logs-ui-web.loadbalancer.server.port=5174"
 
-  # Backend API already has --reload, but ensure it's optimized for dev
-  logs-ui-api:
-    volumes:
-      # Make sure Python code is mounted for hot reload
-      - ./ai_proxy_ui:/app/ai_proxy_ui
-      - ./ai_proxy:/app/ai_proxy
-      - ./logs/db:/app/logs/db:ro
-      - ./scripts:/app/scripts:ro
+networks:
+  default:
+    name: ai-proxy-network

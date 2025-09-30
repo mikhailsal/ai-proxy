@@ -379,24 +379,25 @@ dev-up: ## Start development environment
 	@echo "Starting development environment..."
 	$(call setup_docker_user)
 	$(call update_env_with_user)
-	@docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+	# Start standalone development compose (dev-only, does not include production services)
+	@docker compose -f docker-compose.dev.yml up -d
 	@sleep 3
-	@docker compose -f docker-compose.yml -f docker-compose.dev.yml ps
+	@docker compose -f docker-compose.dev.yml ps
 
 dev-down: ## Stop development environment
 	@echo "Stopping development environment..."
-	@docker compose -f docker-compose.yml -f docker-compose.dev.yml down
+	@docker compose -f docker-compose.dev.yml down
 
 dev-build: ## Build development environment
 	@echo "Building development environment..."
 	$(call setup_docker_user)
 	$(call update_env_with_user)
-	@docker compose -f docker-compose.yml -f docker-compose.dev.yml build --no-cache logs-ui-web
+	@docker compose -f docker-compose.dev.yml build --no-cache logs-ui-web
 
 dev-restart: ## Restart development environment
 	@echo "Restarting development environment..."
-	@docker compose -f docker-compose.yml -f docker-compose.dev.yml restart
+	@docker compose -f docker-compose.dev.yml restart
 
 dev-logs: ## View logs from development environment
 	@echo "Viewing logs from development environment..."
-	@docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f logs-ui-web logs-ui-api
+	@docker compose -f docker-compose.dev.yml logs -f logs-ui-web logs-ui-api
