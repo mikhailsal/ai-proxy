@@ -166,14 +166,7 @@ export default function App() {
     }
   }
 
-  function togglePaginationMode() {
-    const newMode = paginationMode === 'pages' ? 'loadMore' : 'pages'
-    setPaginationMode(newMode)
-    // Reset pagination state when switching modes
-    setPrevCursors([])
-    setCurrentPage(1)
-    setRequests(null)
-  }
+
 
   async function loadRequestDetails(requestId: string) {
     if (state.status !== 'connected') return
