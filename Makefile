@@ -7,6 +7,7 @@
 .PHONY: lint lint-fix lint-ui lint-fix-ui type-check type-check-ui pre-commit
 .PHONY: clean build dev-compose docker-up docker-down docker-build docker-logs docker-logs-live docker-ps docker-up-ai-proxy docker-up-logs-ui docker-up-traefik docker-restart docker-restart-ai-proxy docker-restart-logs-ui docker-clean
 .PHONY: up down restart logs logs-live ps deploy setup-https test-https coverage coverage-ui analyze-code-size check-dependencies health copy-env-example setup-hooks setup ci prod-check
+.PHONY: dev dev-up dev-down dev-logs dev-restart dev-build
 
 # Check if Poetry is installed
 define check_poetry
@@ -360,3 +361,42 @@ ci: lint test test-ui-all coverage lint-ui type-check-ui coverage-ui ## Run all 
 # Production readiness check
 prod-check: lint type-check test test-ui-all coverage ## Check if ready for production in Docker
 	@echo "Production readiness check completed!"
+
+# Development environment (Logs UI with hot reload)
+dev: dev-build dev-up ## Build and start development environment with hot reload
+	@echo "🚀 Development environment is starting..."
+	@echo "📝 Logs UI (web): http://localhost:5174 (dev) or https://logs.$$DOMAIN"
+	@echo "📝 Logs UI (API): http://localhost:8124 or https://logs-api.$$DOMAIN"
+	@echo "📝 AI Proxy: http://localhost:8123 or https://$$DOMAIN"
+	@echo ""
+	@echo "⚡ Hot reload is enabled for both frontend and backend!"
+	@echo "   - Edit files in ui/src/ → instant browser reload"
+	@echo "   - Edit files in ai_proxy_ui/ → automatic FastAPI reload"
+	@echo ""
+	@echo "📚 Run 'make dev-logs' to follow logs"
+
+dev-up: ## Start development environment
+	@echo "Starting development environment..."
+	$(call setup_docker_user)
+	$(call update_env_with_user)
+	@docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+	@sleep 3
+	@docker compose -f docker-compose.yml -f docker-compose.dev.yml ps
+
+dev-down: ## Stop development environment
+	@echo "Stopping development environment..."
+	@docker compose -f docker-compose.yml -f docker-compose.dev.yml down
+
+dev-build: ## Build development environment
+	@echo "Building development environment..."
+	$(call setup_docker_user)
+	$(call update_env_with_user)
+	@docker compose -f docker-compose.yml -f docker-compose.dev.yml build --no-cache logs-ui-web
+
+dev-restart: ## Restart development environment
+	@echo "Restarting development environment..."
+	@docker compose -f docker-compose.yml -f docker-compose.dev.yml restart
+
+dev-logs: ## View logs from development environment
+	@echo "Viewing logs from development environment..."
+	@docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f logs-ui-web logs-ui-api

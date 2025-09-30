@@ -9,6 +9,50 @@ This guide provides instructions for developers who want to contribute to the AI
 *   Docker and Docker Compose.
 *   A domain name (for testing HTTPS).
 
+## Quick Start: Development Environment with Hot Reload 🚀
+
+**For Logs UI development with instant hot reload:**
+
+```bash
+# One command to start everything
+make dev
+```
+
+This starts:
+- ✅ **Logs UI (React + Vite)** with Hot Module Replacement (HMR)
+- ✅ **Logs UI API (FastAPI)** with auto-reload on code changes
+- ✅ **AI Proxy** and **Traefik** (full production-like environment)
+
+**Access points:**
+- Logs UI (frontend): http://localhost:5174 (only in dev mode)
+- Logs UI API: http://localhost:8124
+- AI Proxy API: http://localhost:8123
+- Production Logs UI: http://localhost:5173 (only in production mode)
+
+**Development workflow:**
+```bash
+# Start development environment
+make dev
+
+# View logs from frontend and backend
+make dev-logs
+
+# Restart if needed
+make dev-restart
+
+# Stop development environment
+make dev-down
+```
+
+**What gets hot-reloaded:**
+- Edit `ui/src/**/*.tsx` → **Instant browser reload** ⚡
+- Edit `ai_proxy_ui/**/*.py` → **FastAPI auto-reloads** 🔄
+- Edit `ai_proxy/**/*.py` → **AI Proxy auto-reloads** 🔄
+
+**Note:** Development mode uses `docker-compose.dev.yml` which overrides the production `logs-ui-web` service to use Vite dev server instead of nginx.
+
+---
+
 ## Local Development (HTTP)
 
 1.  **Install dependencies:**
@@ -53,6 +97,32 @@ For testing webhooks or providing a temporary public URL to your local instance:
     ```bash
     docker run -d --env-file .env -p 8123:8123 --name ai-proxy-container ai-proxy
     ```
+
+## Development vs Production
+
+The development environment is designed to be separate from production while maintaining environment parity:
+
+### Development Mode (`make dev`)
+- **Frontend:** Vite dev server with HMR (port 5173)
+- **Backend API:** FastAPI with `--reload` flag
+- **Volumes:** Source code mounted for hot reload
+- **Compose files:** `docker-compose.yml` + `docker-compose.dev.yml`
+- **Container name:** `logs-ui-web-dev` (different from production)
+
+### Production Mode (`make up`)
+- **Frontend:** Nginx serving pre-built static files (port 80)
+- **Backend API:** FastAPI with `--reload` (already optimized for production)
+- **Volumes:** Only necessary files mounted
+- **Compose file:** `docker-compose.yml` only
+- **Container name:** `logs-ui-web`
+
+**Key points:**
+- ✅ Both modes can run simultaneously (different containers)
+- ✅ Production config never modified by dev mode
+- ✅ Switch between modes without data loss
+- ✅ Same Docker network for both environments
+
+---
 
 ## Testing
 
@@ -582,6 +652,99 @@ docker compose up -d logs-ui-api logs-ui-web
 ```bash
 docker run --rm -v $(PWD)/logs/db:/work alpine sh -c "chown -R $(id -u):$(id -g) /work || true; chmod -R u+rwX /work || true"
 ```
+
+---
+
+## Logs UI Development: Troubleshooting
+
+### Hot Reload Not Working
+
+**Problem:** Changes to `ui/src/` files don't trigger browser reload.
+
+**Solutions:**
+1. Check if Vite dev server is running:
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.dev.yml logs logs-ui-web
+   ```
+   You should see: `VITE v5.x.x ready in XXX ms`
+
+2. Verify file watching is enabled:
+   ```bash
+   # Should show usePolling: true in config
+   docker compose -f docker-compose.yml -f docker-compose.dev.yml exec logs-ui-web cat /app/vite.config.ts
+   ```
+
+3. Restart dev container:
+   ```bash
+   make dev-restart
+   ```
+
+### Port Conflicts
+
+**Problem:** Error "port 5173 is already allocated"
+
+**Solution:**
+```bash
+# Check what's using port 5173
+sudo lsof -i :5173
+
+# Stop conflicting container
+docker ps | grep 5173
+docker stop <container-id>
+
+# Or change port in docker-compose.dev.yml
+```
+
+### Production and Dev Running Together
+
+**Problem:** Want to run both environments simultaneously.
+
+**Solution:** They use different container names and can coexist:
+```bash
+# Start production
+make up
+
+# Start development (in another terminal)
+make dev
+
+# Check both are running
+docker ps | grep logs-ui-web
+# Should show: logs-ui-web (prod) and logs-ui-web-dev (dev)
+```
+
+### CSS/Assets Not Loading in Dev
+
+**Problem:** Vite dev server returns 404 for assets.
+
+**Solution:**
+1. Check that `index.html` and source files are mounted:
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.dev.yml exec logs-ui-web ls -la /app/src
+   ```
+
+2. Rebuild dev container:
+   ```bash
+   make dev-build
+   make dev-restart
+   ```
+
+### Switching from Dev to Production
+
+**Problem:** How to switch back to production mode for deployment.
+
+**Solution:**
+```bash
+# Stop dev environment
+make dev-down
+
+# Start production environment
+make up
+
+# Or deploy to production (dev files are not included)
+DEPLOY_HOST=your-server make deploy
+```
+
+**Important:** `docker-compose.dev.yml` is in `.gitignore` equivalent and won't be deployed to production.
 
 **Full commands:**
 

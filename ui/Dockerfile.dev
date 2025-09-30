@@ -1,0 +1,22 @@
+# Development Dockerfile for Logs UI
+# This runs Vite dev server with HMR (Hot Module Replacement)
+
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install dependencies
+COPY package.json package-lock.json* pnpm-lock.yaml* yarn.lock* ./
+RUN if [ -f pnpm-lock.yaml ]; then npm i -g pnpm && pnpm i; \
+    elif [ -f yarn.lock ]; then yarn install; \
+    elif [ -f package-lock.json ]; then npm ci; else npm i; fi
+
+# Source code will be mounted as volumes for hot reload
+# We don't COPY source files here to avoid stale code
+
+# Expose Vite dev server port
+EXPOSE 5174
+
+# Run Vite dev server with network host binding
+# --host 0.0.0.0 allows access from outside container
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

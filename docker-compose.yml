@@ -101,6 +101,7 @@ services:
       - "traefik.http.services.logs-ui-api.loadbalancer.server.port=8124"
 
   logs-ui-web:
+    image: logs-ui-web:prod
     build:
       context: ./ui
     container_name: logs-ui-web

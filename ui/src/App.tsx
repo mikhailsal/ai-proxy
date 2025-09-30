@@ -188,7 +188,9 @@ export default function App() {
 
   return (
     <div style={{ fontFamily: 'sans-serif', padding: 24 }}>
-      <h1>AI Proxy Logs UI</h1>
+      <h1 style={{ fontSize: '2.5em', color: '#4A90E2', textAlign: 'center', margin: '20px 0' }}>
+        Welcome to the <span style={{ fontWeight: 'bold' }}>AI Proxy Logs UI</span>
+      </h1>
 
       {state.status === 'connected' ? (
         <div aria-label="connected-badge" style={{ marginBottom: 16 }}>

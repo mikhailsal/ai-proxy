@@ -438,7 +438,7 @@ deploy_application() {
         > "$LOG_DIR/deploy-stop-$TIMESTAMP.log" 2>&1
 
     # Build images
-    ssh "$REMOTE_HOST" "cd '$REMOTE_PATH' && $DOCKER_COMPOSE_CMD build --no-cache ai-proxy logs-ui-api logs-ui-web 2>&1" \
+    ssh "$REMOTE_HOST" "cd '$REMOTE_PATH' && $DOCKER_COMPOSE_CMD build --no-cache --pull ai-proxy logs-ui-api logs-ui-web 2>&1" \
         > "$LOG_DIR/deploy-build-$TIMESTAMP.log" 2>&1
 
     # Start app services first (without Traefik)
@@ -605,7 +605,7 @@ restore_backup() {
         cd '$REMOTE_PATH' &&
         $DOCKER_COMPOSE_CMD down 2>&1 &&
         tar -xzf '$BACKUP_DIR/$backup_file' 2>&1 &&
-        $DOCKER_COMPOSE_CMD build --no-cache ai-proxy 2>&1 &&
+        $DOCKER_COMPOSE_CMD build --no-cache --pull ai-proxy 2>&1 &&
         $DOCKER_COMPOSE_CMD up -d 2>&1 &&
         sleep 10
     " > "$LOG_DIR/restore-$backup_file-$TIMESTAMP.log" 2>&1
@@ -630,7 +630,7 @@ rollback() {
         cd '$REMOTE_PATH' &&
         $DOCKER_COMPOSE_CMD down 2>&1 &&
         tar -xzf '$latest_backup' 2>&1 &&
-        $DOCKER_COMPOSE_CMD build --no-cache ai-proxy 2>&1 &&
+        $DOCKER_COMPOSE_CMD build --no-cache --pull ai-proxy 2>&1 &&
         $DOCKER_COMPOSE_CMD up -d 2>&1 &&
         sleep 10
     " > "$LOG_DIR/rollback-$TIMESTAMP.log" 2>&1

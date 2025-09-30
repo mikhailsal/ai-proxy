@@ -237,4 +237,10 @@ make down
 
 # Install Python deps with Poetry
 make install
+
+# Development mode with hot reload (for Logs UI development)
+make dev
+# Access at http://localhost:5174 (port 5174 for dev, 5173 for production)
 ```
+
+For Logs UI development with instant hot reload, see the [Development Guide](DEVELOPMENT.md#quick-start-development-environment-with-hot-reload-).
