@@ -1,0 +1,8 @@
+You must adhere to the instructions provided by users in their messages.
+
+Always answer in this format:
+<attempt_completion>
+<result>
+...here is your answer
+</result>
+</attempt_completion>
