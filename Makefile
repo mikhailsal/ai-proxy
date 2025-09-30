@@ -342,10 +342,6 @@ setup: install setup-hooks copy-env-example ## Complete development setup
 	@echo "Development setup complete!"
 	@echo "Please edit .env with your configuration before running the application"
 
-# Development workflow with Docker Compose
-dev-compose: docker-build docker-up docker-logs ## Build, start all services and follow logs
-	@echo "Development environment with Docker Compose is ready!"
-
 # Quick service management
 up: docker-up ## Alias for docker-up
 down: docker-down ## Alias for docker-down
@@ -365,9 +361,9 @@ prod-check: lint type-check test test-ui-all coverage ## Check if ready for prod
 # Development environment (Logs UI with hot reload)
 dev: dev-build dev-up ## Build and start development environment with hot reload
 	@echo "🚀 Development environment is starting..."
-	@echo "📝 Logs UI (web): http://localhost:5174 (dev) or https://logs.$$DOMAIN"
-	@echo "📝 Logs UI (API): http://localhost:8124 or https://logs-api.$$DOMAIN"
-	@echo "📝 AI Proxy: http://localhost:8123 or https://$$DOMAIN"
+	@echo "📝 Logs UI (web): http://localhost:5174 (dev) or https://logs.localhost:51999"
+	@echo "📝 Logs UI (API): http://localhost:8124 or https://logs-api.localhost:51999"
+	@echo "📝 AI Proxy: http://localhost:8123 or https://ai-proxy.localhost:51999"
 	@echo ""
 	@echo "⚡ Hot reload is enabled for both frontend and backend!"
 	@echo "   - Edit files in ui/src/ → instant browser reload"
