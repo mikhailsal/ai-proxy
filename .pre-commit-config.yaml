@@ -47,5 +47,19 @@ repos:
       pass_filenames: false
       always_run: true
       verbose: true
+    - id: ui-lint
+      name: UI lint (npm)
+      description: Run frontend linting to match CI's `npm run lint`
+      entry: bash -lc "if command -v make >/dev/null 2>&1; then make lint-ui; else npm --prefix ui run lint; fi"
+      language: system
+      pass_filenames: false
+      always_run: true
+    - id: ui-typecheck
+      name: UI typecheck (npm)
+      description: Run frontend type checking to match CI's `npm run typecheck`
+      entry: bash -lc "if command -v make >/dev/null 2>&1; then make type-check-ui; else npm --prefix ui run typecheck; fi"
+      language: system
+      pass_filenames: false
+      always_run: true
 
 # End of config - add more local hooks here for extensibility
