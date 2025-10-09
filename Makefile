@@ -6,7 +6,7 @@
 .PHONY: test-ui test-ui-e2e test-ui-unit test-ui-integration test-ui-all
 .PHONY: lint lint-fix lint-ui lint-fix-ui type-check type-check-ui pre-commit
 .PHONY: clean build dev-compose docker-up docker-down docker-build docker-logs docker-logs-live docker-ps docker-up-ai-proxy docker-up-logs-ui docker-up-traefik docker-restart docker-restart-ai-proxy docker-restart-logs-ui docker-clean
-.PHONY: up down restart logs logs-live ps deploy setup-https test-https coverage coverage-ui analyze-code-size check-dependencies health copy-env-example setup-hooks setup ci prod-check
+.PHONY: up down restart logs logs-live ps deploy setup-https test-https coverage coverage-ui analyze-code-size check-dependencies health copy-env-example setup-hooks setup ci prod-check check-root-files
 .PHONY: dev dev-up dev-down dev-logs dev-restart dev-build
 
 # Check if Poetry is installed
@@ -204,6 +204,21 @@ pre-commit: ## Run pre-commit hooks
 	@echo "Running pre-commit hooks..."
 	$(call check_poetry)
 	@poetry run pre-commit run --all-files
+
+check-root-files: ## Fail if any file in repo is owned by root
+	@echo "Checking for files owned by root..."
+	@ROOT_FILES=$$(find . -path './.git' -prune -o -user root -print); \
+	if [ -n "$$ROOT_FILES" ]; then \
+		echo "❌ Detected files owned by root. This will block commits."; \
+		echo "--- Root-owned files ---"; \
+		echo "$$ROOT_FILES" | sed 's/^/  - /'; \
+		echo "-------------------------"; \
+		echo "Action required: Investigate why root-owned files appeared and fix the root cause."; \
+		echo "Hints: Avoid running build/tools with sudo; configure Docker to use HOST_UID/HOST_GID; fix ownership with 'chown -R $$(id -u):$$(id -g) .'."; \
+		exit 1; \
+	else \
+		echo "✅ No root-owned files detected."; \
+	fi
 
 analyze-code-size: ## Analyze code size and provide refactoring recommendations
 	@echo "Analyzing code size..."
