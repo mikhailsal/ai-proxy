@@ -12,6 +12,9 @@ WORKDIR /app
 # No need to create user - Docker can run as numeric UID:GID directly
 USER ${HOST_UID}:${HOST_GID}
 
+# Set npm cache to a directory the user owns to avoid permission issues
+ENV npm_config_cache=/app/.npm
+
 COPY --chown=${HOST_UID}:${HOST_GID} package.json package-lock.json* pnpm-lock.yaml* yarn.lock* ./
 RUN if [ -f pnpm-lock.yaml ]; then npm i -g pnpm && pnpm i --frozen-lockfile; \
     elif [ -f yarn.lock ]; then yarn install --frozen-lockfile; \
