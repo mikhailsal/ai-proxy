@@ -67,5 +67,13 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: ui-e2e-tests
+        name: UI E2E tests (Playwright)
+        description: Run UI E2E tests to ensure critical user flows work
+        entry: make test-ui-e2e
+        language: system
+        pass_filenames: false
+        always_run: true
+        verbose: true
 
 # End of config - add more local hooks here for extensibility
