@@ -11,3 +11,4 @@
 - [x] fix root owner after docker container
 - [ ] add ui test coverage calculation and checks in our hooks
 - [ ] add ui type check and lint checks in our hooks
+- [ ] add root owner files check to Makefile and git hooks

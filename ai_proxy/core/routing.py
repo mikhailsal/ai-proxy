@@ -61,6 +61,9 @@ class Router:
         # Get the appropriate adapter
         adapter = self._get_adapter(provider)
 
+        # Store original model before modification for logging purposes
+        request_data["_original_model"] = original_model
+
         # Update request with mapped model
         request_data["model"] = mapped_model
 
@@ -113,7 +116,11 @@ class Router:
             )
 
         try:
-            response = await adapter.chat_completions(request_data)
+            # Create a clean copy of request_data for the adapter (remove internal fields)
+            adapter_request_data = {
+                k: v for k, v in request_data.items() if not k.startswith("_")
+            }
+            response = await adapter.chat_completions(adapter_request_data)
 
             if is_streaming:
                 log.info("Successfully initiated streaming request")

@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi import HTTPException
+import httpx
 
 from ai_proxy.core.routing import Router, router
 from ai_proxy.adapters.openrouter import OpenRouterAdapter
@@ -351,3 +352,98 @@ class TestRouter:
         assert hasattr(router, "adapters")
         assert "openrouter" in router.adapters
         assert "gemini" in router.adapters
+
+    @pytest.mark.asyncio
+    async def test_original_model_preserved_in_request_data(self):
+        """
+        Test that the original model is preserved in request_data with _original_model field.
+        This ensures we can track the user's original request before routing.
+        """
+        with patch("ai_proxy.core.routing.settings") as mock_settings:
+            mock_settings.openrouter_api_key = "test_key"
+            mock_settings.gemini_api_key = None
+            mock_settings.get_mapped_model = MagicMock(
+                return_value=("openrouter", "deepseek/deepseek-chat-v3.1:free")
+            )
+            mock_settings.is_valid_model = MagicMock(return_value=True)
+
+            test_router = Router()
+
+            # Mock the adapter's chat_completions method
+            mock_response = httpx.Response(
+                status_code=200,
+                json={"id": "test", "model": "deepseek/deepseek-chat-v3.1:free"},
+            )
+            test_router.adapters["openrouter"].chat_completions = AsyncMock(
+                return_value=mock_response
+            )
+
+            request_data = {
+                "model": "mistral-small",
+                "messages": [{"role": "user", "content": "Hello"}],
+                "stream": False,
+            }
+
+            with (
+                patch("ai_proxy.core.routing.logger"),
+                patch("ai_proxy.core.routing.get_endpoint_logger"),
+                patch("ai_proxy.core.routing.get_model_logger"),
+            ):
+                await test_router.route_chat_completions(request_data, "test_api_key")
+
+                # Verify that _original_model was added to request_data
+                assert "_original_model" in request_data
+                assert request_data["_original_model"] == "mistral-small"
+                # Verify that model was updated to mapped model
+                assert request_data["model"] == "deepseek/deepseek-chat-v3.1:free"
+
+    @pytest.mark.asyncio
+    async def test_adapter_receives_clean_request_without_internal_fields(self):
+        """
+        Test that the adapter receives a clean request without _original_model field.
+        The _original_model is for internal logging only and should not be sent to providers.
+        """
+        with patch("ai_proxy.core.routing.settings") as mock_settings:
+            mock_settings.openrouter_api_key = "test_key"
+            mock_settings.gemini_api_key = None
+            mock_settings.get_mapped_model = MagicMock(
+                return_value=("openrouter", "gpt-4")
+            )
+            mock_settings.is_valid_model = MagicMock(return_value=True)
+
+            test_router = Router()
+
+            # Mock the adapter and capture the argument it receives
+            adapter_received_data = {}
+
+            async def capture_adapter_call(data):
+                adapter_received_data.update(data)
+                return httpx.Response(
+                    status_code=200,
+                    json={"id": "test", "model": "gpt-4"},
+                )
+
+            test_router.adapters["openrouter"].chat_completions = AsyncMock(
+                side_effect=capture_adapter_call
+            )
+
+            request_data = {
+                "model": "claude-4",
+                "messages": [{"role": "user", "content": "Test"}],
+                "stream": False,
+            }
+
+            with (
+                patch("ai_proxy.core.routing.logger"),
+                patch("ai_proxy.core.routing.get_endpoint_logger"),
+                patch("ai_proxy.core.routing.get_model_logger"),
+            ):
+                await test_router.route_chat_completions(request_data, "test_api_key")
+
+                # Verify adapter received data WITHOUT _original_model
+                assert "_original_model" not in adapter_received_data
+                assert adapter_received_data["model"] == "gpt-4"
+
+                # But request_data (used for logging) should still have it
+                assert "_original_model" in request_data
+                assert request_data["_original_model"] == "claude-4"

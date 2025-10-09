@@ -357,7 +357,16 @@ export default function App() {
               <strong>Endpoint:</strong> <code>{selected.endpoint}</code>
             </div>
             <div>
-              <strong>Model:</strong> <code>{selected.model_mapped || selected.model_original || ''}</code>
+              <strong>Model:</strong>{' '}
+              {selected.model_original && selected.model_mapped && selected.model_original !== selected.model_mapped ? (
+                <>
+                  <code>{selected.model_original}</code>
+                  {' → '}
+                  <code>{selected.model_mapped}</code>
+                </>
+              ) : (
+                <code>{selected.model_mapped || selected.model_original || ''}</code>
+              )}
             </div>
             <div>
               <strong>Status:</strong> <code>{String(selected.status_code)}</code>

@@ -91,7 +91,8 @@ def _normalize_entry(entry: Dict) -> Optional[Dict]:
 
     model_original = None
     if isinstance(request_obj, dict):
-        model_original = request_obj.get("model")
+        # First try to get the preserved original model, fallback to 'model' field
+        model_original = request_obj.get("_original_model") or request_obj.get("model")
     model_mapped = None
     if isinstance(response_obj, dict):
         model_mapped = response_obj.get("model")
