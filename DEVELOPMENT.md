@@ -329,7 +329,7 @@ This ensures Traefik can obtain and renew certificates even when standard ports 
 
 ## Advanced Log Storage System
 
-The project includes an advanced SQLite-based log storage system (partitioned DB, optional FTS5, dialog grouping and bundle utilities). For full documentation, examples and troubleshooting, see `ai-docs/advanced-log-storage.md`.
+The project includes an advanced SQLite-based log storage system (partitioned DB, optional FTS5, dialog grouping and bundle utilities). For full documentation, examples and troubleshooting, see [ai-docs/advanced-log-storage.md](ai-docs/advanced-log-storage.md).
 
 ## Project Structure
 
