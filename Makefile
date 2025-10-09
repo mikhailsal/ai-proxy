@@ -118,28 +118,29 @@ test-watch: ## Run tests in watch mode in Docker
 # UI testing
 test-ui: ## Run UI unit tests (Dockerized Node)
 	@echo "Running UI unit tests in Docker (Node 20)..."
-	@docker run --rm -v $(PWD)/ui:/app -w /app node:20 bash -lc "npm ci --no-audit --fund=false --loglevel=error && npm run test --silent"
+	@docker run --rm --user $(shell id -u):$(shell id -g) -v $(PWD)/ui:/app -w /app node:20 bash -lc "npm ci --no-audit --fund=false --loglevel=error && npm run test --silent"
 
 # New frontend quality targets
 lint-ui: ## Run frontend linting (Dockerized)
 	@echo "Running frontend linting in Docker (Node 20)..."
-	@docker run --rm -v $(PWD)/ui:/app -w /app node:20 bash -lc "npm ci --no-audit --fund=false --loglevel=error && npm run lint"
+	@docker run --rm --user $(shell id -u):$(shell id -g) -v $(PWD)/ui:/app -w /app node:20 bash -lc "npm ci --no-audit --fund=false --loglevel=error && npm run lint"
 
 lint-fix-ui: ## Fix frontend linting issues (Dockerized)
 	@echo "Fixing frontend linting in Docker (Node 20)..."
-	@docker run --rm -v $(PWD)/ui:/app -w /app node:20 bash -lc "npm ci --no-audit --fund=false --loglevel=error && npm run lint:fix"
+	@docker run --rm --user $(shell id -u):$(shell id -g) -v $(PWD)/ui:/app -w /app node:20 bash -lc "npm ci --no-audit --fund=false --loglevel=error && npm run lint:fix"
 
 type-check-ui: ## Run frontend type checking (Dockerized)
 	@echo "Running frontend type checking in Docker (Node 20)..."
-	@docker run --rm -v $(PWD)/ui:/app -w /app node:20 bash -lc "npm ci --no-audit --fund=false --loglevel=error && npm run typecheck"
+	@docker run --rm --user $(shell id -u):$(shell id -g) -v $(PWD)/ui:/app -w /app node:20 bash -lc "npm ci --no-audit --fund=false --loglevel=error && npm run typecheck"
 
 coverage-ui: ## Run frontend tests with coverage (Dockerized)
 	@echo "Running frontend coverage in Docker (Node 20)..."
-	@docker run --rm --network host -v $(PWD)/ui:/app -w /app node:20 bash -lc "npm ci --no-audit --fund=false --loglevel=error && npm run coverage"
+	@docker run --rm --user $(shell id -u):$(shell id -g) --network host -v $(PWD)/ui:/app -w /app node:20 bash -lc "npm ci --no-audit --fund=false --loglevel=error && npm run coverage"
 
 test-ui-e2e: ## Run UI E2E tests with Playwright (Dockerized Node)
 	@echo "Running UI E2E tests in Docker (Node 20 + Playwright)..."
 	@docker run --rm \
+		--user $(shell id -u):$(shell id -g) \
 		-v $(PWD)/ui:/app \
 		-w /app \
 		--ipc=host \

@@ -1,10 +1,22 @@
 FROM node:20-alpine AS build
+
+# Accept build args for user/group IDs (optional, for consistency)
+ARG HOST_UID=9999
+ARG HOST_GID=9999
+
+# Create /app with correct ownership before switching users
+RUN mkdir -p /app && chown -R ${HOST_UID}:${HOST_GID} /app
+
 WORKDIR /app
-COPY package.json package-lock.json* pnpm-lock.yaml* yarn.lock* ./
+
+# No need to create user - Docker can run as numeric UID:GID directly
+USER ${HOST_UID}:${HOST_GID}
+
+COPY --chown=${HOST_UID}:${HOST_GID} package.json package-lock.json* pnpm-lock.yaml* yarn.lock* ./
 RUN if [ -f pnpm-lock.yaml ]; then npm i -g pnpm && pnpm i --frozen-lockfile; \
     elif [ -f yarn.lock ]; then yarn install --frozen-lockfile; \
     elif [ -f package-lock.json ]; then npm ci; else npm i; fi
-COPY . .
+COPY --chown=${HOST_UID}:${HOST_GID} . .
 RUN npm run build || (echo "No build script, creating static index" && mkdir -p dist && echo '<!doctype html><html><head><meta charset="utf-8"><title>AI Proxy Logs UI</title></head><body><div id="root">Connect to Logs API</div></body></html>' > dist/index.html)
 
 FROM nginx:alpine

@@ -104,8 +104,12 @@ services:
     image: logs-ui-web:prod
     build:
       context: ./ui
+      args:
+        - HOST_UID=${HOST_UID:-9999}
+        - HOST_GID=${HOST_GID:-9999}
     container_name: logs-ui-web
     restart: unless-stopped
+    user: "${HOST_UID:-9999}:${HOST_GID:-9999}"
     ports:
       - "127.0.0.1:5173:80"  # localhost-only for dev/debug
     labels:
