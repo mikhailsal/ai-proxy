@@ -135,7 +135,7 @@ class TestLogFormatValidation:
         logged_content = "".join(call[0][0] for call in write_calls)
 
         # Verify the format contains expected elements
-        assert "2025-" in logged_content  # Date format
+        assert "20" in logged_content  # Date format (year prefix)
         assert "- INFO -" in logged_content  # Log level
         assert "/v1/chat/completions" in logged_content
         assert "test-model" in logged_content

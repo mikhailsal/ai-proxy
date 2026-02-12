@@ -1,6 +1,6 @@
 services:
   traefik:
-    image: traefik:v3.0
+    image: traefik:latest
     container_name: ai-proxy-traefik
     restart: unless-stopped
     ports:
@@ -12,6 +12,7 @@ services:
       - ./traefik:/etc/traefik
       - ./certs:/certs
     environment:
+      - DOCKER_API_VERSION=1.44
       - TRAEFIK_LOG_LEVEL=INFO
       - TRAEFIK_API=true
       - TRAEFIK_API_DASHBOARD=true
@@ -25,6 +26,7 @@ services:
       - TRAEFIK_PROVIDERS_DOCKER_EXPOSEDBYDEFAULT=false
       - TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_EMAIL=${ACME_EMAIL:-admin@example.com}
       - TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_STORAGE=/certs/acme.json
+      - TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_CASERVER=${ACME_CA_SERVER:-https://acme-v02.api.letsencrypt.org/directory}
       - TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_HTTPCHALLENGE=true
       - TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_HTTPCHALLENGE_ENTRYPOINT=web
     labels:
